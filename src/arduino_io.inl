@@ -23,6 +23,7 @@
 #include <Wire.h>
 // foreward references
 void bbepWakeUp(BBEPDISP *pBBEP);
+
 //
 // Initialize the GPIO pins and SPI for use by bb_eink
 //
@@ -178,6 +179,25 @@ int bbepI2CTest(uint8_t addr)
   Wire.beginTransmission(addr);
   response = !Wire.endTransmission();
   return response;
+}
+
+uint8_t TPS65186PowerGood(void)
+{
+uint8_t ucTemp[4];
+
+    bbepI2CReadRegister(0x48, 0x0f, ucTemp, 1);
+    return ucTemp[0];
+}
+
+void TPS65186Init(void)
+{
+    uint8_t ucTemp[8];
+    ucTemp[0] = 0x9; // power up sequence register
+    ucTemp[1] = 0x1b; // power up sequence
+    ucTemp[2] = 0; // power up delay (3ms per rail)
+    ucTemp[3] = 0x1b; // power down seq
+    ucTemp[4] = 0; // power down delay (6ms per rail);
+    bbepI2CWrite(0x48, ucTemp, 5);
 }
 
 #endif // __BB_EP_IO__
