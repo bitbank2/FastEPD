@@ -11,6 +11,7 @@ static uint16_t LUTW_16[256];
 static uint16_t LUTB_16[256];
 static uint16_t LUT2_16[256];
 volatile bool transfer_is_done = true;
+uint8_t u8Cache[128];
 
 static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {           
@@ -62,9 +63,11 @@ esp_lcd_panel_io_handle_t io_handle = NULL;
 // ioCL, ioPWR_Good, ioGMODE, ioSDA, ioSCL
 BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
-    {960, 540, 12000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
+    {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
       16, 0xffff, 0xffff, 0xffff, 0xffff}, // BB_PANEL_M5PAPERS3
-      {0}, // BB_PANEL_CUSTOM
+    {960, 540, 16000000, BB_PANEL_FLAG_NONE, {8,1,2,3,4,5,6,7}, 46, 17, 18, 13, 45, 15,
+      40, 0xffff, 0xffff, 0xffff, 0xffff}, // BB_PANEL_T5EPAPERS3
+    {0}, // BB_PANEL_CUSTOM
 };
 
 void bbepRowControl(BBEPDIYSTATE *pState, int iType)
@@ -141,7 +144,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
         uint16_t b, w, l2, u16W, u16B, u16L2;
         u16W = u16B = u16L2 = 0;
         for (int j=0; j<8; j++) {
-            if (!(i & (1<<j))) {
+            if (!(i & (0x80>>(7-j)))) {
 //            if (i & (1<<j)) {
                 w = 2; b = 1; l2 = 1;
             } else {

@@ -22,10 +22,27 @@
 
 #define BBEP_TRANSPARENT 255
 
+// 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
+enum {
+   FONT_6x8 = 0,
+   FONT_8x8,
+   FONT_12x16,
+   FONT_16x16,
+   FONT_COUNT
+};
+// Stretch+smoothing options
+#define BBEP_SMOOTH_NONE  0
+#define BBEP_SMOOTH_HEAVY 1
+#define BBEP_SMOOTH_LIGHT 2
+// Centering coordinates to pass to the character drawing functions
+#define CENTER_X 9998
+#define CENTER_Y 9999
+
 // device names
 enum {
     BB_PANEL_NONE=0,
     BB_PANEL_M5PAPERS3,
+    BB_PANEL_T5EPAPERS3,
     BB_PANEL_T5EPAPERS3_PRO,
     BB_PANEL_CUSTOM,
     BB_PANEL_COUNT
@@ -56,7 +73,8 @@ enum {
     BB_MODE_2BPP, // 2 bits per pixel
     BB_MODE_4BPP, // 4 bits per pixel
 };
-
+#define BBEP_BLACK 0
+#define BBEP_WHITE 1
 // Row step options
 enum {
     ROW_START = 0,
@@ -64,11 +82,15 @@ enum {
     ROW_END
 };
 
+// error messages
 enum {
-    BBEP_SUCCESS = 0,
+    BBEP_SUCCESS,
+    BBEP_ERROR_BAD_PARAMETER,
+    BBEP_ERROR_BAD_DATA,
+    BBEP_ERROR_NOT_SUPPORTED,
+    BBEP_ERROR_NO_MEMORY,
+    BBEP_ERROR_OUT_OF_BOUNDS,
     BBEP_IO_ERROR,
-    BBEP_MEM_ERROR,
-    BBEP_INVALID_PARAM,
     BBEP_ERROR_COUNT
 };
 
@@ -88,6 +110,9 @@ typedef struct tag_bbepdiystate
     int iFont, iFlags;
     void *pFont;
     uint8_t *dma_buf;
+    uint8_t *pCurrent; // current pixels
+    uint8_t *pPrevious; // comparison with previous buffer
+    uint8_t *pTemp; // temporary buffer for the patterns sent to the eink controller
     BBPANELDEF panelDef;
     BB_SET_PIXEL *pfnSetPixel;
     BB_SET_PIXEL_FAST *pfnSetPixelFast;
@@ -105,7 +130,7 @@ class BBEPDIY
     uint8_t *currentBuffer(void);
     int einkPower(int bOn);
     int fullUpdate(bool bFast, bool bKeepOn);
-    int partialUpdate(bool bKeepOn, int iStartRow, int iEndRow);
+    int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 2047);
     void setRotation(int iAngle);
     int getRotation(void);
     void backupPlane(void);
@@ -113,9 +138,9 @@ class BBEPDIY
                        int r, uint8_t color);
     void fillRoundRect(int x, int y, int w, int h,
                        int r, uint8_t color);
-    void fillScreen(int iColor);
+    void fillScreen(uint8_t iColor);
     void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
-    void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void fillRect(int x, int y, int w, int h, uint8_t color);
     void setTextWrap(bool bWrap);
     void setTextColor(int iFG, int iBG = BBEP_TRANSPARENT);
     void setCursor(int x, int y);
@@ -141,8 +166,6 @@ class BBEPDIY
     void rowControl(int iMode);
     void writeRow(uint8_t *pData, int iLen);
     void clear(uint8_t val, uint8_t count);
-    uint8_t *_pCurrent; // current pixels
-    uint8_t *_pPrevious; // comparison with previous buffer
     BBEPDIYSTATE _state;
 }; // class BBEPDIY
 #endif // __cplusplus
