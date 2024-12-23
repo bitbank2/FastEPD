@@ -13,13 +13,16 @@
 #define BB_PANEL_FLAG_NONE     0x00
 #define BB_PANEL_FLAG_MIRROR_X 0x01
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
+#define BB_PANEL_FLAG_TPS65185 0x04
+#define BB_PANEL_FLAG_TPS65186 0x08
 
 // Flags indicating the connection type and behavior of the EPD signals
 #define BB_IO_FLAG_GPIO      0x0000
 #define BB_IO_FLAG_INVERTED  0x8000
 #define BB_IO_FLAG_MCP23017  0x4000
-#define BB_IO_FLAG_TPS65186  0x2000
-
+#define BB_IO_FLAG_PCA9535   0x2000
+#define BB_IO_FLAG_SHIFTREG  0x1000
+#define BB_NOT_USED 0xffff
 #define BBEP_TRANSPARENT 255
 
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
@@ -43,7 +46,8 @@ enum {
     BB_PANEL_NONE=0,
     BB_PANEL_M5PAPERS3,
     BB_PANEL_T5EPAPERS3,
-    BB_PANEL_T5EPAPERS3_PRO,
+    BB_PANEL_EPDIY_V7,
+    BB_PANEL_INKPLATE6PLUS,
     BB_PANEL_CUSTOM,
     BB_PANEL_COUNT
 };
@@ -62,9 +66,10 @@ typedef struct _paneldef {
     uint16_t ioLE; // XLE
     uint16_t ioCL; // XCL
     uint16_t ioPWR_Good;
-    uint16_t ioGMODE; // MODE
     uint16_t ioSDA;
     uint16_t ioSCL;
+    uint16_t ioShiftSTR; // shift store register
+    uint16_t ioShiftMask; // shift bits that can be left permanently in this state
 } BBPANELDEF;
 // Graphics modes
 enum {
@@ -102,9 +107,10 @@ typedef void (BB_SET_PIXEL_FAST)(void *pBBEP, int x, int y, unsigned char color)
 typedef struct tag_bbepdiystate
 {
     int iPanelType;
-    uint8_t wrap, last_error, pwr_on, mode;
+    uint8_t wrap, last_error, pwr_on, mode, shift_data;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
+    int rotation;
     int iScreenOffset, iOrientation;
     int iFG, iBG; //current color
     int iFont, iFlags;
@@ -119,20 +125,26 @@ typedef struct tag_bbepdiystate
 } BBEPDIYSTATE;
 
 #ifdef __cplusplus
+#ifdef ARDUINO
+class BBEPDIY : public Print
+#else
 class BBEPDIY
+#endif
 {
   public:
-    int initPanel(int iPanelType);
+    BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8;}
+     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel);
+    int setPanelSize(int width, int height);
     void shutdown(void);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void);
     uint8_t *currentBuffer(void);
     int einkPower(int bOn);
-    int fullUpdate(bool bFast, bool bKeepOn);
+    int fullUpdate(bool bFast = false, bool bKeepOn = false);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 2047);
-    void setRotation(int iAngle);
-    int getRotation(void);
+    int setRotation(int iAngle);
+    int getRotation(void) { return _state.rotation;}
     void backupPlane(void);
     void drawRoundRect(int x, int y, int w, int h,
                        int r, uint8_t color);
@@ -143,7 +155,7 @@ class BBEPDIY
     void fillRect(int x, int y, int w, int h, uint8_t color);
     void setTextWrap(bool bWrap);
     void setTextColor(int iFG, int iBG = BBEP_TRANSPARENT);
-    void setCursor(int x, int y);
+    void setCursor(int x, int y) {_state.iCursorX = x; _state.iCursorY = y;}
     int loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG);
     int loadBMP3(const uint8_t *pBMP, int x, int y);
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG);
@@ -151,16 +163,19 @@ class BBEPDIY
     void setFont(const void *pFont);
     void drawLine(int x1, int y1, int x2, int y2, int iColor);
     void drawPixel(int16_t x, int16_t y, uint8_t color);
-    int16_t height(void);
-    int16_t width(void);
+    void drawPixelFast(int16_t x, int16_t y, uint8_t color);
+    int16_t height(void) { return _state.height;}
+    int16_t width(void) {return _state.width;}
     void drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
     void fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
     void drawEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color);
     void fillEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color);
     void drawString(const char *pText, int x, int y);
     void drawSprite(const uint8_t *pSprite, int cx, int cy, int iPitch, int x, int y, uint8_t iColor);
-  //  using Print::write;
-  //  virtual size_t write(uint8_t);
+#ifdef ARDUINO
+    using Print::write;
+    virtual size_t write(uint8_t);
+#endif
 
   protected:
     void rowControl(int iMode);

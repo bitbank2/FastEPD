@@ -18,120 +18,43 @@
 #ifndef __BB_EP_IO__
 #define __BB_EP_IO__
 
-#include <Arduino.h>
-#include <SPI.h>
-#include <Wire.h>
-// foreward references
-void bbepWakeUp(BBEPDISP *pBBEP);
+// GPIO modes
+#ifndef ARDUINO
+#define DISABLED 0
+#define INPUT 1
+#define INPUT_PULLUP 2
+#define OUTPUT 3
+#endif
 
-//
-// Initialize the GPIO pins and SPI for use by bb_eink
-//
-void bbepInitIO(BBEPDISP *pBBEP, uint8_t u8DC, uint8_t u8RST, uint8_t u8BUSY, uint8_t u8CS, uint8_t u8MOSI, uint8_t u8SCK, uint32_t u32Speed)
+void bbepPinMode(int iPin, int iMode)
 {
-    pBBEP->iDCPin = u8DC;
-    pBBEP->iCSPin = u8CS;
-    pBBEP->iMOSIPin = u8MOSI;
-    pBBEP->iCLKPin = u8SCK;
-    pBBEP->iRSTPin = u8RST;
-    pBBEP->iBUSYPin = u8BUSY;
+    gpio_config_t io_conf = {};
 
-    pinMode(pBBEP->iDCPin, OUTPUT);
-    pinMode(pBBEP->iRSTPin, OUTPUT);
-    digitalWrite(pBBEP->iRSTPin, LOW);
-    delay(100);
-    digitalWrite(pBBEP->iRSTPin, HIGH);
-    delay(100);
-    if (pBBEP->iBUSYPin != 0xff) {
-        pinMode(pBBEP->iBUSYPin, INPUT);
+    gpio_reset_pin((gpio_num_t)iPin);
+    if (iMode == DISABLED) return;
+    io_conf.intr_type = GPIO_INTR_DISABLE; //disable interrupt
+    //bit mask of the pins that you want to set,e.g.GPIO18/19
+    io_conf.pin_bit_mask = (1ULL << iPin);
+    io_conf.pull_down_en = (gpio_pulldown_t)0; //disable pull-down mode
+    io_conf.pull_up_en = (gpio_pullup_t)(iMode == INPUT_PULLUP); // pull-up mode
+    if (iMode == INPUT || iMode == INPUT_PULLUP) {
+        io_conf.mode = GPIO_MODE_INPUT;
+    } else { // must be output
+        io_conf.mode = GPIO_MODE_OUTPUT;
     }
-    pBBEP->iSpeed = u32Speed;
-#ifdef ARDUINO_ARCH_ESP32
-    SPI.begin(pBBEP->iCLKPin, -1, pBBEP->iMOSIPin, pBBEP->iCSPin);
-#else
-    pinMode(pBBEP->iCSPin, OUTPUT);
-    digitalWrite(pBBEP->iCSPin, HIGH); // we have to manually control the CS pin
-    SPI.begin(); // other architectures have fixed SPI pins
-#endif
-    SPI.beginTransaction(SPISettings(u32Speed, MSBFIRST, SPI_MODE0));
-    SPI.endTransaction(); // N.B. - if you call beginTransaction() again without a matching endTransaction(), it will hang on ESP32
-} /* bbepInitIO() */
-//
-// Convenience function to write a command byte along with a data
-// byte (it's single parameter)
-//
-void bbepCMD2(BBEPDISP *pBBEP, uint8_t cmd1, uint8_t cmd2)
-{
-    if (!pBBEP->is_awake) {
-        // if it's asleep, it can't receive commands
-        bbepWakeUp(pBBEP);
-        pBBEP->is_awake = 1;
-    }
-    digitalWrite(pBBEP->iDCPin, LOW);
-#ifndef ARDUINO_ARCH_ESP32
-    digitalWrite(pBBEP->iCSPin, LOW);
-#endif
-    SPI.transfer(cmd1);
-    digitalWrite(pBBEP->iDCPin, HIGH);
-    SPI.transfer(cmd2); // second byte is data
-#ifndef ARDUINO_ARCH_ESP32
-    digitalWrite(pBBEP->iCSPin, HIGH);
-#endif
-//    digitalWrite(pBBEP->iDCPin, HIGH); // leave data mode as the default
-} /* bbepCMD2() */
-//
-// Write a single byte as a COMMAND (D/C set low)
-//
-void bbepWriteCmd(BBEPDISP *pBBEP, uint8_t cmd)
-{
-    if (!pBBEP->is_awake) {
-        // if it's asleep, it can't receive commands
-        bbepWakeUp(pBBEP);
-        pBBEP->is_awake = 1;
-    }
-    digitalWrite(pBBEP->iDCPin, LOW);
-#ifndef ARDUINO_ARCH_ESP32
-    digitalWrite(pBBEP->iCSPin, LOW);
-#endif
-    SPI.transfer(cmd);
-#ifndef ARDUINO_ARCH_ESP32
-    digitalWrite(pBBEP->iCSPin, HIGH);
-#endif
-    digitalWrite(pBBEP->iDCPin, HIGH); // leave data mode as the default
-} /* bbepWriteCmd() */
-//
-// Write 1 or more bytes as DATA (D/C set high)
-//
-void bbepWriteData(BBEPDISP *pBBEP, uint8_t *pData, int iLen)
-{
-//    digitalWrite(pBBEP->iDCPin, HIGH);
-#ifdef ARDUINO_ARCH_ESP32
-    SPI.transferBytes(pData, NULL, iLen);
-#else
-    if (pBBEP->iFlags & BBEP_CS_EVERY_BYTE) {
-        for (int i=0; i<iLen; i++) { // Arduino clobbers the data (duplex)
-            digitalWrite(pBBEP->iCSPin, LOW);
-            SPI.transfer(pData[i]);
-            digitalWrite(pBBEP->iCSPin, HIGH);
-        }
-    } else {
-        digitalWrite(pBBEP->iCSPin, LOW);
-        for (int i=0; i<iLen; i++) { // Arduino clobbers the data (duplex)
-            SPI.transfer(pData[i]);
-        }
-        digitalWrite(pBBEP->iCSPin, HIGH);
-    }
-#endif
-} /* bbepWriteData() */
+    gpio_config(&io_conf); //configure GPIO with the given settings
+} /* bbepPinMode() */
+
 //
 // Initialize the Wire library on the given SDA/SCL GPIOs
 //
-int bbepI2CInit(BBEPDISP *pBBEP)
+int bbepI2CInit(uint8_t sda, uint8_t scl)
 {
     Wire.end();
-    Wire.begin(pBBEP->io_config.u8SDA, pBBEP->io_config.u8SCL);
+    Wire.begin(sda, scl);
     Wire.setClock(400000);
     Wire.setTimeout(100);
+    return BBEP_SUCCESS;
 } /* bbepI2CInit() */
 
 int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
@@ -179,25 +102,6 @@ int bbepI2CTest(uint8_t addr)
   Wire.beginTransmission(addr);
   response = !Wire.endTransmission();
   return response;
-}
-
-uint8_t TPS65186PowerGood(void)
-{
-uint8_t ucTemp[4];
-
-    bbepI2CReadRegister(0x48, 0x0f, ucTemp, 1);
-    return ucTemp[0];
-}
-
-void TPS65186Init(void)
-{
-    uint8_t ucTemp[8];
-    ucTemp[0] = 0x9; // power up sequence register
-    ucTemp[1] = 0x1b; // power up sequence
-    ucTemp[2] = 0; // power up delay (3ms per rail)
-    ucTemp[3] = 0x1b; // power down seq
-    ucTemp[4] = 0; // power down delay (6ms per rail);
-    bbepI2CWrite(0x48, ucTemp, 5);
 }
 
 #endif // __BB_EP_IO__
