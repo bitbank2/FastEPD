@@ -15,13 +15,16 @@
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
 #define BB_PANEL_FLAG_TPS65185 0x04
 #define BB_PANEL_FLAG_TPS65186 0x08
+#define BB_PANEL_FLAG_SHIFTREG 0x10
+#define BB_PANEL_FLAG_SLOW_SPH 0x20
 
 // Flags indicating the connection type and behavior of the EPD signals
 #define BB_IO_FLAG_GPIO      0x0000
 #define BB_IO_FLAG_INVERTED  0x8000
 #define BB_IO_FLAG_MCP23017  0x4000
 #define BB_IO_FLAG_PCA9535   0x2000
-#define BB_IO_FLAG_SHIFTREG  0x1000
+#define BB_IO_FLAG_PCAL6416  0x1000
+#define BB_IO_FLAG_SHIFTREG  0x0800
 #define BB_NOT_USED 0xffff
 #define BBEP_TRANSPARENT 255
 
@@ -48,6 +51,8 @@ enum {
     BB_PANEL_T5EPAPERS3,
     BB_PANEL_EPDIY_V7,
     BB_PANEL_INKPLATE6PLUS,
+    BB_PANEL_INKPLATE5V2,
+    BB_PANEL_T5EPAPERV1,
     BB_PANEL_CUSTOM,
     BB_PANEL_COUNT
 };
@@ -70,7 +75,16 @@ typedef struct _paneldef {
     uint16_t ioSCL;
     uint16_t ioShiftSTR; // shift store register
     uint16_t ioShiftMask; // shift bits that can be left permanently in this state
+    uint8_t ioDCDummy; // unused GPIO for the LCD library to needlessly toggle
 } BBPANELDEF;
+
+typedef struct bbepr {
+    int x;
+    int y;
+    int w;
+    int h;
+} BBEPRECT;
+
 // Graphics modes
 enum {
     BB_MODE_NONE = 0,
@@ -132,16 +146,17 @@ class BBEPDIY
 #endif
 {
   public:
-    BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8;}
+    BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
      int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel);
     int setPanelSize(int width, int height);
     void shutdown(void);
+    int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void);
     uint8_t *currentBuffer(void);
     int einkPower(int bOn);
-    int fullUpdate(bool bFast = false, bool bKeepOn = false);
+    int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 2047);
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
@@ -180,7 +195,7 @@ class BBEPDIY
   protected:
     void rowControl(int iMode);
     void writeRow(uint8_t *pData, int iLen);
-    void clear(uint8_t val, uint8_t count);
+    void clear(uint8_t val, uint8_t count, BBEPRECT *pRect);
     BBEPDIYSTATE _state;
 }; // class BBEPDIY
 #endif // __cplusplus

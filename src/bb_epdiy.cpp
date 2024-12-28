@@ -7,9 +7,21 @@
 #if !(defined(CONFIG_ESP32_SPIRAM_SUPPORT) || defined(CONFIG_ESP32S3_SPIRAM_SUPPORT))
 #error "Please enable PSRAM support"
 #endif
-#pragma GCC optimize("O2")
+//#pragma GCC optimize("O2")
 // Display how much time each operation takes on the serial monitor
 #define SHOW_TIME
+
+int BBEPDIY::getStringBox(const char *text, BBEPRECT *pRect)
+{
+    return bbepGetStringBox(&_state, text, pRect);
+}
+
+// Copy the current pixels to the previous for partial updates after powerup
+void BBEPDIY::backupPlane(void)
+{
+    int iSize = (_state.native_width/2) * _state.native_height;
+    memcpy(_state.pPrevious, _state.pCurrent, iSize);
+}
 
 int BBEPDIY::setRotation(int iAngle)
 {
@@ -208,16 +220,16 @@ int BBEPDIY::initPanel(int iPanel)
     int rc;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
         _state.iPanelType = iPanel;
-        _state.width = panelDefs[iPanel].width;
-        _state.height = panelDefs[iPanel].height;
+        _state.width = _state.native_width = panelDefs[iPanel].width;
+        _state.height = _state.native_height = panelDefs[iPanel].height;
         memcpy(&_state.panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
         rc = bbepIOInit(&_state);
         _state.mode = BB_MODE_1BPP; // start in 1-bit mode
         if (rc == BBEP_SUCCESS) {
             // allocate memory for the buffers
             if (_state.width) { // if size is defined
-                _state.pCurrent = (uint8_t *)ps_malloc(_state.width * _state.height / 8); // current pixels
-                _state.pPrevious = (uint8_t *)ps_malloc(_state.width * _state.height / 8); // comparison with previous buffer
+                _state.pCurrent = (uint8_t *)ps_malloc(_state.width * _state.height / 2); // current pixels
+                _state.pPrevious = (uint8_t *)ps_malloc(_state.width * _state.height / 2); // comparison with previous buffer
                 _state.pTemp = (uint8_t *)ps_malloc(_state.width * _state.height / 4); // LUT data
             }
         }
@@ -246,7 +258,7 @@ int BBEPDIY::einkPower(int bOn)
 #endif
     if (bOn == _state.pwr_on) return BBEP_SUCCESS;
     if (bOn) {
-        if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65185) {
+        if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
             uint8_t ucTemp[4];
             uint8_t u8Value = 0; // I/O bits for the PCA9535
           //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
@@ -257,7 +269,7 @@ int BBEPDIY::einkPower(int bOn)
             bbepPCA9535Write(1, u8Value);
             u8Value |= 0x10; // VCOM CTRL on
             bbepPCA9535Write(1, u8Value);
-            delay(10); // allow time to power up
+            vTaskDelay(1); // allow time to power up
             while (!(bbepPCA9535Read(1) & 0x40 /*CFG_PIN_PWRGOOD*/)) { }
             ucTemp[0] = TPS_REG_ENABLE;
             ucTemp[1] = 0x3f; // enable output
@@ -273,32 +285,93 @@ int BBEPDIY::einkPower(int bOn)
             while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
                 bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
                 iTimeout++;
-                delay(5);
+                vTaskDelay(1);
             }
             if (iTimeout >= 400) {
                 Serial.println("The power_good signal never arrived!");
                 return BBEP_IO_ERROR;
             }
-        } else { // single MOSFET
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioOE & 0xff), 1);
+        } else if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
+            uint8_t ucTemp[4];
+            bbepMCPDigitalWrite(_state.panelDef.ioShiftSTR, 1); // WAKEUP_SET;
+            delay(5);
+            // Modify power up sequence  (VEE and VNEG are swapped)
+            ucTemp[0] = 0x09;
+            ucTemp[1] = 0xe1;
+            bbepI2CWrite(0x48, ucTemp, 2);
+            // Enable all rails
+            ucTemp[0] = 0x01;
+            ucTemp[1] = 0x3f;
+            bbepI2CWrite(0x48, ucTemp, 2);
+            bbepMCPDigitalWrite(_state.panelDef.ioPWR, 1); // PWRUP_SET;
+            //pinsAsOutputs();
+            gpio_set_level((gpio_num_t)_state.panelDef.ioLE, 0); // LE_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioOE, 0); // OE_CLEAR;
+            gpio_set_level((gpio_num_t)_state.panelDef.ioSPH, 1); // SPH_SET;
+            bbepMCPDigitalWrite(/*GMOD*/1, 1); // GMOD_SET
+            bbepMCPDigitalWrite((uint8_t)_state.panelDef.ioSPV, 1); // SPV_SET;
+            gpio_set_level((gpio_num_t)_state.panelDef.ioCKV, 0); // CKV_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioShiftMask, 1); // VCOM_SET;
+            unsigned long timer = millis();
+            do {
+                delay(1);
+            } while (!bbepReadPowerGood() && (millis() - timer) < 250);
+            if ((millis() - timer) >= 250) {
+                bbepMCPDigitalWrite(_state.panelDef.ioShiftMask, 0); // VCOM_CLEAR;
+                bbepMCPDigitalWrite(_state.panelDef.ioPWR, 0); // PWRUP_CLEAR;
+                return BBEP_IO_ERROR;
+            }
+            bbepMCPDigitalWrite(_state.panelDef.ioOE, 1); // OE_SET;
+        } else if (_state.panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo 4.7" (various)
+            bbepSetShiftBit(&_state, 5, 1); // scan_direction = true
+            bbepSetShiftBit(&_state, 1, 0); // power_disable = false
             delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioPWR & 0xff), 1);
+            bbepSetShiftBit(&_state, 3, 1); // negative_power_enable = true
+            delayMicroseconds(500);
+            bbepSetShiftBit(&_state, 2, 1); // positive_power_enable = true
             delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioSPV & 0xff), 1);
+            bbepSetShiftBit(&_state, 4, 1); // stv = true
             gpio_set_level((gpio_num_t)(_state.panelDef.ioSPH & 0xff), 1);
+            bbepSetShiftBit(&_state, 5, 1); // mode1 = true
+        } else { // single MOSFET
+            gpio_set_level((gpio_num_t)_state.panelDef.ioOE, 1);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)_state.panelDef.ioPWR, 1);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)_state.panelDef.ioSPV, 1);
+            gpio_set_level((gpio_num_t)_state.panelDef.ioSPH, 1);
         }
         _state.pwr_on = 1;
     } else { // turn off the power
-        if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65185) {
+        if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
             bbepPCA9535Write(1, 0x20); // only leave WAKEUP on
-            delay(10);
+            vTaskDelay(1);
             bbepPCA9535Write(1, 0); // now turn everything off
-        } else { // single MOSFET
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioPWR & 0xff), 0);
+        } else if (_state.panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
+            bbepMCPDigitalWrite(_state.panelDef.ioOE, 0); // OE_CLEAR;
+            bbepMCPDigitalWrite(/*GMOD*/1, 0); // GMOD_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioLE, 0); //LE_CLEAR;
+            gpio_set_level((gpio_num_t)_state.panelDef.ioCKV, 0); // CKV_CLEAR
+            gpio_set_level((gpio_num_t)_state.panelDef.ioSPH, 0); //SPH_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioSPV, 0); //SPV_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioShiftMask, 0); //VCOM_CLEAR;
+            bbepMCPDigitalWrite(_state.panelDef.ioPWR, 0); // PWRUP_CLEAR;
+          //  pinsZstate();
+        } else if (_state.panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo T5 S3
+            bbepSetShiftBit(&_state, 2, 0); // positive_power_enable = false
             delayMicroseconds(10);
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioOE & 0xff), 0);
+            bbepSetShiftBit(&_state, 3, 0); // negative_power_enable = false
             delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)(_state.panelDef.ioSPV & 0xff), 0);
+            bbepSetShiftBit(&_state, 1, 1); // power_disable = true
+            bbepSetShiftBit(&_state, 4, 0); // stv = false            
+            bbepSetShiftBit(&_state, 5, 0); // mode1 = false
+            bbepSetShiftBit(&_state, 6, 0); // output_enable = false
+        } else { // single MOSFET
+            gpio_set_level((gpio_num_t)_state.panelDef.ioPWR, 0);
+            delayMicroseconds(10);
+            gpio_set_level((gpio_num_t)_state.panelDef.ioOE, 0);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)_state.panelDef.ioSPV, 0);
         }
         _state.pwr_on = 0;
     }
@@ -313,26 +386,89 @@ int BBEPDIY::einkPower(int bOn)
 // Clear the display with the given code for the given number of repetitions
 // val: 0 = lighten, 1 = darken, 2 = discharge, 3 = skip
 //
-void BBEPDIY::clear(uint8_t val, uint8_t count)
+void BBEPDIY::clear(uint8_t val, uint8_t count, BBEPRECT *pRect)
 {
+    uint32_t u32, *s, *d;
+    uint8_t u8;
+    int i, k, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
     if (val == 0) val = 0xaa;
     else if (val == 1) val = 0x55;
     else if (val == 2) val = 0x00;
     else val = 0xff;
-    memset(_state.dma_buf, val, _state.width / 4);
 
-    for (int k = 0; k < count; ++k)
-    {
+    if (pRect) {
+        iStartCol = pRect->x;
+        iEndCol = iStartCol + pRect->w - 1;
+        iStartRow = pRect->y;
+        iEndRow = iStartRow + pRect->h - 1;
+        if (iStartCol >= iEndCol || iStartRow >= iEndRow) return; // invalid area
+
+        if (iStartCol < 0) iStartCol = 0;
+        if (iStartRow < 0) iStartRow = 0;
+        if (iEndCol >= _state.width) iEndCol = _state.width - 1;
+        if (iEndRow >= _state.height) iEndRow = _state.height - 1;
+        switch (_state.rotation) { // rotate to native panel direction
+            case 0: // nothing to do
+                break;
+            case 90:
+                i = iStartCol;
+                iStartCol = iStartRow;
+                iStartRow = _state.width - 1 - iEndCol;
+                iEndCol = iEndRow;
+                iEndRow = _state.width - 1 - i; // iStartCol
+                break;
+            case 270:
+                i = iStartCol;
+                iStartCol = _state.height - 1 - iEndRow;
+                iEndRow = iEndCol;
+                iEndCol = _state.height - 1 - iStartRow;
+                iStartRow = i; // iStartCol
+                break;
+            case 180:
+                iStartCol = _state.width - 1 - iStartCol;
+                iEndCol = _state.width - 1 - iEndCol;
+                iStartRow = _state.height - 1 - iStartRow;
+                iEndRow = _state.height - 1 - iEndRow;
+                break;
+        }
+    } else { // use the whole display
+        iStartCol = iStartRow = 0;
+        iEndCol = _state.native_width - 1;
+        iEndRow = _state.native_height - 1;
+    }
+    // Prepare masked row
+    memset(u8Cache, val, _state.native_width / 4);
+    i = iStartCol/4;
+    memset(u8Cache, 0xff, i); // whole bytes on left side
+    if ((iStartCol & 3) != 0) { // partial byte
+        u8 = 0xff << ((4-(iStartCol & 3))*2);
+        u8 |= val;
+        u8Cache[i] = u8;
+    }
+    i = (iEndCol + 3)/4;
+    memset(&u8Cache[i], 0xff, (_state.native_width / 4) - i); // whole bytes on right side
+    if ((iEndCol & 3) != 3) { // partial byte
+        u8 = 0xff >> (((iEndCol & 3)+1)*2);
+        u8 |= val;
+        u8Cache[i-1] = u8;
+    }
+    for (k = 0; k < count; k++) {
         bbepRowControl(&_state, ROW_START);
-        for (int i = 0; i < _state.height; ++i)
+        for (i = 0; i < _state.native_height; i++)
         {
-            // Send the data using I2S DMA driver.
-            bbepWriteRow(&_state, _state.dma_buf, _state.width / 4);
+            // Send the data
+            if (i < iStartRow || i > iEndRow) { // skip this row
+                memset(_state.dma_buf, 0xff, _state.native_width / 4);
+            } else { // mask the area we want to change
+                memcpy(_state.dma_buf, u8Cache, _state.native_width / 4);
+            }
+            bbepWriteRow(&_state, _state.dma_buf, _state.native_width / 4);
             delayMicroseconds(15);
             bbepRowControl(&_state, ROW_STEP);
         }
         delayMicroseconds(230);
     }
+    yield(); // keep WDT happy
 } /* clear() */
 
 void BBEPDIY::fillScreen(uint8_t u8Color)
@@ -348,7 +484,7 @@ void BBEPDIY::fillScreen(uint8_t u8Color)
     memset(_state.pCurrent, u8Color, iPitch * _state.height);
 } /* fillScreen() */
 
-int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn)
+int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn, BBEPRECT *pRect)
 {
     int passes;
 #ifdef SHOW_TIME
@@ -356,17 +492,17 @@ int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn)
 #endif
     if (einkPower(1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
 // Fast mode ~= 600ms, normal mode ~=1000ms
-    passes = (bFast) ? 5:11;
+    passes = (bFast) ? 6:11;
     if (!bFast) { // skip initial black phase for fast mode
-        clear(0, 1);
-        clear(1, passes);
-        clear(2, 1);
+        clear(0, 1, pRect);
+        clear(1, passes, pRect);
+        clear(2, 1, pRect);
     }
-    clear(0, passes);
-    clear(2, 1);
-    clear(1, passes);
-    clear(2, 1);
-    clear(0, passes);
+    clear(0, passes, pRect);
+    clear(2, 1, pRect);
+    clear(1, passes, pRect);
+    clear(2, 1, pRect);
+    clear(0, passes, pRect);
 
     if (_state.mode == BB_MODE_1BPP) {
         // Set the color in multiple passes starting from white
@@ -386,7 +522,7 @@ int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn)
         // Write 5 passes of the black data to the whole display
         for (int k = 0; k < 5; ++k) {
             rowControl(ROW_START);
-            for (int i = 0; i < _state.native_height; ++i) {
+            for (int i = 0; i < _state.native_height; i++) {
                 s = &_state.pTemp[i * (_state.native_width / 4)];
                 // Send the data for the row
                 memcpy(_state.dma_buf, s, _state.native_width/ 4);
@@ -395,6 +531,7 @@ int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn)
                 rowControl(ROW_STEP);
             }
             delayMicroseconds(230);
+            yield(); // keep WDT happy
         }
 
         for (int k = 0; k < 1; ++k) {
@@ -446,11 +583,12 @@ int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn)
                 rowControl(ROW_STEP);
             } // for i
             delayMicroseconds(230);
+            yield(); // keep WDT happy
         } // for k
     } // 4bpp
 
         // Set the drivers inside epaper panel into dischare state.
-        clear(3, 1);
+        clear(3, 1, pRect);
         if (!bKeepOn) einkPower(0);
     
 #ifdef SHOW_TIME
@@ -472,7 +610,7 @@ int BBEPDIY::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
     uint8_t whiteMask, *pCur, *pPrev, *d, data = 0;
     uint8_t diffw, diffb, cur, prev;
     
-    for (int i = iStartLine; i <= iEndLine; ++i) {
+    for (int i = iStartLine; i <= iEndLine; i++) {
         d = &_state.pTemp[i * (_state.native_width/4)]; // LUT temp storage
         pCur = &_state.pCurrent[i * (_state.native_width / 8)];
         pPrev = &_state.pPrevious[i * (_state.native_width / 8)];
@@ -494,12 +632,12 @@ int BBEPDIY::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
         uint8_t *dp = _state.pTemp;
         int iSkipped = 0;
         rowControl(ROW_START);
-        for (int i = 0; i < _state.native_height; ++i) {
+        for (int i = 0; i < _state.native_height; i++) {
             if (i >= iStartLine && i <= iEndLine) {
                 memcpy((void *)_state.dma_buf, dp, _state.native_width/4);
                 // Send the data using I2S DMA driver.
                 writeRow(_state.dma_buf, (_state.native_width / 4));
-                delayMicroseconds(10);
+//                delayMicroseconds(10);
                 iSkipped = 0;
             } else {
                 if (iSkipped >= 2) {
@@ -507,14 +645,15 @@ int BBEPDIY::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
                     delayMicroseconds(35);
                 } else {
                     // write 2 floating rows
-                    if (iSkipped == 0) { // clean
+                    if (iSkipped == 0) { // skip
                        memset((void *)_state.dma_buf, 0xff, _state.native_width/4);
                     }
                     writeRow(_state.dma_buf, (_state.native_width / 4));
-                    delayMicroseconds(10);
+//                    delayMicroseconds(10);
                 }
                 iSkipped++;
             }
+            while (!transfer_is_done) {}; // need to wait for data to finish transmitting
             rowControl(ROW_STEP);
             dp += (_state.native_width / 4);
         }
@@ -522,7 +661,7 @@ int BBEPDIY::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
     }
 
     if (bKeepOn) {
-        clear(2, 1);
+        clear(2, 1, NULL);
     } else {
         einkPower(0);
     }

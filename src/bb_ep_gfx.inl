@@ -524,17 +524,17 @@ int bbepLoadG5(BBEPDIYSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, i
         g5_decode_line(&g5dec, u8Cache);
             src_mask = 0; // make it read a byte to start
             s = u8Cache;
-            for (tx=0; tx<cx; tx++) {
+            for (tx=x; tx<x+cx; tx++) {
                 if (src_mask == 0) { // need to load the next byte
                     u8 = *s++;
                     src_mask = 0x80; // MSB on left
                 }
                 if (u8 & src_mask) {
                     if (iFG != BBEP_TRANSPARENT)
-                        (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, (uint8_t)iFG);
+                        (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iFG);
                 } else {
                     if (iBG != BBEP_TRANSPARENT)
-                        (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, (uint8_t)iBG);
+                        (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iBG);
                 }
                 src_mask >>= 1;
             } // for tx
@@ -636,7 +636,7 @@ void bbepSetTextWrap(BBEPDIYSTATE *pBBEP, int bWrap)
 //
 int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
-    int rc, i, h, w, j, end_y, dx, dy, tx, ty, iSrcPitch, iPitch, iBG;
+    int rc, i, h, w, j, end_y, dx, dy, tx, ty, tw, iSrcPitch, iPitch, iBG;
     signed int n;
     unsigned int c, bInvert = 0;
     uint8_t *s, uc0, uc1;
@@ -711,6 +711,8 @@ int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 pBBEP->last_error = BBEP_ERROR_BAD_DATA;
                  return BBEP_ERROR_BAD_DATA; // corrupt data?
             }
+                tw = w;
+                if (x+tw > pBBEP->width) tw = pBBEP->width - x; // clip to right edge
                 for (ty=dy; ty<end_y && ty < pBBEP->height; ty++) {
                     uint8_t u8, u8Count;
                     g5_decode_line(&g5dec, u8Cache);
@@ -718,7 +720,7 @@ int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                     u8 = *s++;
                     u8Count = 8;
                     if (ty >= 0) { // don't draw off the screen
-                        for (tx=x; tx<x+w; tx++) {
+                        for (tx=x; tx<x+tw; tx++) {
                             if (u8 & 0x80) {
                                 if (iColor != BBEP_TRANSPARENT) {
                                     (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, iColor);
@@ -1117,33 +1119,56 @@ int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
 //
 // Get the width of text in a custom font
 //
-void bbepGetStringBox(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, const char *szMsg, int *width, int *top, int *bottom)
+int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
 {
     int cx = 0;
     unsigned int c, i = 0;
     BB_GLYPH *pBBG;
+    BB_FONT *pFont;
     int miny, maxy;
     
-    if (!pBBEP) return;
+    if (!pBBEP || !szMsg || !pRect) return BBEP_ERROR_BAD_PARAMETER;
     
-    if (width == NULL || top == NULL || bottom == NULL || pFont == NULL || szMsg == NULL) {
-        pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
-        return; // bad pointers
+    pFont = (BB_FONT *)pBBEP->pFont;
+    if (pBBEP->iFont == -1 && pFont) { // custom font
+        miny = 1000; maxy = 0;
+        while (szMsg[i]) {
+            c = szMsg[i++];
+            if (c < pFont->first || c > pFont->last) // undefined character
+                continue; // skip it
+            c -= pFont->first; // first char of font defined
+            pBBG = &pFont->glyphs[c];
+            cx += pBBG->xAdvance;
+            if (pBBG->yOffset < miny) miny = pBBG->yOffset;
+            if (pBBG->height+pBBG->yOffset > maxy) maxy = pBBG->height+pBBG->yOffset;
+        }
+    } else { // fixed fonts
+        miny = 0;
+        switch (pBBEP->iFont) {
+            case FONT_6x8:
+                cx = 6;
+                maxy = 8;
+                break;
+            case FONT_8x8:
+                cx = 8;
+                maxy = 8;
+                break;
+            case FONT_12x16:
+                cx = 12;
+                maxy = 16;
+                break;
+            case FONT_16x16:
+                cx = 16;
+                maxy = 16;
+                break;
+        }
+        cx *= strlen(szMsg);
     }
-    miny = 1000; maxy = 0;
-    while (szMsg[i]) {
-        c = szMsg[i++];
-        if (c < pFont->first || c > pFont->last) // undefined character
-            continue; // skip it
-        c -= pFont->first; // first char of font defined
-        pBBG = &pFont->glyphs[c];
-        cx += pBBG->xAdvance;
-        if (pBBG->yOffset < miny) miny = pBBG->yOffset;
-        if (pBBG->height+pBBG->yOffset > maxy) maxy = pBBG->height+pBBG->yOffset;
-    }
-    *width = cx;
-    *top = miny;
-    *bottom = maxy;
+    pRect->x = pBBEP->iCursorX;
+    pRect->y = pBBEP->iCursorY + miny;
+    pRect->w = cx;
+    pRect->h = maxy - miny;
+    return BBEP_SUCCESS;
 } /* bbepGetStringBox() */
 
 //
