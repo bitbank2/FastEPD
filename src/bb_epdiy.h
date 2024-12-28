@@ -193,9 +193,6 @@ class BBEPDIY
 #endif
 
   protected:
-    void rowControl(int iMode);
-    void writeRow(uint8_t *pData, int iLen);
-    void clear(uint8_t val, uint8_t count, BBEPRECT *pRect);
     BBEPDIYSTATE _state;
 }; // class BBEPDIY
 #endif // __cplusplus
@@ -206,6 +203,13 @@ extern "C" {
 // put C functions here
 #ifdef __cplusplus
 };
+#else
+// Include all of the library code inline for C targets
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
+#include "arduino_io.inl"
+#include "bb_epdiy.inl"
+#include "bb_ep_gfx.inl"
 #endif // __cplusplus
 
 #endif // __BB_EPDIY_H__

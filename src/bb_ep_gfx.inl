@@ -175,6 +175,18 @@ const uint8_t ucSmallFont[] PROGMEM = {
     0x02,0x01,0x02,0x01,0x00,
     0x3c,0x26,0x23,0x26,0x3c};
 
+void bbepFillScreen(BBEPDIYSTATE *pState, uint8_t u8Color)
+{
+    int iPitch;
+    if (pState->mode == BB_MODE_1BPP) {
+        if (u8Color == BBEP_WHITE) u8Color = 0xff;
+        iPitch = (pState->width + 7) / 8;
+    } else {
+        iPitch = (pState->width + 1) / 2;
+        u8Color |= (u8Color << 4);
+    }
+    memset(pState->pCurrent, u8Color, iPitch * pState->height);
+} /* bbepFillScreen() */
 //
 // Draw a sprite of any size in any position
 // If it goes beyond the left/right or top/bottom edges
@@ -201,43 +213,44 @@ void bbepDrawSprite(BBEPDIYSTATE *pBBEP, const uint8_t *pSprite, int cx, int cy,
         pSprite += (y * iPitch);
         dy = 0;
     }
-    if (dy + cy > pBBEP->native_height)
+    if ((dy + cy) > pBBEP->native_height) {
         cy = pBBEP->native_height - y;
-        iStartX = 0;
-        dx = x;
-        if (x < 0)
-        {
-            cx += x;
-            x = -x;
-            iStartX = x;
-            dx = 0;
-        }
-        if (x + cx > pBBEP->native_width)
-            cx = pBBEP->native_width - x;
-        for (ty=0; ty<cy; ty++)
-        {
-            s = (uint8_t *)&pSprite[(iStartX >> 3)];
-            ucSrcMask = 0x80 >> (iStartX & 7);
-            pix = *s++;
-            for (tx=0; tx<cx; tx++) {
-                if (pix & ucSrcMask) { // set pixel in source, set it in dest
-                    (*pBBEP->pfnSetPixelFast)(pBBEP, dx+tx, dy+ty, iColor);
-                }
-                ucSrcMask >>= 1;
-                if (ucSrcMask == 0) { // read next byte
-                    ucSrcMask = 0x80;
-                    pix = *s++;
-                }
-            } // for tx
-            pSprite += iPitch;
-        } // for ty
+    }
+    iStartX = 0;
+    dx = x;
+    if (x < 0)
+    {
+        cx += x;
+        x = -x;
+        iStartX = x;
+        dx = 0;
+    }
+    if ((x + cx) > pBBEP->native_width)
+        cx = pBBEP->native_width - x;
+    for (ty=0; ty<cy; ty++)
+    {
+        s = (uint8_t *)&pSprite[(iStartX >> 3)];
+        ucSrcMask = 0x80 >> (iStartX & 7);
+        pix = *s++;
+        for (tx=0; tx<cx; tx++) {
+            if (pix & ucSrcMask) { // set pixel in source, set it in dest
+                (*pBBEP->pfnSetPixelFast)(pBBEP, dx+tx, dy+ty, iColor);
+            }
+            ucSrcMask >>= 1;
+            if (ucSrcMask == 0) { // read next byte
+                ucSrcMask = 0x80;
+                pix = *s++;
+            }
+        } // for tx
+        pSprite += iPitch;
+    } // for ty
 } /* bbepDrawSprite() */
 
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)
 {
-    int i;
+    int i = 0;
     int iPitch;
-    uint8_t u8, u8Mask;
+    uint8_t u8, u8Mask = 0;
     BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
     
     // only available for local buffer operations
@@ -355,7 +368,7 @@ void bbepSetPixelFast2Clr_270(void *pb, int x, int y, unsigned char ucColor)
 
 int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
 {
-    int i;
+    int i = 0;
     int iPitch;
     uint8_t u8, u8Mask = 0xf0;
     BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
@@ -636,12 +649,12 @@ void bbepSetTextWrap(BBEPDIYSTATE *pBBEP, int bWrap)
 //
 int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
-    int rc, i, h, w, j, end_y, dx, dy, tx, ty, tw, iSrcPitch, iPitch, iBG;
+    int rc, i, h, w, end_y, dx, dy, tx, ty, tw, iBG;
     signed int n;
-    unsigned int c, bInvert = 0;
-    uint8_t *s, uc0, uc1;
+    unsigned int c;
+    uint8_t *s;
     BB_GLYPH *pGlyph;
-    uint8_t *pBits, u8CMD1, u8CMD2, u8CMD, u8EndMask;
+    uint8_t *pBits, u8EndMask;
     uint8_t first, last;
     
     if (pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
@@ -846,7 +859,7 @@ int tx, ty, iPitch, iDestPitch;
 int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, int iColor)
 {
     int i, iFontOff, iLen;
-    uint8_t c, *s, ucCMD, ucCMD1, ucCMD2;
+    uint8_t c, *s;
     int iOldFG; // old fg color to make sure red works
     uint8_t u8Temp[40];
     int iBG;
@@ -1043,28 +1056,29 @@ int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
                 }
             }
             iLen = 12;
-            if (pBBEP->iCursorX + iLen > pBBEP->width) // clip right edge
+            if (pBBEP->iCursorX + iLen > pBBEP->width) {// clip right edge
                 iLen = pBBEP->width - pBBEP->iCursorX;
-                uint8_t u8Mask;
-                for (int ty=0; ty<8; ty++) {
-                    u8Mask = 1<<ty;
-                    for (int tx = 0; tx<iLen; tx++) {
-                        if (u8Temp[6+tx] & u8Mask) {
-                            if (iColor != BBEP_TRANSPARENT) {
-                                (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, iColor);
-                            }
-                        } else if (iBG != BBEP_TRANSPARENT) {
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, iBG);
+            }
+            uint8_t u8Mask;
+            for (int ty=0; ty<8; ty++) {
+                u8Mask = 1<<ty;
+                for (int tx = 0; tx<iLen; tx++) {
+                    if (u8Temp[6+tx] & u8Mask) {
+                        if (iColor != BBEP_TRANSPARENT) {
+                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, iColor);
                         }
-                        if (u8Temp[18+tx] & u8Mask) {
-                            if (iColor != BBEP_TRANSPARENT) {
-                                (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty+8, iColor);
-                            }
-                        } else if (iBG != BBEP_TRANSPARENT) {
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty+8, iBG);
+                    } else if (iBG != BBEP_TRANSPARENT) {
+                        (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty, iBG);
+                    }
+                    if (u8Temp[18+tx] & u8Mask) {
+                        if (iColor != BBEP_TRANSPARENT) {
+                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty+8, iColor);
                         }
+                    } else if (iBG != BBEP_TRANSPARENT) {
+                        (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, y+ty+8, iBG);
                     }
                 }
+            }
             x = pBBEP->iCursorX += iLen;
             if (pBBEP->iCursorX >= pBBEP->width-11 && pBBEP->wrap) // word wrap enabled?
             {
@@ -1086,21 +1100,22 @@ int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
             u8Temp[0] = 0; // first column is blank
             memcpy_P(&u8Temp[1], &ucSmallFont[(int)c*5], 5);
             iLen = 6;
-            if (pBBEP->iCursorX + iLen > pBBEP->width) // clip right edge
+            if (pBBEP->iCursorX + iLen > pBBEP->width) {// clip right edge
                 iLen = pBBEP->width - pBBEP->iCursorX;
-                uint8_t u8Mask;
-                for (int ty=0; ty<8; ty++) {
-                    u8Mask = 1<<ty;
-                    for (int tx = 0; tx<iLen; tx++) {
-                        if (u8Temp[tx] & u8Mask) {
-                            if (iColor != BBEP_TRANSPARENT) {
-                                (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, ty+y, iColor);
-                            }
-                        } else if (iBG != BBEP_TRANSPARENT) {
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, ty+y, iBG);
+            }
+            uint8_t u8Mask;
+            for (int ty=0; ty<8; ty++) {
+                u8Mask = 1<<ty;
+                for (int tx = 0; tx<iLen; tx++) {
+                    if (u8Temp[tx] & u8Mask) {
+                        if (iColor != BBEP_TRANSPARENT) {
+                            (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, ty+y, iColor);
                         }
+                    } else if (iBG != BBEP_TRANSPARENT) {
+                        (*pBBEP->pfnSetPixelFast)(pBBEP, x+tx, ty+y, iBG);
                     }
                 }
+            }
             pBBEP->iCursorX += iLen;
             if (pBBEP->iCursorX >= pBBEP->width-5 && pBBEP->wrap) // word wrap enabled?
             {
@@ -1125,7 +1140,7 @@ int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
     unsigned int c, i = 0;
     BB_GLYPH *pBBG;
     BB_FONT *pFont;
-    int miny, maxy;
+    int miny, maxy = 0;
     
     if (!pBBEP || !szMsg || !pRect) return BBEP_ERROR_BAD_PARAMETER;
     
@@ -1181,11 +1196,7 @@ void bbepDrawLine(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t u
     int dx = x2 - x1;
     int dy = y2 - y1;
     int error;
-    uint8_t *p, *pStart, ucFill = 0, mask, bOld, bNew;
     int xinc, yinc;
-    int y, x;
-    int iPitch;
-    int iRedOffset = 0;
     
     if (pBBEP == NULL) {
         return;
@@ -1207,7 +1218,6 @@ void bbepDrawLine(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t u
             y2 = temp;
         }
         
-        y = y1;
         dy = (y2 - y1);
         error = dx >> 1;
         yinc = 1;
@@ -1259,10 +1269,6 @@ void bbepDrawLine(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t u
 //
 static void DrawScaledPixel(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor)
 {
-    uint8_t *d, ucMask;
-    int iPitch;
-    int iRedOffset = 0;
-    
     if (iXFrac != 0x10000) x = ((x * iXFrac) >> 16);
     if (iYFrac != 0x10000) y = ((y * iYFrac) >> 16);
     x += iCX; y += iCY;

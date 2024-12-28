@@ -8,6 +8,9 @@
 #include <esp_lcd_panel_ops.h>
 //#define SLOW_IO
 
+int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
+void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
+
 // width, height, bus_speed, flags, data[8], ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
 // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy
 const BBPANELDEF panelDefs[] = {
@@ -76,7 +79,7 @@ esp_lcd_panel_io_i80_config_t s3_io_config = {
         .pclk_hz = 12000000,
         .trans_queue_depth = 4,
         .on_color_trans_done = s3_notify_dma_ready,
-        .user_ctx = nullptr, // debug
+        .user_ctx = NULL, // debug
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
         .dc_levels = {
@@ -163,7 +166,6 @@ void bbepMCPDigitalWrite(uint8_t pin, uint8_t value)
 
 uint8_t bbepMCPDigitalRead(uint8_t pin)
 {
-    uint8_t ucTemp[4];
     uint8_t port = pin / 8;
     pin &= 7;
 
@@ -290,7 +292,7 @@ void bbepWriteRow(BBEPDIYSTATE *pState, uint8_t *pData, int iLen)
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); //CKV_SET;
     err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen);
     if (err != ESP_OK) {
-        Serial.printf("Error %d sending LCD data\n", (int)err);
+     //   Serial.printf("Error %d sending LCD data\n", (int)err);
     }
 #endif // SLOW_IO
 }
@@ -357,7 +359,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     if (pState->panelDef.ioCL < 0x100) bbepPinMode(pState->panelDef.ioCL, OUTPUT);
  //   if (pState->panelDef.ioPWR_Good != BB_NOT_USED) bbepPinMode(pState->panelDef.ioPWR_Good, OUTPUT);
     if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) {
-        Serial.println("Using shift register");
+        //Serial.println("Using shift register");
         pState->shift_data = pState->panelDef.ioShiftMask;
         bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
         bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
@@ -411,7 +413,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
     #endif // SLOW_IO
     transfer_is_done = true;
-    Serial.println("IO init done");
+    //Serial.println("IO init done");
 // Create the lookup tables for 1-bit mode. Allow for inverted and mirrored
     for (int i=0; i<256; i++) {
         uint16_t b, w, l2, u16W, u16B, u16L2;
@@ -437,3 +439,446 @@ int bbepIOInit(BBEPDIYSTATE *pState)
 
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
+
+int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
+{
+    int rc;
+    if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
+        pState->iPanelType = iPanel;
+        pState->width = pState->native_width = panelDefs[iPanel].width;
+        pState->height = pState->native_height = panelDefs[iPanel].height;
+        memcpy(&pState->panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
+        rc = bbepIOInit(pState);
+        pState->mode = BB_MODE_1BPP; // start in 1-bit mode
+        pState->iFG = BBEP_BLACK;
+        pState->iBG = BBEP_TRANSPARENT;
+        if (rc == BBEP_SUCCESS) {
+            // allocate memory for the buffers
+            if (pState->width) { // if size is defined
+                pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
+                pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
+                pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+            }
+        }
+        GLUT = (uint32_t *)malloc(256 * 9 * sizeof(uint32_t));
+        GLUT2 = (uint32_t *)malloc(256 * 9 * sizeof(uint32_t));
+        // Prepare grayscale lookup tables
+        for (int j = 0; j < 9; j++) {
+            for (int i = 0; i < 256; i++) {
+                GLUT[j * 256 + i] = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j]);
+                GLUT2[j * 256 + i] = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j])) << 4;
+            }
+        }
+        pState->pfnSetPixel = bbepSetPixel2Clr;
+        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        return rc;
+    }
+    return BBEP_ERROR_BAD_PARAMETER;
+} /* bbepInitPanel() */
+
+#define TPS_REG_ENABLE 0x01
+#define TPS_REG_PG 0x0F
+int bbepEinkPower(BBEPDIYSTATE *pState, int bOn)
+{
+#ifdef SHOW_TIME
+    long l = millis();
+#endif
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS;
+    if (bOn) {
+        if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
+            uint8_t ucTemp[4];
+            uint8_t u8Value = 0; // I/O bits for the PCA9535
+          //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
+            u8Value |= 1; // OE on
+            u8Value |= 0x20; // WAKEUP on
+            bbepPCA9535Write(1, u8Value);
+            u8Value |= 8; // PWRUP on
+            bbepPCA9535Write(1, u8Value);
+            u8Value |= 0x10; // VCOM CTRL on
+            bbepPCA9535Write(1, u8Value);
+            vTaskDelay(1); // allow time to power up
+            while (!(bbepPCA9535Read(1) & 0x40 /*CFG_PIN_PWRGOOD*/)) { }
+            ucTemp[0] = TPS_REG_ENABLE;
+            ucTemp[1] = 0x3f; // enable output
+            bbepI2CWrite(0x68, ucTemp, 2);
+            // set VCOM to 1.6v (1600)
+            ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
+            ucTemp[1] = (uint8_t)(160);
+            ucTemp[2] = (uint8_t)(160 >> 8);
+            bbepI2CWrite(0x68, ucTemp, 3);
+
+            int iTimeout = 0;
+            u8Value = 0;
+            while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
+                bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
+                iTimeout++;
+                vTaskDelay(1);
+            }
+            if (iTimeout >= 400) {
+               // Serial.println("The power_good signal never arrived!");
+                return BBEP_IO_ERROR;
+            }
+        } else if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
+            uint8_t ucTemp[4];
+            bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP_SET;
+            delay(5);
+            // Modify power up sequence  (VEE and VNEG are swapped)
+            ucTemp[0] = 0x09;
+            ucTemp[1] = 0xe1;
+            bbepI2CWrite(0x48, ucTemp, 2);
+            // Enable all rails
+            ucTemp[0] = 0x01;
+            ucTemp[1] = 0x3f;
+            bbepI2CWrite(0x48, ucTemp, 2);
+            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP_SET;
+            //pinsAsOutputs();
+            gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH_SET;
+            bbepMCPDigitalWrite(/*GMOD*/1, 1); // GMOD_SET
+            bbepMCPDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV_SET;
+            gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM_SET;
+            unsigned long timer = millis();
+            do {
+                delay(1);
+            } while (!bbepReadPowerGood() && (millis() - timer) < 250);
+            if ((millis() - timer) >= 250) {
+                bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM_CLEAR;
+                bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+                return BBEP_IO_ERROR;
+            }
+            bbepMCPDigitalWrite(pState->panelDef.ioOE, 1); // OE_SET;
+        } else if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo 4.7" (various)
+            bbepSetShiftBit(pState, 5, 1); // scan_direction = true
+            bbepSetShiftBit(pState, 1, 0); // power_disable = false
+            delayMicroseconds(100);
+            bbepSetShiftBit(pState, 3, 1); // negative_power_enable = true
+            delayMicroseconds(500);
+            bbepSetShiftBit(pState, 2, 1); // positive_power_enable = true
+            delayMicroseconds(100);
+            bbepSetShiftBit(pState, 4, 1); // stv = true
+            gpio_set_level((gpio_num_t)(pState->panelDef.ioSPH & 0xff), 1);
+            bbepSetShiftBit(pState, 5, 1); // mode1 = true
+        } else { // single MOSFET
+            gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 1);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)pState->panelDef.ioPWR, 1);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 1);
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1);
+        }
+        pState->pwr_on = 1;
+    } else { // turn off the power
+        if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
+            bbepPCA9535Write(1, 0x20); // only leave WAKEUP on
+            vTaskDelay(1);
+            bbepPCA9535Write(1, 0); // now turn everything off
+        } else if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
+            bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
+            bbepMCPDigitalWrite(/*GMOD*/1, 0); // GMOD_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioLE, 0); //LE_CLEAR;
+            gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); //SPH_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioSPV, 0); //SPV_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); //VCOM_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+          //  pinsZstate();
+        } else if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo T5 S3
+            bbepSetShiftBit(pState, 2, 0); // positive_power_enable = false
+            delayMicroseconds(10);
+            bbepSetShiftBit(pState, 3, 0); // negative_power_enable = false
+            delayMicroseconds(100);
+            bbepSetShiftBit(pState, 1, 1); // power_disable = true
+            bbepSetShiftBit(pState, 4, 0); // stv = false            
+            bbepSetShiftBit(pState, 5, 0); // mode1 = false
+            bbepSetShiftBit(pState, 6, 0); // output_enable = false
+        } else { // single MOSFET
+            gpio_set_level((gpio_num_t)pState->panelDef.ioPWR, 0);
+            delayMicroseconds(10);
+            gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 0);
+            delayMicroseconds(100);
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 0);
+        }
+        pState->pwr_on = 0;
+    }
+#ifdef SHOW_TIME
+    l = millis() - l;
+    Serial.printf("eink power %s time = %d ms\n", (bOn) ? "on": "off", (int)l);
+#endif
+    return BBEP_SUCCESS;
+} /* bbepEinkPower() */
+
+//
+// Clear the display with the given code for the given number of repetitions
+// val: 0 = lighten, 1 = darken, 2 = discharge, 3 = skip
+//
+void bbepClear(BBEPDIYSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect)
+{
+    uint8_t u8;
+    int i, k, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
+    if (val == 0) val = 0xaa;
+    else if (val == 1) val = 0x55;
+    else if (val == 2) val = 0x00;
+    else val = 0xff;
+
+    if (pRect) {
+        iStartCol = pRect->x;
+        iEndCol = iStartCol + pRect->w - 1;
+        iStartRow = pRect->y;
+        iEndRow = iStartRow + pRect->h - 1;
+        if (iStartCol >= iEndCol || iStartRow >= iEndRow) return; // invalid area
+
+        if (iStartCol < 0) iStartCol = 0;
+        if (iStartRow < 0) iStartRow = 0;
+        if (iEndCol >= pState->width) iEndCol = pState->width - 1;
+        if (iEndRow >= pState->height) iEndRow = pState->height - 1;
+        switch (pState->rotation) { // rotate to native panel direction
+            case 0: // nothing to do
+                break;
+            case 90:
+                i = iStartCol;
+                iStartCol = iStartRow;
+                iStartRow = pState->width - 1 - iEndCol;
+                iEndCol = iEndRow;
+                iEndRow = pState->width - 1 - i; // iStartCol
+                break;
+            case 270:
+                i = iStartCol;
+                iStartCol = pState->height - 1 - iEndRow;
+                iEndRow = iEndCol;
+                iEndCol = pState->height - 1 - iStartRow;
+                iStartRow = i; // iStartCol
+                break;
+            case 180:
+                iStartCol = pState->width - 1 - iStartCol;
+                iEndCol = pState->width - 1 - iEndCol;
+                iStartRow = pState->height - 1 - iStartRow;
+                iEndRow = pState->height - 1 - iEndRow;
+                break;
+        }
+    } else { // use the whole display
+        iStartCol = iStartRow = 0;
+        iEndCol = pState->native_width - 1;
+        iEndRow = pState->native_height - 1;
+    }
+    // Prepare masked row
+    memset(u8Cache, val, pState->native_width / 4);
+    i = iStartCol/4;
+    memset(u8Cache, 0xff, i); // whole bytes on left side
+    if ((iStartCol & 3) != 0) { // partial byte
+        u8 = 0xff << ((4-(iStartCol & 3))*2);
+        u8 |= val;
+        u8Cache[i] = u8;
+    }
+    i = (iEndCol + 3)/4;
+    memset(&u8Cache[i], 0xff, (pState->native_width / 4) - i); // whole bytes on right side
+    if ((iEndCol & 3) != 3) { // partial byte
+        u8 = 0xff >> (((iEndCol & 3)+1)*2);
+        u8 |= val;
+        u8Cache[i-1] = u8;
+    }
+    for (k = 0; k < count; k++) {
+        bbepRowControl(pState, ROW_START);
+        for (i = 0; i < pState->native_height; i++)
+        {
+            // Send the data
+            if (i < iStartRow || i > iEndRow) { // skip this row
+                memset(pState->dma_buf, 0xff, pState->native_width / 4);
+            } else { // mask the area we want to change
+                memcpy(pState->dma_buf, u8Cache, pState->native_width / 4);
+            }
+            bbepWriteRow(pState, pState->dma_buf, pState->native_width / 4);
+            delayMicroseconds(15);
+            bbepRowControl(pState, ROW_STEP);
+        }
+        delayMicroseconds(230);
+    }
+} /* bbepClear() */
+
+int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRect)
+{
+    int passes;
+#ifdef SHOW_TIME
+    long l = millis();
+#endif
+    if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+// Fast mode ~= 600ms, normal mode ~=1000ms
+    passes = (bFast) ? 6:11;
+    if (!bFast) { // skip initial black phase for fast mode
+        bbepClear(pState, 0, 1, pRect);
+        bbepClear(pState, 1, passes, pRect);
+        bbepClear(pState, 2, 1, pRect);
+    }
+    bbepClear(pState, 0, passes, pRect);
+    bbepClear(pState, 2, 1, pRect);
+    bbepClear(pState, 1, passes, pRect);
+    bbepClear(pState, 2, 1, pRect);
+    bbepClear(pState, 0, passes, pRect);
+
+    if (pState->mode == BB_MODE_1BPP) {
+        // Set the color in multiple passes starting from white
+        // First create the 2-bit codes per pixel for the black pixels
+        uint8_t *s, *d;
+        for (int i = 0; i < pState->native_height; i++) {
+            s = &pState->pCurrent[i * (pState->native_width/8)];
+            d = &pState->pTemp[i * (pState->native_width/4)];
+            memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
+            for (int n = 0; n < (pState->native_width / 4); n += 4) {
+                uint8_t dram1 = *s++;
+                uint8_t dram2 = *s++;
+                *(uint16_t *)&d[n+2] = LUTB_16[dram2];
+                *(uint16_t *)&d[n] = LUTB_16[dram1];
+            }
+        }
+        // Write 5 passes of the black data to the whole display
+        for (int k = 0; k < 5; ++k) {
+            bbepRowControl(pState, ROW_START);
+            for (int i = 0; i < pState->native_height; i++) {
+                s = &pState->pTemp[i * (pState->native_width / 4)];
+                // Send the data for the row
+                memcpy(pState->dma_buf, s, pState->native_width/ 4);
+                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+                delayMicroseconds(15);
+                bbepRowControl(pState, ROW_STEP);
+            }
+            delayMicroseconds(230);
+        }
+
+        for (int k = 0; k < 1; ++k) {
+            uint8_t *s, *d;
+            bbepRowControl(pState, ROW_START);
+            for (int i = 0; i < pState->native_height; i++) {
+                s = &pState->pCurrent[(pState->native_width/8) * i];
+                d = &pState->pTemp[i * (pState->native_width/4)];
+                for (int n = 0; n < (pState->native_width / 4); n += 4) {
+                    uint8_t dram1 = *s++;
+                    uint8_t dram2 = *s++;
+                    *(uint16_t *)&d[n+2] = LUT2_16[dram2];
+                    *(uint16_t *)&d[n] = LUT2_16[dram1];
+                }
+                // Send the data for the row
+                memcpy(pState->dma_buf, d, pState->native_width/ 4);
+                bbepWriteRow(pState, d, (pState->native_width / 4));
+                delayMicroseconds(15);
+                bbepRowControl(pState, ROW_STEP);
+            }
+            delayMicroseconds(230);
+        }
+
+        for (int k = 0; k < 1; ++k) {
+            bbepRowControl(pState, ROW_START);
+            memset((void *)pState->dma_buf, 0, pState->native_width /4); // send 0's
+            for (int i = 0; i < pState->native_height; i++) {
+                // Send the data for the row
+                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+                delayMicroseconds(15);
+                bbepRowControl(pState, ROW_STEP);
+            }
+            delayMicroseconds(230);
+        }
+    } else { // must be 4BPP mode
+        for (int k = 0; k < 9; ++k) { // 9 phases to make 9 gray levels
+            uint8_t *s, *d = pState->dma_buf;
+            bbepRowControl(pState, ROW_START);
+            for (int i = 0; i < pState->native_height; i++) {
+                s = &pState->pCurrent[i *(pState->native_width / 2)];
+                for (int j = 0; j < (pState->native_width / 4); j += 4) {
+                    d[j + 0] = (GLUT2[k * 256 + s[0]] | GLUT[k * 256 + s[1]]);
+                    d[j + 1] = (GLUT2[k * 256 + s[2]] | GLUT[k * 256 + s[3]]);
+                    d[j + 2] = (GLUT2[k * 256 + s[4]] | GLUT[k * 256 + s[5]]);
+                    d[j + 3] = (GLUT2[k * 256 + s[6]] | GLUT[k * 256 + s[7]]);
+                    s += 8;
+                } // for j
+                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+                delayMicroseconds(15);
+                bbepRowControl(pState, ROW_STEP);
+            } // for i
+            delayMicroseconds(230);
+        } // for k
+    } // 4bpp
+
+        // Set the drivers inside epaper panel into dischare state.
+        bbepClear(pState, 3, 1, pRect);
+        if (!bKeepOn) bbepEinkPower(pState, 0);
+    
+#ifdef SHOW_TIME
+    l = millis() - l;
+    Serial.printf("fullUpdate time: %dms\n", (int)l);
+#endif
+    return BBEP_SUCCESS;
+} /* bbepFullUdate() */
+
+int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
+{
+//   long l = millis();
+    if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+    if (iStartLine < 0) iStartLine = 0;
+    if (iEndLine >= pState->native_height) iEndLine = pState->native_height-1;
+    if (iEndLine < iStartLine) return BBEP_ERROR_BAD_PARAMETER;
+
+    uint8_t *pCur, *pPrev, *d;
+    uint8_t diffw, diffb, cur, prev;
+    
+    for (int i = iStartLine; i <= iEndLine; i++) {
+        d = &pState->pTemp[i * (pState->native_width/4)]; // LUT temp storage
+        pCur = &pState->pCurrent[i * (pState->native_width / 8)];
+        pPrev = &pState->pPrevious[i * (pState->native_width / 8)];
+        for (int j = 0; j < pState->native_width / 16; ++j)
+        {
+            cur = *pCur++; prev = *pPrev++;
+            diffw = prev & ~cur;
+            diffb = ~prev & cur;
+            *(uint16_t *)&d[0] = LUTW_16[diffw] & LUTB_16[diffb];
+
+            cur = *pCur++; prev = *pPrev++;
+            diffw = prev & ~cur;
+            diffb = ~prev & cur;
+            *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
+            d += 4;
+        }
+    }
+    for (int k = 0; k < 4; ++k) { // each pass is about 32ms
+        uint8_t *dp = pState->pTemp;
+        int iSkipped = 0;
+        bbepRowControl(pState, ROW_START);
+        for (int i = 0; i < pState->native_height; i++) {
+            if (i >= iStartLine && i <= iEndLine) {
+                memcpy((void *)pState->dma_buf, dp, pState->native_width/4);
+                // Send the data using I2S DMA driver.
+                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+//                delayMicroseconds(10);
+                iSkipped = 0;
+            } else {
+                if (iSkipped >= 2) {
+                    gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV_SET;
+                    delayMicroseconds(35);
+                } else {
+                    // write 2 floating rows
+                    if (iSkipped == 0) { // skip
+                       memset((void *)pState->dma_buf, 0xff, pState->native_width/4);
+                    }
+                    bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+//                    delayMicroseconds(10);
+                }
+                iSkipped++;
+            }
+            while (!transfer_is_done) {}; // need to wait for data to finish transmitting
+            bbepRowControl(pState, ROW_STEP);
+            dp += (pState->native_width / 4);
+        }
+        //delayMicroseconds(230);
+    }
+
+    if (bKeepOn) {
+        bbepClear(pState, 2, 1, NULL);
+    } else {
+        bbepEinkPower(pState, 0);
+    }
+    int offset = iStartLine * (pState->native_width/8);
+    memcpy(&pState->pPrevious[offset], &pState->pCurrent[offset], (pState->native_width/8) * (iEndLine - iStartLine+1));
+
+//    l = millis() - l;
+//    Serial.printf("partial update time: %dms\n", (int)l);
+    return BBEP_SUCCESS;
+} /* bbepPartialUpdate() */
