@@ -1,3 +1,13 @@
+//
+// bb_epdiy
+// Copyright (c) 2024 BitBank Software, Inc.
+// Written by Larry Bank (bitbank@pobox.com)
+//
+// This file contains the C++ wrapper functions
+// which call the C code doing the actual work.
+// This allows for both C++ and C code to make
+// use of all of the library features
+//
 #include <Wire.h>
 #include "bb_epdiy.h"
 #include "arduino_io.inl"
@@ -15,59 +25,17 @@ int BBEPDIY::getStringBox(const char *text, BBEPRECT *pRect)
 {
     return bbepGetStringBox(&_state, text, pRect);
 }
-
+//
 // Copy the current pixels to the previous for partial updates after powerup
+//
 void BBEPDIY::backupPlane(void)
 {
-    int iSize = (_state.native_width/2) * _state.native_height;
-    memcpy(_state.pPrevious, _state.pCurrent, iSize);
+    bbepBackupPlane(&_state);
 }
 
 int BBEPDIY::setRotation(int iAngle)
 {
-    iAngle %= 360;
-    if (iAngle % 90 != 0) return BBEP_ERROR_BAD_PARAMETER;
-    _state.rotation = iAngle;
-    // set the correct fast pixel function
-    switch (iAngle) {
-        case 0:
-            _state.width = _state.native_width;
-            _state.height = _state.native_height;
-            if (_state.mode == BB_MODE_1BPP) {
-                _state.pfnSetPixelFast = bbepSetPixelFast2Clr;
-            } else {
-                _state.pfnSetPixelFast = bbepSetPixelFast16Clr;
-            }
-            break;
-        case 90:
-            _state.width = _state.native_height;
-            _state.height = _state.native_width;
-            if (_state.mode == BB_MODE_1BPP) {
-                _state.pfnSetPixelFast = bbepSetPixelFast2Clr_90;
-            } else {
-                _state.pfnSetPixelFast = bbepSetPixelFast16Clr_90;
-            }
-            break;
-        case 180:
-            _state.width = _state.native_width;
-            _state.height = _state.native_height;
-            if (_state.mode == BB_MODE_1BPP) {
-                _state.pfnSetPixelFast = bbepSetPixelFast2Clr_180;
-            } else {
-                _state.pfnSetPixelFast = bbepSetPixelFast16Clr_180;
-            }
-            break;
-        case 270:
-            _state.width = _state.native_height;
-            _state.height = _state.native_width;
-            if (_state.mode == BB_MODE_1BPP) {
-                _state.pfnSetPixelFast = bbepSetPixelFast2Clr_270;
-            } else {
-                _state.pfnSetPixelFast = bbepSetPixelFast16Clr_270;
-            }
-            break;
-    }
-    return BBEP_SUCCESS;
+    return bbepSetRotation(&_state, iAngle);
 }
 void BBEPDIY::drawPixel(int16_t x, int16_t y, uint8_t color)
 {
@@ -89,8 +57,12 @@ void BBEPDIY::fillRoundRect(int x, int y, int w, int h,
     bbepRoundRect(&_state, x, y, w, h, r, color, 1);
 }
 
-void BBEPDIY::fillRect(int x, int y, int w, int h,
-                   uint8_t color)
+void BBEPDIY::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
+    bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 0);
+}
+
+void BBEPDIY::fillRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 1);
 }
@@ -102,20 +74,9 @@ void BBEPDIY::drawLine(int x1, int y1, int x2, int y2, int iColor)
 
 int BBEPDIY::setMode(int iMode)
 {
-    int iPitch;
-
-    if (iMode != BB_MODE_1BPP && iMode != BB_MODE_4BPP) return BBEP_ERROR_BAD_PARAMETER;
-    if (iMode == BB_MODE_1BPP) {
-        _state.pfnSetPixel = bbepSetPixel2Clr;
-        _state.pfnSetPixelFast = bbepSetPixelFast2Clr;
-    } else {
-        _state.pfnSetPixel = bbepSetPixel16Clr;
-        _state.pfnSetPixelFast = bbepSetPixelFast16Clr;
-    }
-    _state.mode = iMode;
-    return BBEP_SUCCESS;
-} /* setMode() */
-
+    return bbepSetMode(&_state, iMode);
+  /* setMode() */
+}
 void BBEPDIY::setFont(int iFont)
 {
     _state.iFont = iFont;
@@ -199,12 +160,7 @@ int BBEPDIY::initCustomPanel(BBPANELDEF *pPanel)
 } /* setPanelType() */
 
 int BBEPDIY::setPanelSize(int width, int height) {
-    _state.width = _state.native_width = width;
-    _state.height = _state.native_height = height;
-    _state.pCurrent = (uint8_t *)ps_malloc(_state.width * _state.height / 2); // current pixels
-    _state.pPrevious = (uint8_t *)ps_malloc(_state.width * _state.height / 2); // comparison with previous buffer
-    _state.pTemp = (uint8_t *)ps_malloc(_state.width * _state.height / 4); // LUT data
-    return BBEP_SUCCESS;
+    return bbepSetPanelSize(&_state, width, height);
 } /* setPanelSize() */
 
 int BBEPDIY::initPanel(int iPanel)

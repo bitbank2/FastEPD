@@ -1,3 +1,8 @@
+//
+// bb_epdiy
+// Copyright (c) 2024 BitBank Software, Inc.
+// Written by Larry Bank (bitbank@pobox.com)
+//
 #ifndef __BB_EPDIY_H__
 #define __BB_EPDIY_H__
 
@@ -76,6 +81,8 @@ typedef struct _paneldef {
     uint16_t ioShiftSTR; // shift store register
     uint16_t ioShiftMask; // shift bits that can be left permanently in this state
     uint8_t ioDCDummy; // unused GPIO for the LCD library to needlessly toggle
+    const uint8_t *pGrayMatrix; // pointer to matrix of values (waveform) for 16 gray levels
+    int iMatrixSize; // size of matrix in bytes
 } BBPANELDEF;
 
 typedef struct bbepr {
@@ -153,8 +160,8 @@ class BBEPDIY
     void shutdown(void);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
-    uint8_t *previousBuffer(void);
-    uint8_t *currentBuffer(void);
+    uint8_t *previousBuffer(void) { return _state.pPrevious;}
+    uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
     int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 2047);

@@ -1,8 +1,7 @@
 //
-// bb_epaper graphics library
+// bb_epdiy graphics library
 // Copyright (c) 2024 BitBank Software, Inc.
 // Written by Larry Bank (bitbank@pobox.com)
-// Project started 9/11/2024
 //
 // Use of this software is governed by the Business Source License
 // included in the file ./LICENSE.
@@ -1132,7 +1131,8 @@ int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
     return BBEP_ERROR_BAD_PARAMETER; // invalid size
 } /* bbepWriteString() */
 //
-// Get the width of text in a custom font
+// Get the bounding rectangle of text
+// The position of the rectangle is based on the current cursor position and font
 //
 int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
 {
@@ -1185,7 +1185,6 @@ int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
     pRect->h = maxy - miny;
     return BBEP_SUCCESS;
 } /* bbepGetStringBox() */
-
 //
 // Draw a line from x1,y1 to x2,y2 in the given color
 // This function supports both buffered and bufferless drawing
@@ -1332,7 +1331,6 @@ static void BresenhamCircle(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y,
         }
     }
 } /* BresenhamCircle() */
-
 //
 // Draw an outline or filled ellipse
 //
@@ -1421,7 +1419,9 @@ void bbepRectangle(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t 
             }
     } // outline
 } /* bbepRectangle() */
-
+//
+// Draw a rectangle (optionally filled) with rounded corners. The radius of the rounded corners is specified
+//
 void bbepRoundRect(BBEPDIYSTATE *pBBEP, int x, int y, int w, int h, int r, uint8_t iColor, int bFilled)
 {
     if (bFilled) {
@@ -1444,6 +1444,65 @@ void bbepRoundRect(BBEPDIYSTATE *pBBEP, int x, int y, int w, int h, int r, uint8
         bbepEllipse(pBBEP, x+r, y+h-r-1, r, r, 8, iColor, 0);
     }
 } /* bbepRoundRect() */
+//
+// Set the display rotation angle (0, 90, 180, 270)
+//
+int bbepSetRotation(BBEPDIYSTATE *pState, int iAngle)
+{
+    iAngle %= 360;
+    if (iAngle % 90 != 0) return BBEP_ERROR_BAD_PARAMETER;
+    pState->rotation = iAngle;
+    // set the correct fast pixel function
+    switch (iAngle) {
+        case 0:
+            pState->width = pState->native_width;
+            pState->height = pState->native_height;
+            if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+            } else {
+                pState->pfnSetPixelFast = bbepSetPixelFast16Clr;
+            }
+            break;
+        case 90:
+            pState->width = pState->native_height;
+            pState->height = pState->native_width;
+            if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_90;
+            } else {
+                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_90;
+            }
+            break;
+        case 180:
+            pState->width = pState->native_width;
+            pState->height = pState->native_height;
+            if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_180;
+            } else {
+                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_180;
+            }
+            break;
+        case 270:
+            pState->width = pState->native_height;
+            pState->height = pState->native_width;
+            if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_270;
+            } else {
+                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_270;
+            }
+            break;
+    }
+    return BBEP_SUCCESS;
+} /* bbepSetRotation() */
+
+//
+// Set the graphics mode (1-bit or 4-bits per pixel)
+//
+int bbepSetMode(BBEPDIYSTATE *pState, int iMode)
+{
+    if (iMode != BB_MODE_1BPP && iMode != BB_MODE_4BPP) return BBEP_ERROR_BAD_PARAMETER;
+    pState->mode = iMode;
+    return bbepSetRotation(pState, pState->rotation); // set up correct pixel functions
+} /* setMode() */
 
 #endif // __BB_EP_GFX__
 

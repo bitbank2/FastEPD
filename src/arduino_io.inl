@@ -1,8 +1,7 @@
 //
-// bb_epaper I/O wrapper functions for Arduino
+// bb_epdiy I/O wrapper functions for Arduino
 // Copyright (c) 2024 BitBank Software, Inc.
 // Written by Larry Bank (bitbank@pobox.com)
-// Project started 9/11/2024
 //
 // Use of this software is governed by the Business Source License
 // included in the file ./LICENSE.

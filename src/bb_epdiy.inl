@@ -1,12 +1,35 @@
 //
 // C core functions for bb_epdiy
-// Written by Larry Bank
+// Written by Larry Bank (bitbank@pobox.com)
 // Copyright (C) 2024 BitBank Software, Inc.
 //
 #include "bb_epdiy.h"
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 //#define SLOW_IO
+
+#ifndef __BB_EP__
+#define __BB_EP__
+
+// 38 columns by 16 rows. White (15) to each gray (0-black to 15-white)
+const uint8_t u8GrayMatrix[] = {
+/* 0 */	    0,  0,  0,  2,  2,  2,  2,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,
+/* 1 */	    2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,  0,
+/* 2 */		0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,  0,
+/* 3 */		0,	0,	0,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,  0,
+/* 4 */		0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,  0,
+/* 5 */		0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,  0,
+/* 6 */		0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,  0,
+/* 7 */		0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,  0,
+/* 8 */		0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	0,  0,
+/* 9 */		0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,  0,
+/* 10 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,  0,
+/* 11 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	0,  0,
+/* 12 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	0,	0,  0,
+/* 13 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	0,  0,
+/* 14 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	2,  0,
+/* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
+};
 
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
@@ -16,22 +39,22 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
 const BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
-      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47}, // BB_PANEL_M5PAPERS3
+      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_M5PAPERS3
     {960, 540, 16000000, BB_PANEL_FLAG_SHIFTREG, {8,1,2,3,4,5,6,7}, BB_IO_FLAG_SHIFTREG | 5, BB_IO_FLAG_SHIFTREG | 4, 38, 40, BB_IO_FLAG_SHIFTREG | 7, BB_IO_FLAG_SHIFTREG | 0,
-      41, BB_NOT_USED, 13, 12, 0, 0x32, 47}, // BB_PANEL_T5EPAPERS3
+      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERS3
     {0, 0, 20000000, BB_PANEL_FLAG_TPS65185, {5,6,7,15,16,17,18,8}, BB_IO_FLAG_PCA9535 | 11, 45, 48, 41, BB_IO_FLAG_PCA9535 | 8, 42,
-      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 47}, // BB_PANEL_EPDIY_V7
+      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_EPDIY_V7
 
 
     {1024, 758, 13333333, BB_PANEL_FLAG_TPS65186 | BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, BB_IO_FLAG_MCP23017 | 4, BB_IO_FLAG_MCP23017 | 2, 32, 33, BB_IO_FLAG_MCP23017 | 0, 2,
-      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15}, // BB_PANEL_INKPLATE6PLUS
+      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE6PLUS
 
     {1280, 720, 16000000, BB_PANEL_FLAG_TPS65186 | BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, BB_IO_FLAG_MCP23017 | 4, BB_IO_FLAG_MCP23017 | 2, 32, 33, BB_IO_FLAG_MCP23017 | 0, 2,
-      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15}, // BB_PANEL_INKPLATE5V2
+      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE5V2
 
 
     {960, 540, 12000000, BB_PANEL_FLAG_SHIFTREG, {33,32,4,19,2,27,21,22}, BB_IO_FLAG_SHIFTREG | 5, BB_IO_FLAG_SHIFTREG | 4, 25, 26, BB_IO_FLAG_SHIFTREG | 7, BB_IO_FLAG_SHIFTREG | 0,
-      5, BB_NOT_USED, 23, 18, 0, 0x32, 15}, // BB_PANEL_T5EPAPERV1
+      5, BB_NOT_USED, 23, 18, 0, 0x32, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERV1
     {0}, // BB_PANEL_CUSTOM
 };
 
@@ -440,9 +463,24 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 
+int bbepSetPanelSize(BBEPDIYSTATE *pState, int width, int height) {
+    pState->width = pState->native_width = width;
+    pState->height = pState->native_height = height;
+    pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
+    pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
+    pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+    return BBEP_SUCCESS;
+} /* setPanelSize() */
+
+//
+// Initialize the panel based on the constant name
+// Each name points to a configuration with info about the PCB and display
+// e.g. BB_PANEL_M5PAPERs3
+// The device is ready to use after returning from this function
+//
 int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
 {
-    int rc;
+    int rc, iPasses;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
         pState->iPanelType = iPanel;
         pState->width = pState->native_width = panelDefs[iPanel].width;
@@ -460,15 +498,22 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
                 pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
             }
         }
-        GLUT = (uint32_t *)malloc(256 * 9 * sizeof(uint32_t));
-        GLUT2 = (uint32_t *)malloc(256 * 9 * sizeof(uint32_t));
+        iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
+        GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
         // Prepare grayscale lookup tables
-        for (int j = 0; j < 9; j++) {
+        for (int j = 0; j < iPasses; j++) {
             for (int i = 0; i < 256; i++) {
-                GLUT[j * 256 + i] = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j]);
-                GLUT2[j * 256 + i] = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j])) << 4;
+                GLUT[j * 256 + i] = (u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j]);
+                GLUT2[j * 256 + i] = ((u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j])) << 4;
             }
         }
+//        for (int j = 0; j < 9; j++) {
+//            for (int i = 0; i < 256; i++) {
+//                GLUT[j * 256 + i] = (waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j]);
+//                GLUT2[j * 256 + i] = ((waveform3Bit[i & 0x07][j] << 2) | (waveform3Bit[(i >> 4) & 0x07][j])) << 4;
+//            }
+//        }
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         return rc;
@@ -778,7 +823,8 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             delayMicroseconds(230);
         }
     } else { // must be 4BPP mode
-        for (int k = 0; k < 9; ++k) { // 9 phases to make 9 gray levels
+        int iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
+        for (int k = 0; k < iPasses; k++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
             bbepRowControl(pState, ROW_START);
             for (int i = 0; i < pState->native_height; i++) {
@@ -882,3 +928,13 @@ int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iE
 //    Serial.printf("partial update time: %dms\n", (int)l);
     return BBEP_SUCCESS;
 } /* bbepPartialUpdate() */
+//
+// Copy the current pixels to the previous
+// This facilitates doing partial updates after the power is lost
+//
+void bbepBackupPlane(BBEPDIYSTATE *pState)
+{
+    int iSize = (pState->native_width/2) * pState->native_height;
+    memcpy(pState->pPrevious, pState->pCurrent, iSize);
+}
+#endif // __BB_EP__
