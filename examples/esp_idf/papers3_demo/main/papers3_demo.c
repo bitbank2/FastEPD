@@ -14,8 +14,9 @@ BBEPDIYSTATE bbep;
 void app_main(void)
 {
 int rc;
-    rc = bbepInitPanel(&bbep, BB_PANEL_M5PAPERS3);
+    rc = bbepInitPanel(&bbep, BB_PANEL_EPDIY_V7); //BB_PANEL_M5PAPERS3);
     if (rc == BBEP_SUCCESS) {
+      bbepSetPanelSize(&bbep, 1280, 720);
       bbepFillScreen(&bbep, BBEP_WHITE);
       bbepFullUpdate(&bbep, 0, 1, NULL);
       bbepWriteStringCustom(&bbep, (BB_FONT *)Roboto_Black_100, 0, 200, "Hello", BBEP_BLACK);

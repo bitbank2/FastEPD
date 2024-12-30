@@ -152,11 +152,14 @@ int w=8, h=8;
   return 1;
 } /* write() */
 
-int BBEPDIY::initCustomPanel(BBPANELDEF *pPanel)
+int BBEPDIY::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
 {
     _state.iPanelType = BB_PANEL_CUSTOM;
     memcpy(&_state.panelDef, pPanel, sizeof(BBPANELDEF));
-    return bbepIOInit(&_state);
+    _state.pfnEinkPower = pProcs->pfnEinkPower;
+    _state.pfnIOInit = pProcs->pfnIOInit;
+    _state.pfnRowControl = pProcs->pfnRowControl;
+    return (*(_state.pfnIOInit))(&_state);
 } /* setPanelType() */
 
 int BBEPDIY::setPanelSize(int width, int height) {

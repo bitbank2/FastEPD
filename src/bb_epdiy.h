@@ -124,6 +124,19 @@ enum {
 typedef int (BB_SET_PIXEL)(void *pBBEP, int x, int y, unsigned char color);
 // Fast pixel drawing function pointer (no boundary checking)
 typedef void (BB_SET_PIXEL_FAST)(void *pBBEP, int x, int y, unsigned char color);
+// Callback function for turning on and off the eink DC/DC power
+typedef int (BB_EINK_POWER)(void *pBBEP, int bOn);
+// Callback function for initializing all of the I/O devices
+typedef int (BB_IO_INIT)(void *pBBEP);
+// Callback function for controlling the row start/step
+typedef void (BB_ROW_CONTROL)(void *pBBEP, int iMode);
+
+typedef struct tag_bbeppanelprocs
+{
+    BB_EINK_POWER *pfnEinkPower;
+    BB_IO_INIT *pfnIOInit;
+    BB_ROW_CONTROL *pfnRowControl;
+} BBPANELPROCS;
 
 typedef struct tag_bbepdiystate
 {
@@ -143,6 +156,9 @@ typedef struct tag_bbepdiystate
     BBPANELDEF panelDef;
     BB_SET_PIXEL *pfnSetPixel;
     BB_SET_PIXEL_FAST *pfnSetPixelFast;
+    BB_EINK_POWER *pfnEinkPower;
+    BB_IO_INIT *pfnIOInit;
+    BB_ROW_CONTROL *pfnRowControl;
 } BBEPDIYSTATE;
 
 #ifdef __cplusplus
@@ -155,7 +171,7 @@ class BBEPDIY
   public:
     BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
      int initPanel(int iPanelType);
-    int initCustomPanel(BBPANELDEF *pPanel);
+    int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setPanelSize(int width, int height);
     void shutdown(void);
     int getStringBox(const char *text, BBEPRECT *pRect);
