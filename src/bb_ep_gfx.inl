@@ -648,7 +648,7 @@ void bbepSetTextWrap(BBEPDIYSTATE *pBBEP, int bWrap)
 //
 int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
-    int rc, i, h, w, end_y, dx, dy, tx, ty, tw, iBG;
+    int rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
     signed int n;
     unsigned int c;
     uint8_t *s;
@@ -694,6 +694,7 @@ int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
         c -= first; // first char of font defined
         pGlyph = &pFont->glyphs[c]; // glyph info for this character
         if (pgm_read_byte(&pGlyph->width) > 1) { // skip this if drawing a space
+            x_off = pGlyph->xOffset;
             s = pBits + pgm_read_word(&pGlyph->bitmapOffset); // start of compressed bitmap data
             if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
                 h = pgm_read_word(&pGlyph->height);
@@ -724,7 +725,7 @@ int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                  return BBEP_ERROR_BAD_DATA; // corrupt data?
             }
                 tw = w;
-                if (x+tw > pBBEP->width) tw = pBBEP->width - x; // clip to right edge
+                if (x+tw+x_off > pBBEP->width) tw = pBBEP->width - (x+x_off); // clip to right edge
                 for (ty=dy; ty<end_y && ty < pBBEP->height; ty++) {
                     uint8_t u8, u8Count;
                     g5_decode_line(&g5dec, u8Cache);
@@ -735,10 +736,10 @@ int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                         for (tx=x; tx<x+tw; tx++) {
                             if (u8 & 0x80) {
                                 if (iColor != BBEP_TRANSPARENT) {
-                                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, iColor);
+                                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off, ty, iColor);
                                 }
                             } else if (iBG != BBEP_TRANSPARENT) {
-                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, iBG);
+                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off, ty, iBG);
                             }
                             u8 <<= 1;
                             u8Count--;

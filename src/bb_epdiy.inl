@@ -43,12 +43,14 @@ const BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
       16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_M5PAPERS3
-    {960, 540, 16000000, BB_PANEL_FLAG_SHIFTREG, {8,1,2,3,4,5,6,7}, BB_IO_FLAG_SHIFTREG | 5, BB_IO_FLAG_SHIFTREG | 4, 38, 40, BB_IO_FLAG_SHIFTREG | 7, BB_IO_FLAG_SHIFTREG | 0,
+
+
+    {960, 540, 12000000, BB_PANEL_FLAG_SHIFTREG, {8,1,2,3,4,5,6,7}, 1, 4, 38, 40, 7, 0,
       41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERS3
+
+
     {0, 0, 20000000, BB_PANEL_FLAG_TPS65185, {5,6,7,15,16,17,18,8}, BB_IO_FLAG_PCA9535 | 11, 45, 48, 41, BB_IO_FLAG_PCA9535 | 8, 42,
       4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_EPDIY_V7
-
-
     {1024, 758, 13333333, BB_PANEL_FLAG_TPS65186 | BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, BB_IO_FLAG_MCP23017 | 4, BB_IO_FLAG_MCP23017 | 2, 32, 33, BB_IO_FLAG_MCP23017 | 0, 2,
       0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE6PLUS
 
@@ -56,8 +58,10 @@ const BBPANELDEF panelDefs[] = {
       0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE5V2
 
 
-    {960, 540, 12000000, BB_PANEL_FLAG_SHIFTREG, {33,32,4,19,2,27,21,22}, BB_IO_FLAG_SHIFTREG | 5, BB_IO_FLAG_SHIFTREG | 4, 25, 26, BB_IO_FLAG_SHIFTREG | 7, BB_IO_FLAG_SHIFTREG | 0,
+    {960, 540, 16000000, BB_PANEL_FLAG_SLOW_SPH, {33,32,4,19,2,27,21,22}, 1, 4, 25, 26, 7, 0,
       5, BB_NOT_USED, 23, 18, 0, 0x32, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERV1
+    {960, 540, 12000000, BB_PANEL_FLAG_TPS65185, {5,6,7,15,16,17,8,7}, BB_IO_FLAG_PCA9535 | 11, 45, 48, 41,  BB_IO_FLAG_PCA9535 | 8, 42,
+      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERS3PRO
 };
 //
 // Forward references for panel callback functions
@@ -86,7 +90,10 @@ const BBPANELPROCS panelProcs[] = {
     {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl}, // BB_PANEL_M5PAPERS3
     {LilyGoV24EinkPower, LilyGoV24IOInit, LilyGoV24RowControl}, // BB_PANEL_T5EPAPERS3
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7
-    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl} // BB_PANEL_INKPLATE6PLUS
+    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE6PLUS
+    {NULL, NULL, NULL}, // Inkplate5V2
+    {LilyGoV24EinkPower, LilyGoV24IOInit, LilyGoV24RowControl}, // BB_PANEL_T5EPAPERV1
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_T5EPAPERS3PRO
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -219,6 +226,50 @@ uint8_t bbepMCPDigitalRead(uint8_t pin)
     bbepI2CReadRegister(0x20, MCP23017_GPIOA + port, &ioRegs[MCP23017_GPIOA + port + 1], 1);
     return (ioRegs[MCP23017_GPIOA + port + 1] & (1 << pin)) ? HIGH : LOW;
 } /* bbepMCPDigitalRead() */
+//
+// Read port 0 or 1 data
+//
+uint8_t bbepPCA9535Read(uint8_t port)
+{
+uint8_t uc;
+    bbepI2CReadRegister(0x20, port, &uc, 1);
+    return uc;
+} /* bbepPCA9535Read() */
+//
+// Read port 0 or 1 data
+//
+void bbepPCA9535Write(uint8_t port, uint8_t data)
+{
+uint8_t ucTemp[4];
+    ucTemp[0] = 2+port; // output port
+    ucTemp[1] = data;
+    bbepI2CWrite(0x20,ucTemp, 2);
+} /* bbepPCA9535Write() */
+//
+// Set the direction bits for the 16 I/O pins of the PCA9535
+//
+void bbepPCA9535SetConfig(uint8_t config)
+{
+uint8_t ucTemp[4];
+    ucTemp[0] = 7; // configuration register for PORT1
+    ucTemp[1] = config;
+    bbepI2CWrite(0x20, ucTemp, 2);
+} /* bbepPCA9535SetConfig() */
+
+void bbepTPS65186Init(BBEPDIYSTATE *pState)
+{
+    uint8_t ucTemp[8];
+    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP ON
+    delay(1);
+    ucTemp[0] = 0x9; // power up sequence register
+    ucTemp[1] = 0x1b; // power up sequence
+    ucTemp[2] = 0; // power up delay (3ms per rail)
+    ucTemp[3] = 0x1b; // power down seq
+    ucTemp[4] = 0; // power down delay (6ms per rail);
+    bbepI2CWrite(0x48, ucTemp, 5);
+    delay(1);
+    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP OFF
+}
 
 //
 // Write 8 bits (_state.shift_data) to the shift register
@@ -277,8 +328,36 @@ int PaperS3EinkPower(void *pBBEP, int bOn)
 } /* PaperS3EinkPower() */
 int LilyGoV24EinkPower(void *pBBEP, int bOn)
 {
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS; // already on
+    if (bOn) {
+//        bbepSetShiftBit(pState, 5, 1); // scan_direction = true
+        bbepSetShiftBit(pState, 1, 0); // power_disable = false
+        delayMicroseconds(100);
+        bbepSetShiftBit(pState, 3, 1); // negative_power_enable = true
+        delayMicroseconds(500);
+        bbepSetShiftBit(pState, 2, 1); // positive_power_enable = true
+        delayMicroseconds(100);
+        bbepSetShiftBit(pState, 4, 1); // stv = true
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1);
+//        bbepSetShiftBit(pState, 5, 1); // mode1 = true
+        pState->pwr_on = 1;
+    } else { // power off
+        bbepSetShiftBit(pState, 2, 0); // positive_power_enable = false
+        delayMicroseconds(10);
+        bbepSetShiftBit(pState, 3, 0); // negative_power_enable = false
+        delayMicroseconds(100);
+        bbepSetShiftBit(pState, 1, 1); // power_disable = true
+        bbepSetShiftBit(pState, 4, 0); // STV = false
+//        gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 0); // stv = false            
+       // bbepSetShiftBit(pState, 5, 0); // mode1 = false
+        bbepSetShiftBit(pState, 7, 0); // output_enable = false
+        pState->pwr_on = 0;
+    }
     return BBEP_SUCCESS;
 }
+#define TPS_REG_ENABLE 0x01
+#define TPS_REG_PG 0x0F
 int EPDiyV7EinkPower(void *pBBEP, int bOn)
 {
 BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
@@ -314,7 +393,7 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
             vTaskDelay(1);
         }
         if (iTimeout >= 400) {
-            // Serial.println("The power_good signal never arrived!");
+             Serial.println("The power_good signal never arrived!");
             return BBEP_IO_ERROR;
         }
         pState->pwr_on = 1;
@@ -397,6 +476,17 @@ int PaperS3IOInit(void *pBBEP)
 //
 int LilyGoV24IOInit(void *pBBEP)
 {
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    Serial.println("Using shift register");
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    pState->shift_data = pState->panelDef.ioShiftMask;
+    bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSCL, OUTPUT);
+    gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
+    bbepSendShiftData(pState); // send default control bits
     return BBEP_SUCCESS;
 } /* LilyGoV24IOInit() */
 //
@@ -404,6 +494,7 @@ int LilyGoV24IOInit(void *pBBEP)
 //
 int EPDiyV7IOInit(void *pBBEP)
 {
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
     if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
     if (pState->panelDef.ioSPV < 0x100) bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
     if (pState->panelDef.ioCKV < 0x100) bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
@@ -420,6 +511,22 @@ int EPDiyV7IOInit(void *pBBEP)
 //
 int Inkplate6PlusIOInit(void *pBBEP)
 {
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepMCP23017Init();
+    bbepMCPPinMode(pState->panelDef.ioShiftMask, OUTPUT); // VCOM
+    bbepMCPPinMode(pState->panelDef.ioPWR, OUTPUT); // PWRUP
+    bbepMCPPinMode(pState->panelDef.ioShiftSTR, OUTPUT); // WAKEUP
+    bbepMCPPinMode(/*GPIO0_ENABLE*/ 8, OUTPUT);
+    bbepMCPDigitalWrite(/*GPIO0_ENABLE*/ 8, HIGH);
+    bbepMCPPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepMCPPinMode(/*GMOD*/1, OUTPUT);
+    bbepMCPPinMode(pState->panelDef.ioSPV, OUTPUT);
+    bbepTPS65186Init(pState);
     return BBEP_SUCCESS;
 } /* Inkplate6PlusIOInit() */
 //
@@ -462,20 +569,48 @@ void PaperS3RowControl(void *pBBEP, int iType)
     }
 } /* PaperS3RowControl() */
 
-void LilyGoV24RowControl(void *pBBEP, int iMode)
+void LilyGoV24RowControl(void *pBBEP, int iType)
 {
-}
-void EPDiyV7RowControl(void *pBBEP, int iMode)
-{
-}
-void Inkplate6PlusRowControl(void *pBBEP, int iMode)
-{
-}
-void bbepRowControl(BBEPDIYSTATE *pState, int iType)
-{
-    (*(pState->pfnRowControl))(pState, iType);
-    return;
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
+    gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
+    gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
+    if (iType == ROW_START) {
+        bbepSetShiftBit(pState, 6, 1); // EP_MODE = true
+        gpio_set_level(ckv, 1); //CKV_SET
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); //CKV_CLEAR
+        delayMicroseconds(10);
+        bbepSetShiftBit(pState, 4, 0); // STV = false
+       // gpio_set_level(spv, 0); //SPV_CLEAR;
+        delayMicroseconds(1);
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(100);                    
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(100);
+        bbepSetShiftBit(pState, 4, 1); // STV = true
+//        gpio_set_level(spv, 1); //SPV_SET;
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(100);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        bbepSetShiftBit(pState, 7, 1); // output_enable = true
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(10);
+    } else if (iType == ROW_STEP) {
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(500);
+        bbepSetShiftBit(pState, 0, 1); // EP_LE = true
+        bbepSetShiftBit(pState, 0, 0); // EP_LE = false
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); //CKV_SET;
+    }
+}
+void EPDiyV7RowControl(void *pBBEP, int iType)
+{
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -483,25 +618,13 @@ void bbepRowControl(BBEPDIYSTATE *pState, int iType)
     if (iType == ROW_START) {
         gpio_set_level(ckv, 1); //CKV_SET
         delayMicroseconds(7);
-        if (pState->panelDef.ioSPV & BB_IO_FLAG_SHIFTREG) {
-            bbepSetShiftBit(pState, spv, 0); // EP_STV = false
-        } else if (pState->panelDef.ioSPV & BB_IO_FLAG_MCP23017) {
-            bbepMCPDigitalWrite(spv, 0);
-        } else {
-            gpio_set_level(spv, 0); //SPV_CLEAR;
-        }
+        gpio_set_level(spv, 0); //SPV_CLEAR;
         delayMicroseconds(10);
         gpio_set_level(ckv, 0); //CKV_CLEAR;
         delayMicroseconds(0);
         gpio_set_level(ckv, 1); //CKV_SET;
         delayMicroseconds(8);                    
-        if (pState->panelDef.ioSPV & BB_IO_FLAG_SHIFTREG) {
-            bbepSetShiftBit(pState, spv, 1); // EP_SPV = true
-        } else if (pState->panelDef.ioSPV & BB_IO_FLAG_MCP23017) {
-            bbepMCPDigitalWrite(spv, 1);
-        } else {
-            gpio_set_level(spv, 1); //SPV_SET;
-        }
+        gpio_set_level(spv, 1); //SPV_SET;
         delayMicroseconds(10);
         gpio_set_level(ckv, 0); //CKV_CLEAR;
         delayMicroseconds(0);
@@ -513,23 +636,55 @@ void bbepRowControl(BBEPDIYSTATE *pState, int iType)
         delayMicroseconds(18);
         gpio_set_level(ckv, 0); //CKV_CLEAR;
         delayMicroseconds(0);
-        if (pState->panelDef.ioOE & BB_IO_FLAG_SHIFTREG) {
-            bbepSetShiftBit(pState, 6, 1); // output_enable = true
-        } else if (pState->panelDef.ioOE & BB_IO_FLAG_MCP23017) {
-            bbepMCPDigitalWrite(pState->panelDef.ioOE, 1);
-        }
         gpio_set_level(ckv, 1); //CKV_SET;
     } else if (iType == ROW_STEP) {
         gpio_set_level(ckv, 0); //CKV_CLEAR;
-        if (pState->panelDef.ioLE & BB_IO_FLAG_SHIFTREG) { // LilyGo T5 S3
-            bbepSetShiftBit(pState, le, 1); // EP_LE = true
-            bbepSetShiftBit(pState, le, 0); // EP_LE = false
-        } else {
-            gpio_set_level(le, 1); //LE_SET;
-            gpio_set_level(le, 0); //LE_CLEAR;
-        }
+        gpio_set_level(le, 1); //LE_SET;
+        gpio_set_level(le, 0); //LE_CLEAR;
         delayMicroseconds(0);
     }
+}
+void Inkplate6PlusRowControl(void *pBBEP, int iType)
+{
+    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
+    gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
+    gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
+
+    if (iType == ROW_START) {
+        gpio_set_level(ckv, 1); //CKV_SET
+        delayMicroseconds(7);
+        bbepMCPDigitalWrite(spv, 0);
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(8);                    
+        bbepMCPDigitalWrite(spv, 1);
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(18);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); //CKV_SET;
+        delayMicroseconds(18);
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        delayMicroseconds(0);
+        bbepMCPDigitalWrite(pState->panelDef.ioOE, 1);
+        gpio_set_level(ckv, 1); //CKV_SET;
+    } else if (iType == ROW_STEP) {
+        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(le, 1); //LE_SET;
+        gpio_set_level(le, 0); //LE_CLEAR;
+        delayMicroseconds(0);
+    }
+}
+void bbepRowControl(BBEPDIYSTATE *pState, int iType)
+{
+    (*(pState->pfnRowControl))(pState, iType);
+    return;
 } /* bbepRowControl() */
 
 void bbepWriteRow(BBEPDIYSTATE *pState, uint8_t *pData, int iLen)
@@ -550,35 +705,6 @@ void bbepWriteRow(BBEPDIYSTATE *pState, uint8_t *pData, int iLen)
      //   Serial.printf("Error %d sending LCD data\n", (int)err);
     }
 }
-//
-// Read port 0 or 1 data
-//
-uint8_t bbepPCA9535Read(uint8_t port)
-{
-uint8_t uc;
-    bbepI2CReadRegister(0x20, port, &uc, 1);
-    return uc;
-} /* bbepPCA9535Read() */
-//
-// Read port 0 or 1 data
-//
-void bbepPCA9535Write(uint8_t port, uint8_t data)
-{
-uint8_t ucTemp[4];
-    ucTemp[0] = 2+port; // output port
-    ucTemp[1] = data;
-    bbepI2CWrite(0x20,ucTemp, 2);
-} /* bbepPCA9535Write() */
-//
-// Set the direction bits for the 16 I/O pins of the PCA9535
-//
-void bbepPCA9535SetConfig(uint8_t config)
-{
-uint8_t ucTemp[4];
-    ucTemp[0] = 7; // configuration register for PORT1
-    ucTemp[1] = config;
-    bbepI2CWrite(0x20, ucTemp, 2);
-} /* bbepPCA9535SetConfig() */
 
 uint8_t TPS65185PowerGood(void)
 {
@@ -588,63 +714,12 @@ uint8_t ucTemp[4];
     return ucTemp[0];
 }
 
-void bbepTPS65186Init(BBEPDIYSTATE *pState)
-{
-    uint8_t ucTemp[8];
-    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP ON
-    delay(1);
-    ucTemp[0] = 0x9; // power up sequence register
-    ucTemp[1] = 0x1b; // power up sequence
-    ucTemp[2] = 0; // power up delay (3ms per rail)
-    ucTemp[3] = 0x1b; // power down seq
-    ucTemp[4] = 0; // power down delay (6ms per rail);
-    bbepI2CWrite(0x48, ucTemp, 5);
-    delay(1);
-    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP OFF
-}
 int bbepIOInit(BBEPDIYSTATE *pState)
 {
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
-#ifdef FUTURE
-    if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
-    if (pState->panelDef.ioSPV < 0x100) bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
-    if (pState->panelDef.ioCKV < 0x100) bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
-    if (pState->panelDef.ioSPH < 0x100) bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
-    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
-    if (pState->panelDef.ioLE < 0x100) bbepPinMode(pState->panelDef.ioLE, OUTPUT);
-    if (pState->panelDef.ioCL < 0x100) bbepPinMode(pState->panelDef.ioCL, OUTPUT);
- //   if (pState->panelDef.ioPWR_Good != BB_NOT_USED) bbepPinMode(pState->panelDef.ioPWR_Good, OUTPUT);
-    if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) {
-        //Serial.println("Using shift register");
-        pState->shift_data = pState->panelDef.ioShiftMask;
-        bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
-        bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
-        bbepPinMode(pState->panelDef.ioSCL, OUTPUT);
-        gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
-        bbepSendShiftData(pState); // send default control bits
-    }
-    if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65185) { // TI power controller in use
-        bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
-        bbepPCA9535SetConfig(0xc0); // set lower 6 bits as outputs and 6 (PWRGOOD) and 7 (INTR) as inputs
-    }
-    if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65186) { // TI power controller in use
-        bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
-      //  bbepPCA9535SetConfig(0xc0); // set lower 6 bits as outputs and 6 (PWRGOOD) and 7 (INTR) as inputs
-        if (pState->panelDef.ioPWR & BB_IO_FLAG_MCP23017) { // Inkplate series
-            bbepMCP23017Init();
-            bbepMCPPinMode(pState->panelDef.ioShiftMask, OUTPUT); // VCOM
-            bbepMCPPinMode(pState->panelDef.ioPWR, OUTPUT); // PWRUP
-            bbepMCPPinMode(pState->panelDef.ioShiftSTR, OUTPUT); // WAKEUP
-            bbepMCPPinMode(/*GPIO0_ENABLE*/ 8, OUTPUT);
-            bbepMCPDigitalWrite(/*GPIO0_ENABLE*/ 8, HIGH);
-            bbepMCPPinMode(pState->panelDef.ioOE, OUTPUT);
-            bbepMCPPinMode(/*GMOD*/1, OUTPUT);
-            bbepMCPPinMode(pState->panelDef.ioSPV, OUTPUT);
-        }
-        bbepTPS65186Init(pState);
-    }
-#endif // FUTURE
+    // Initialize the ESP32 LCD API to drive parallel data at high speed
+    // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
     s3_bus_config.dc_gpio_num = (gpio_num_t)pState->panelDef.ioDCDummy;
     s3_bus_config.wr_gpio_num = (gpio_num_t)pState->panelDef.ioCL;
     s3_bus_config.bus_width = 8;
@@ -663,7 +738,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     }
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
     transfer_is_done = true;
-    //Serial.println("IO init done");
+    Serial.println("IO init done");
 // Create the lookup tables for 1-bit mode. Allow for inverted and mirrored
     for (int i=0; i<256; i++) {
         uint16_t b, w, l2, u16W, u16B, u16L2;
@@ -746,139 +821,9 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
     return BBEP_ERROR_BAD_PARAMETER;
 } /* bbepInitPanel() */
 
-#define TPS_REG_ENABLE 0x01
-#define TPS_REG_PG 0x0F
 int bbepEinkPower(BBEPDIYSTATE *pState, int bOn)
 {
     return (*(pState->pfnEinkPower))(pState, bOn);
-
-#ifdef SHOW_TIME
-    long l = millis();
-#endif
-    if (bOn == pState->pwr_on) return BBEP_SUCCESS;
-    if (bOn) {
-        if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
-            uint8_t ucTemp[4];
-            uint8_t u8Value = 0; // I/O bits for the PCA9535
-          //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
-            u8Value |= 1; // OE on
-            u8Value |= 0x20; // WAKEUP on
-            bbepPCA9535Write(1, u8Value);
-            u8Value |= 8; // PWRUP on
-            bbepPCA9535Write(1, u8Value);
-            u8Value |= 0x10; // VCOM CTRL on
-            bbepPCA9535Write(1, u8Value);
-            vTaskDelay(1); // allow time to power up
-            while (!(bbepPCA9535Read(1) & 0x40 /*CFG_PIN_PWRGOOD*/)) { }
-            ucTemp[0] = TPS_REG_ENABLE;
-            ucTemp[1] = 0x3f; // enable output
-            bbepI2CWrite(0x68, ucTemp, 2);
-            // set VCOM to 1.6v (1600)
-            ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
-            ucTemp[1] = (uint8_t)(160);
-            ucTemp[2] = (uint8_t)(160 >> 8);
-            bbepI2CWrite(0x68, ucTemp, 3);
-
-            int iTimeout = 0;
-            u8Value = 0;
-            while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
-                bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
-                iTimeout++;
-                vTaskDelay(1);
-            }
-            if (iTimeout >= 400) {
-               // Serial.println("The power_good signal never arrived!");
-                return BBEP_IO_ERROR;
-            }
-        } else if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
-            uint8_t ucTemp[4];
-            bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP_SET;
-            delay(5);
-            // Modify power up sequence  (VEE and VNEG are swapped)
-            ucTemp[0] = 0x09;
-            ucTemp[1] = 0xe1;
-            bbepI2CWrite(0x48, ucTemp, 2);
-            // Enable all rails
-            ucTemp[0] = 0x01;
-            ucTemp[1] = 0x3f;
-            bbepI2CWrite(0x48, ucTemp, 2);
-            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP_SET;
-            //pinsAsOutputs();
-            gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH_SET;
-            bbepMCPDigitalWrite(/*GMOD*/1, 1); // GMOD_SET
-            bbepMCPDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV_SET;
-            gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM_SET;
-            unsigned long timer = millis();
-            do {
-                delay(1);
-            } while (!bbepReadPowerGood() && (millis() - timer) < 250);
-            if ((millis() - timer) >= 250) {
-                bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM_CLEAR;
-                bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
-                return BBEP_IO_ERROR;
-            }
-            bbepMCPDigitalWrite(pState->panelDef.ioOE, 1); // OE_SET;
-        } else if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo 4.7" (various)
-            bbepSetShiftBit(pState, 5, 1); // scan_direction = true
-            bbepSetShiftBit(pState, 1, 0); // power_disable = false
-            delayMicroseconds(100);
-            bbepSetShiftBit(pState, 3, 1); // negative_power_enable = true
-            delayMicroseconds(500);
-            bbepSetShiftBit(pState, 2, 1); // positive_power_enable = true
-            delayMicroseconds(100);
-            bbepSetShiftBit(pState, 4, 1); // stv = true
-            gpio_set_level((gpio_num_t)(pState->panelDef.ioSPH & 0xff), 1);
-            bbepSetShiftBit(pState, 5, 1); // mode1 = true
-        } else { // single MOSFET
-            gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 1);
-            delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)pState->panelDef.ioPWR, 1);
-            delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 1);
-            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1);
-        }
-        pState->pwr_on = 1;
-    } else { // turn off the power
-        if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65185) { // EPDiy V7
-            bbepPCA9535Write(1, 0x20); // only leave WAKEUP on
-            vTaskDelay(1);
-            bbepPCA9535Write(1, 0); // now turn everything off
-        } else if (pState->panelDef.flags & BB_PANEL_FLAG_TPS65186) { // Inkplate (various)
-            bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-            bbepMCPDigitalWrite(/*GMOD*/1, 0); // GMOD_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioLE, 0); //LE_CLEAR;
-            gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR
-            gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); //SPH_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioSPV, 0); //SPV_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); //VCOM_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
-          //  pinsZstate();
-        } else if (pState->panelDef.flags & BB_PANEL_FLAG_SHIFTREG) { // LilyGo T5 S3
-            bbepSetShiftBit(pState, 2, 0); // positive_power_enable = false
-            delayMicroseconds(10);
-            bbepSetShiftBit(pState, 3, 0); // negative_power_enable = false
-            delayMicroseconds(100);
-            bbepSetShiftBit(pState, 1, 1); // power_disable = true
-            bbepSetShiftBit(pState, 4, 0); // stv = false            
-            bbepSetShiftBit(pState, 5, 0); // mode1 = false
-            bbepSetShiftBit(pState, 6, 0); // output_enable = false
-        } else { // single MOSFET
-            gpio_set_level((gpio_num_t)pState->panelDef.ioPWR, 0);
-            delayMicroseconds(10);
-            gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 0);
-            delayMicroseconds(100);
-            gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 0);
-        }
-        pState->pwr_on = 0;
-    }
-#ifdef SHOW_TIME
-    l = millis() - l;
-    Serial.printf("eink power %s time = %d ms\n", (bOn) ? "on": "off", (int)l);
-#endif
-    return BBEP_SUCCESS;
 } /* bbepEinkPower() */
 
 //
