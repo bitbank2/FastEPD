@@ -38,4 +38,8 @@ void setup() {
 } /* setup() */ 
 
 void loop() {
+  delay(5000);
+  esp_sleep_enable_timer_wakeup(5000000);
+  esp_deep_sleep_start();
+
 } /* loop() */

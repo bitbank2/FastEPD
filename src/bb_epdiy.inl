@@ -994,6 +994,7 @@ int bbepSetPanelSize(BBEPDIYSTATE *pState, int width, int height) {
 int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
 {
     int rc, iPasses;
+    uint8_t *pMatrix;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
         pState->iPanelType = iPanel;
         pState->width = pState->native_width = panelDefs[iPanel].width;
@@ -1020,14 +1021,15 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
         GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
         GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
         // Prepare grayscale lookup tables
+        pMatrix = (uint8_t *)pState->panelDef.pGrayMatrix;
         for (int j = 0; j < iPasses; j++) {
             for (int i = 0; i < 256; i++) {
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                    GLUT[j * 256 + i] = (u8GrayMatrix[((i & 0xf)*iPasses)+j] << 2) | (u8GrayMatrix[((i >> 4)*iPasses)+j]);
-                    GLUT2[j * 256 + i] = ((u8GrayMatrix[((i & 0xf)*iPasses)+j] << 2) | (u8GrayMatrix[((i >> 4)*iPasses)+j])) << 4;
+                    GLUT[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
+                    GLUT2[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
                 } else {
-                    GLUT[j * 256 + i] = (u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j]);
-                    GLUT2[j * 256 + i] = ((u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j])) << 4;
+                    GLUT[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
+                    GLUT2[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
                 }
             }
         }
