@@ -1004,8 +1004,13 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
         // Prepare grayscale lookup tables
         for (int j = 0; j < iPasses; j++) {
             for (int i = 0; i < 256; i++) {
-                GLUT[j * 256 + i] = (u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j]);
-                GLUT2[j * 256 + i] = ((u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j])) << 4;
+                if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                    GLUT[j * 256 + i] = (u8GrayMatrix[((i & 0xf)*iPasses)+j] << 2) | (u8GrayMatrix[((i >> 4)*iPasses)+j]);
+                    GLUT2[j * 256 + i] = ((u8GrayMatrix[((i & 0xf)*iPasses)+j] << 2) | (u8GrayMatrix[((i >> 4)*iPasses)+j])) << 4;
+                } else {
+                    GLUT[j * 256 + i] = (u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j]);
+                    GLUT2[j * 256 + i] = ((u8GrayMatrix[((i >> 4)*iPasses)+j] << 2) | (u8GrayMatrix[((i & 0xf)*iPasses)+j])) << 4;
+                }
             }
         }
         pState->pfnSetPixel = bbepSetPixel2Clr;
@@ -1216,13 +1221,24 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             bbepRowControl(pState, ROW_START);
             for (int i = 0; i < pState->native_height; i++) {
                 s = &pState->pCurrent[i *(pState->native_width / 2)];
-                for (int j = 0; j < (pState->native_width / 4); j += 4) {
-                    d[j + 0] = (GLUT2[k * 256 + s[0]] | GLUT[k * 256 + s[1]]);
-                    d[j + 1] = (GLUT2[k * 256 + s[2]] | GLUT[k * 256 + s[3]]);
-                    d[j + 2] = (GLUT2[k * 256 + s[4]] | GLUT[k * 256 + s[5]]);
-                    d[j + 3] = (GLUT2[k * 256 + s[6]] | GLUT[k * 256 + s[7]]);
-                    s += 8;
-                } // for j
+                if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                    s += (pState->native_width / 2) - 8;
+                    for (int j = 0; j < (pState->native_width / 4); j += 4) {
+                        d[j + 0] = (GLUT2[k * 256 + s[7]] | GLUT[k * 256 + s[6]]);
+                        d[j + 1] = (GLUT2[k * 256 + s[5]] | GLUT[k * 256 + s[4]]);
+                        d[j + 2] = (GLUT2[k * 256 + s[3]] | GLUT[k * 256 + s[2]]);
+                        d[j + 3] = (GLUT2[k * 256 + s[1]] | GLUT[k * 256 + s[0]]);
+                        s -= 8;
+                    } // for j
+                } else {
+                    for (int j = 0; j < (pState->native_width / 4); j += 4) {
+                        d[j + 0] = (GLUT2[k * 256 + s[0]] | GLUT[k * 256 + s[1]]);
+                        d[j + 1] = (GLUT2[k * 256 + s[2]] | GLUT[k * 256 + s[3]]);
+                        d[j + 2] = (GLUT2[k * 256 + s[4]] | GLUT[k * 256 + s[5]]);
+                        d[j + 3] = (GLUT2[k * 256 + s[6]] | GLUT[k * 256 + s[7]]);
+                        s += 8;
+                    } // for j
+                }
                 bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
                // delayMicroseconds(15);
                 bbepRowControl(pState, ROW_STEP);

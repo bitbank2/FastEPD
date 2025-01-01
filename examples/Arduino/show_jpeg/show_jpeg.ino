@@ -26,7 +26,7 @@ int JPEGDraw(JPEGDRAW *pDraw)
 
 void setup() {
 //  epaper.initPanel(BB_PANEL_M5PAPERS3);
-  epaper.initPanel(BB_PANEL_INKPLATE6PLUS);
+  epaper.initPanel(BB_PANEL_INKPLATE5V2);
   epaper.setMode(BB_MODE_4BPP);
   epaper.fillScreen(0xf);
   if (jpg.openFLASH((uint8_t *)it_cartoon, sizeof(it_cartoon), JPEGDraw)) {
