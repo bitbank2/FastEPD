@@ -84,6 +84,7 @@ typedef struct _paneldef {
     uint8_t ioDCDummy; // unused GPIO for the LCD library to needlessly toggle
     const uint8_t *pGrayMatrix; // pointer to matrix of values (waveform) for 16 gray levels
     int iMatrixSize; // size of matrix in bytes
+    int iLinePadding; // extra bytes needed for each transmission
 } BBPANELDEF;
 
 typedef struct bbepr {

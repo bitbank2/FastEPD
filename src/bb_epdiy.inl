@@ -38,30 +38,30 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
 // Pre-defined panels for popular products and boards
 //
 // width, height, bus_speed, flags, data[8], ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
-// ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix)
+// ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
 const BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
-      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_M5PAPERS3
+      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_M5PAPERS3
 
 
     {960, 540, 12000000, BB_PANEL_FLAG_SHIFTREG, {8,1,2,3,4,5,6,7}, 1, 4, 38, 40, 7, 0,
-      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERS3
+      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3
 
 
     {0, 0, 20000000, BB_PANEL_FLAG_TPS65185, {5,6,7,15,16,17,18,8}, BB_IO_FLAG_PCA9535 | 11, 45, 48, 41, BB_IO_FLAG_PCA9535 | 8, 42,
-      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 47, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_EPDIY_V7
+      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 47, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_EPDIY_V7
     {1024, 758, 13333333, BB_PANEL_FLAG_TPS65186 | BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, BB_IO_FLAG_MCP23017 | 4, BB_IO_FLAG_MCP23017 | 2, 32, 33, BB_IO_FLAG_MCP23017 | 0, 2,
-      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE6PLUS
+      0, BB_IO_FLAG_MCP23017 | 7, 21, 22, BB_IO_FLAG_MCP23017 | 3, BB_IO_FLAG_MCP23017 | 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_INKPLATE6PLUS
 
-    {1280, 720, 13333333, BB_PANEL_FLAG_MIRROR_Y, {4,5,18,19,23,25,26,27}, 4, 2, 32, 33, 0, 2,
-      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_INKPLATE5V2
+    {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 4, 2, 32, 33, 0, 2,
+      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE5V2
 
 
     {960, 540, 16000000, BB_PANEL_FLAG_SLOW_SPH, {33,32,4,19,2,27,21,22}, 1, 4, 25, 26, 7, 0,
-      5, BB_NOT_USED, 23, 18, 0, 0x32, 15, u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERV1
+      5, BB_NOT_USED, 23, 18, 0, 0x32, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERV1
     {960, 540, 12000000, BB_PANEL_FLAG_TPS65185, {5,6,7,15,16,17,8,7}, BB_IO_FLAG_PCA9535 | 11, 45, 48, 41,  BB_IO_FLAG_PCA9535 | 8, 42,
-      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix)}, // BB_PANEL_T5EPAPERS3PRO
+      4, BB_IO_FLAG_PCA9535 | 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3PRO
 };
 //
 // Forward references for panel callback functions
@@ -883,7 +883,7 @@ void bbepWriteRow(BBEPDIYSTATE *pState, uint8_t *pData, int iLen)
     }
     transfer_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); //CKV_SET;
-    err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen);
+    err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen + pState->panelDef.iLinePadding);
     if (err != ESP_OK) {
      //   Serial.printf("Error %d sending LCD data\n", (int)err);
     }
@@ -930,11 +930,18 @@ int bbepIOInit(BBEPDIYSTATE *pState)
         uint16_t b, w, l2, u16W, u16B, u16L2;
         u16W = u16B = u16L2 = 0;
         for (int j=0; j<8; j++) {
-            if (!(i & (0x80>>(7-j)))) {
-//            if (i & (1<<j)) {
-                w = 2; b = 1; l2 = 1;
+            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                if (!(i & (1<<(7-j)))) {
+                    w = 2; b = 1; l2 = 1;
+                } else {
+                    w = 3; b = 3; l2 = 2;
+                }
             } else {
-                w = 3; b = 3; l2 = 2;
+                if (!(i & (0x80>>(7-j)))) {
+                    w = 2; b = 1; l2 = 1;
+                } else {
+                    w = 3; b = 3; l2 = 2;
+                }
             }
             u16W |= (w << (j * 2));
             u16B |= (b << (j * 2));
@@ -946,7 +953,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     } // for i
 
     // Allocate memory for each line to transmit
-      pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 4) + 16, MALLOC_CAP_DMA);
+      pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 4) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
 
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
@@ -974,6 +981,7 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
         pState->width = pState->native_width = panelDefs[iPanel].width;
         pState->height = pState->native_height = panelDefs[iPanel].height;
         memcpy(&pState->panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
+        pState->iFlags = pState->panelDef.flags; // copy flags to main class structure
         // get the 3 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
@@ -1123,15 +1131,27 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         // Set the color in multiple passes starting from white
         // First create the 2-bit codes per pixel for the black pixels
         uint8_t *s, *d;
+        int dy; // destination Y for flipped displays
         for (int i = 0; i < pState->native_height; i++) {
             s = &pState->pCurrent[i * (pState->native_width/8)];
-            d = &pState->pTemp[i * (pState->native_width/4)];
+            dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? dy = pState->native_height - 1 - i : dy = i;
+            d = &pState->pTemp[dy * (pState->native_width/4)];
             memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
-            for (int n = 0; n < (pState->native_width / 4); n += 4) {
-                uint8_t dram1 = *s++;
-                uint8_t dram2 = *s++;
-                *(uint16_t *)&d[n+2] = LUTB_16[dram2];
-                *(uint16_t *)&d[n] = LUTB_16[dram1];
+            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                s += (pState->native_width/8) - 1;
+                for (int n = 0; n <(pState->native_width / 4); n += 4) {
+                    uint8_t dram2 = *(s--);
+                    uint8_t dram1 = *(s--);
+                    *(uint16_t *)&d[n] = LUTB_16[dram2];
+                    *(uint16_t *)&d[n+2] = LUTB_16[dram1];
+                }
+            } else {
+                for (int n = 0; n < (pState->native_width / 4); n += 4) {
+                    uint8_t dram1 = *s++;
+                    uint8_t dram2 = *s++;
+                    *(uint16_t *)&d[n+2] = LUTB_16[dram2];
+                    *(uint16_t *)&d[n] = LUTB_16[dram1];
+                }
             }
         }
         // Write 5 passes of the black data to the whole display
@@ -1140,8 +1160,7 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             for (int i = 0; i < pState->native_height; i++) {
                 s = &pState->pTemp[i * (pState->native_width / 4)];
                 // Send the data for the row
-                memcpy(pState->dma_buf, s, pState->native_width/ 4);
-                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
+                bbepWriteRow(pState, s, (pState->native_width / 4));
               //  delayMicroseconds(15);
                 bbepRowControl(pState, ROW_STEP);
             }
@@ -1152,16 +1171,26 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             uint8_t *s, *d;
             bbepRowControl(pState, ROW_START);
             for (int i = 0; i < pState->native_height; i++) {
-                s = &pState->pCurrent[(pState->native_width/8) * i];
-                d = &pState->pTemp[i * (pState->native_width/4)];
+                dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? dy = pState->native_height - 1 - i : dy = i;
+                s = &pState->pCurrent[(pState->native_width/8) * dy];
+                d = pState->dma_buf;
+            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                s += (pState->native_width/8) - 1;
+                for (int n = 0; n < (pState->native_width / 4); n += 4) {
+                    uint8_t dram2 = *s--;
+                    uint8_t dram1 = *s--;
+                    *(uint16_t *)&d[n] = LUT2_16[dram2];
+                    *(uint16_t *)&d[n+2] = LUT2_16[dram1];
+                }
+            } else {
                 for (int n = 0; n < (pState->native_width / 4); n += 4) {
                     uint8_t dram1 = *s++;
                     uint8_t dram2 = *s++;
                     *(uint16_t *)&d[n+2] = LUT2_16[dram2];
                     *(uint16_t *)&d[n] = LUT2_16[dram1];
                 }
+            }
                 // Send the data for the row
-                memcpy(pState->dma_buf, d, pState->native_width/ 4);
                 bbepWriteRow(pState, d, (pState->native_width / 4));
               //  delayMicroseconds(15);
                 bbepRowControl(pState, ROW_STEP);
