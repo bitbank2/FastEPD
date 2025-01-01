@@ -30,6 +30,24 @@ const uint8_t u8GrayMatrix[] = {
 /* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
 };
 
+const uint8_t u8M5Matrix[] = {
+/* 0 */	    0,  0,  0,  2,  2,  2,  2,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,
+/* 1 */	    2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,  0,
+/* 2 */		0,	0,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
+/* 3 */		0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,  0,
+/* 4 */		0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	0,	0,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
+/* 5 */		0,	0,	0,	0,	0,	0,	0,	1,	1,	2,	2,	2,	2,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
+/* 6 */		0,	0,	0,	0,	0,	0,	1,	1,	1,	2,	2,	2,	2,	2,	2,	0,	0,	0,	1,	1,	1,	1,	0,	0,  0,
+/* 7 */		0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	0,	0,  0,
+/* 8 */		0,	0,	0,	0,	0,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	1,	1,	1,	0,	0,  0,
+/* 9 */		0,	0,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	1,	1,	0,	0,  0,
+/* 10 */	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	1,	1,  0,
+/* 11 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	2,	2,	2,	1,	0,	0,  0,
+/* 12 */	0,	0,	0,	1,	1,	1,	1,	1,	1,	2,	2,	2,	1,	1,	2,	2,	2,	2,	2,	2,	2,	1,	0,	0,  0,
+/* 13 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	0,  0,
+/* 14 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	2,  0,
+/* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
+};
 // Forward references
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
@@ -42,7 +60,7 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
 const BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 46, 17, 18, 13, 45, 15,
-      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_M5PAPERS3
+      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_M5PAPERS3
 
 
     {960, 540, 12000000, BB_PANEL_FLAG_SHIFTREG, {8,1,2,3,4,5,6,7}, 1, 4, 38, 40, 7, 0,
@@ -1273,30 +1291,44 @@ int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iE
         d = &pState->pTemp[i * (pState->native_width/4)]; // LUT temp storage
         pCur = &pState->pCurrent[i * (pState->native_width / 8)];
         pPrev = &pState->pPrevious[i * (pState->native_width / 8)];
-        for (int j = 0; j < pState->native_width / 16; ++j)
-        {
-            cur = *pCur++; prev = *pPrev++;
-            diffw = prev & ~cur;
-            diffb = ~prev & cur;
-            *(uint16_t *)&d[0] = LUTW_16[diffw] & LUTB_16[diffb];
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            pCur += (pState->native_width / 8) - 1;
+            pPrev += (pState->native_width / 8) - 1;
+            for (int j = 0; j < pState->native_width / 16; j++) {
+                cur = *pCur--; prev = *pPrev--;
+                diffw = prev & ~cur;
+                diffb = ~prev & cur;
+                *(uint16_t *)&d[0] = LUTW_16[diffw] & LUTB_16[diffb];
 
-            cur = *pCur++; prev = *pPrev++;
-            diffw = prev & ~cur;
-            diffb = ~prev & cur;
-            *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
-            d += 4;
+                cur = *pCur--; prev = *pPrev--;
+                diffw = prev & ~cur;
+                diffb = ~prev & cur;
+                *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
+                d += 4;
+            }
+        } else {
+            for (int j = 0; j < pState->native_width / 16; j++) {
+                cur = *pCur++; prev = *pPrev++;
+                diffw = prev & ~cur;
+                diffb = ~prev & cur;
+                *(uint16_t *)&d[0] = LUTW_16[diffw] & LUTB_16[diffb];
+
+                cur = *pCur++; prev = *pPrev++;
+                diffw = prev & ~cur;
+                diffb = ~prev & cur;
+                *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
+                d += 4;
+            }
         }
     }
-    for (int k = 0; k < 4; ++k) { // each pass is about 32ms
+    for (int k = 0; k < 3; ++k) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
         int iSkipped = 0;
         bbepRowControl(pState, ROW_START);
         for (int i = 0; i < pState->native_height; i++) {
             if (i >= iStartLine && i <= iEndLine) {
-                memcpy((void *)pState->dma_buf, dp, pState->native_width/4);
-                // Send the data using I2S DMA driver.
-                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
-//                delayMicroseconds(10);
+                // Send the data
+                bbepWriteRow(pState, dp, (pState->native_width / 4));
                 iSkipped = 0;
             } else {
                 if (iSkipped >= 2) {
@@ -1308,11 +1340,9 @@ int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iE
                        memset((void *)pState->dma_buf, 0xff, pState->native_width/4);
                     }
                     bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
-//                    delayMicroseconds(10);
                 }
                 iSkipped++;
             }
-            while (!transfer_is_done) {}; // need to wait for data to finish transmitting
             bbepRowControl(pState, ROW_STEP);
             dp += (pState->native_width / 4);
         }
