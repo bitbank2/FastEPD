@@ -1,5 +1,5 @@
 //
-// bb_epdiy
+// FastEPD
 // Copyright (c) 2024 BitBank Software, Inc.
 // Written by Larry Bank (bitbank@pobox.com)
 //
@@ -9,9 +9,9 @@
 // use of all of the library features
 //
 #include <Wire.h>
-#include "bb_epdiy.h"
+#include "FastEPD.h"
 #include "arduino_io.inl"
-#include "bb_epdiy.inl"
+#include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 
 #if !(defined(CONFIG_ESP32_SPIRAM_SUPPORT) || defined(CONFIG_ESP32S3_SPIRAM_SUPPORT))
@@ -21,86 +21,86 @@
 // Display how much time each operation takes on the serial monitor
 #define SHOW_TIME
 
-int BBEPDIY::getStringBox(const char *text, BBEPRECT *pRect)
+int FASTEPD::getStringBox(const char *text, BBEPRECT *pRect)
 {
     return bbepGetStringBox(&_state, text, pRect);
 }
 //
 // Copy the current pixels to the previous for partial updates after powerup
 //
-void BBEPDIY::backupPlane(void)
+void FASTEPD::backupPlane(void)
 {
     bbepBackupPlane(&_state);
 }
 
-int BBEPDIY::loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG)
+int FASTEPD::loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG)
 {
     return bbepLoadBMP(&_state, pBMP, x, y, iFG, iBG);
 } /* loadBMP() */
 
-int BBEPDIY::setRotation(int iAngle)
+int FASTEPD::setRotation(int iAngle)
 {
     return bbepSetRotation(&_state, iAngle);
 }
-void BBEPDIY::drawPixel(int16_t x, int16_t y, uint8_t color)
+void FASTEPD::drawPixel(int16_t x, int16_t y, uint8_t color)
 {
     (*_state.pfnSetPixel)(&_state, x, y, color);
 }
-void BBEPDIY::drawPixelFast(int16_t x, int16_t y, uint8_t color)
+void FASTEPD::drawPixelFast(int16_t x, int16_t y, uint8_t color)
 {
     (*_state.pfnSetPixelFast)(&_state, x, y, color);
 }
 
-void BBEPDIY::drawRoundRect(int x, int y, int w, int h,
+void FASTEPD::drawRoundRect(int x, int y, int w, int h,
                    int r, uint8_t color)
 {
     bbepRoundRect(&_state, x, y, w, h, r, color, 0);
 }
-void BBEPDIY::fillRoundRect(int x, int y, int w, int h,
+void FASTEPD::fillRoundRect(int x, int y, int w, int h,
                    int r, uint8_t color)
 {
     bbepRoundRect(&_state, x, y, w, h, r, color, 1);
 }
 
-void BBEPDIY::drawRect(int x, int y, int w, int h, uint8_t color)
+void FASTEPD::drawRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 0);
 }
 
-void BBEPDIY::fillRect(int x, int y, int w, int h, uint8_t color)
+void FASTEPD::fillRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 1);
 }
 
-void BBEPDIY::drawLine(int x1, int y1, int x2, int y2, int iColor)
+void FASTEPD::drawLine(int x1, int y1, int x2, int y2, int iColor)
 {
     bbepDrawLine(&_state, x1, y1, x2, y2, iColor);
 } /* drawLine() */ 
 
-int BBEPDIY::setMode(int iMode)
+int FASTEPD::setMode(int iMode)
 {
     return bbepSetMode(&_state, iMode);
   /* setMode() */
 }
-void BBEPDIY::setFont(int iFont)
+void FASTEPD::setFont(int iFont)
 {
     _state.iFont = iFont;
     _state.pFont = NULL;
 } /* setFont() */
 
-void BBEPDIY::setFont(const void *pFont)
+void FASTEPD::setFont(const void *pFont)
 {
     _state.iFont = -1;
     _state.pFont = (void *)pFont;
 } /* setFont() */
 
-void BBEPDIY::setTextColor(int iFG, int iBG)
+void FASTEPD::setTextColor(int iFG, int iBG)
 {
     _state.iFG = iFG;
     _state.iBG = (iBG == -1) ? iFG : iBG;
 } /* setTextColor() */
 
-void BBEPDIY::drawString(const char *pText, int x, int y)
+void FASTEPD::drawString(const char *pText, int x, int y)
 {
     if (_state.pFont) {
         bbepWriteStringCustom(&_state, (BB_FONT *)_state.pFont, x, y, (char *)pText, _state.iFG);
@@ -109,7 +109,7 @@ void BBEPDIY::drawString(const char *pText, int x, int y)
     }
 } /* drawString() */
 
-size_t BBEPDIY::write(uint8_t c) {
+size_t FASTEPD::write(uint8_t c) {
 char szTemp[2]; // used to draw 1 character at a time to the C methods
 int w=8, h=8;
 
@@ -157,7 +157,7 @@ int w=8, h=8;
   return 1;
 } /* write() */
 
-int BBEPDIY::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
+int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
 {
     _state.iPanelType = BB_PANEL_CUSTOM;
     memcpy(&_state.panelDef, pPanel, sizeof(BBPANELDEF));
@@ -167,31 +167,31 @@ int BBEPDIY::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
     return (*(_state.pfnIOInit))(&_state);
 } /* setPanelType() */
 
-int BBEPDIY::setPanelSize(int width, int height) {
+int FASTEPD::setPanelSize(int width, int height) {
     return bbepSetPanelSize(&_state, width, height);
 } /* setPanelSize() */
 
-int BBEPDIY::initPanel(int iPanel)
+int FASTEPD::initPanel(int iPanel)
 {
     return bbepInitPanel(&_state, iPanel);
 } /* initIO() */
 
-int BBEPDIY::einkPower(int bOn)
+int FASTEPD::einkPower(int bOn)
 {
     return bbepEinkPower(&_state, bOn);
 } /* einkPower() */
 
-void BBEPDIY::fillScreen(uint8_t u8Color)
+void FASTEPD::fillScreen(uint8_t u8Color)
 {
     bbepFillScreen(&_state, u8Color);
 } /* fillScreen() */
 
-int BBEPDIY::fullUpdate(bool bFast, bool bKeepOn, BBEPRECT *pRect)
+int FASTEPD::fullUpdate(bool bFast, bool bKeepOn, BBEPRECT *pRect)
 {
     return bbepFullUpdate(&_state, bFast, bKeepOn, pRect);
 } /* fullUpdate() */
 
-int BBEPDIY::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
+int FASTEPD::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
 {
     return bbepPartialUpdate(&_state, bKeepOn, iStartLine, iEndLine);
 } /* partialUpdate() */

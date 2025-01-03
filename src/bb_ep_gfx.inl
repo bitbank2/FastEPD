@@ -174,7 +174,7 @@ const uint8_t ucSmallFont[] PROGMEM = {
     0x02,0x01,0x02,0x01,0x00,
     0x3c,0x26,0x23,0x26,0x3c};
 
-void bbepFillScreen(BBEPDIYSTATE *pState, uint8_t u8Color)
+void bbepFillScreen(FASTEPDSTATE *pState, uint8_t u8Color)
 {
     int iPitch;
     if (pState->mode == BB_MODE_1BPP) {
@@ -194,7 +194,7 @@ void bbepFillScreen(BBEPDIYSTATE *pState, uint8_t u8Color)
 // The priority color (0 or 1) determines which color is painted
 // when a 1 is encountered in the source image.
 //
-void bbepDrawSprite(BBEPDIYSTATE *pBBEP, const uint8_t *pSprite, int cx, int cy, int iPitch, int x, int y, uint8_t iColor)
+void bbepDrawSprite(FASTEPDSTATE *pBBEP, const uint8_t *pSprite, int cx, int cy, int iPitch, int x, int y, uint8_t iColor)
 {
     int tx, ty, dx, dy, iStartX;
     uint8_t *s, pix, ucSrcMask;
@@ -250,7 +250,7 @@ int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)
     int i = 0;
     int iPitch;
     uint8_t u8, u8Mask = 0;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     // only available for local buffer operations
     if (!pBBEP) return BBEP_ERROR_BAD_PARAMETER;
@@ -294,7 +294,7 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = (pBBEP->width+7)>>3;
     
@@ -313,7 +313,7 @@ void bbepSetPixelFast2Clr_180(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = (pBBEP->width+7)>>3;
     
@@ -332,7 +332,7 @@ void bbepSetPixelFast2Clr_90(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = (pBBEP->native_width+7)>>3;
     
@@ -351,7 +351,7 @@ void bbepSetPixelFast2Clr_270(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = (pBBEP->native_width+7)>>3;
     
@@ -370,7 +370,7 @@ int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
     int i = 0;
     int iPitch;
     uint8_t u8, u8Mask = 0xf0;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     // only available for local buffer operations
     if (!pBBEP) return BBEP_ERROR_BAD_PARAMETER;
@@ -422,7 +422,7 @@ void bbepSetPixelFast16Clr(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = pBBEP->native_width >> 1;
     i = (x >> 1) + (y * iPitch);
@@ -442,7 +442,7 @@ void bbepSetPixelFast16Clr_90(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = pBBEP->native_width >> 1;
     i = (y >> 1) + ((pBBEP->width-1-x) * iPitch);
@@ -462,7 +462,7 @@ void bbepSetPixelFast16Clr_180(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = pBBEP->native_width >> 1;
     i = ((pBBEP->width-1-x) >> 1) + ((pBBEP->height-1-y) * iPitch);
@@ -482,7 +482,7 @@ void bbepSetPixelFast16Clr_270(void *pb, int x, int y, unsigned char ucColor)
     int i;
     int iPitch;
     uint8_t u8;
-    BBEPDIYSTATE *pBBEP = (BBEPDIYSTATE *)pb;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
     
     iPitch = pBBEP->native_width >> 1;
     i = ((pBBEP->height-1-y) >> 1) + (x * iPitch);
@@ -516,7 +516,7 @@ void InvertBytes(uint8_t *pData, uint8_t bLen)
 // draw the 1's bits as the FG color and leave
 // the background (0 pixels) unchanged - aka transparent.
 //
-int bbepLoadG5(BBEPDIYSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, int iBG)
+int bbepLoadG5(FASTEPDSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, int iBG)
 {
     uint16_t rc, tx, ty, cx, cy, size;
     BB_BITMAP *pbbb;
@@ -560,7 +560,7 @@ int bbepLoadG5(BBEPDIYSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, i
 // draw the 1's bits as the FG color and leave
 // the background (0 pixels) unchanged - aka transparent.
 //
-int bbepLoadBMP(BBEPDIYSTATE *pBBEP, const uint8_t *pBMP, int dx, int dy, int iFG, int iBG)
+int bbepLoadBMP(FASTEPDSTATE *pBBEP, const uint8_t *pBMP, int dx, int dy, int iFG, int iBG)
 {
     int16_t i16, cx, cy;
     int iOffBits; // offset to bitmap data
@@ -631,7 +631,7 @@ int bbepLoadBMP(BBEPDIYSTATE *pBBEP, const uint8_t *pBMP, int dx, int dy, int iF
 // The column represents the pixel column (0-127)
 // The row represents the text row (0-7)
 //
-void bbepSetCursor(BBEPDIYSTATE *pBBEP, int x, int y)
+void bbepSetCursor(FASTEPDSTATE *pBBEP, int x, int y)
 {
     pBBEP->iCursorX = x;
     pBBEP->iCursorY = y;
@@ -639,14 +639,14 @@ void bbepSetCursor(BBEPDIYSTATE *pBBEP, int x, int y)
 //
 // Turn text wrap on or off for the bbepWriteString() function
 //
-void bbepSetTextWrap(BBEPDIYSTATE *pBBEP, int bWrap)
+void bbepSetTextWrap(FASTEPDSTATE *pBBEP, int bWrap)
 {
     pBBEP->wrap = bWrap;
 } /* bbepSetTextWrap() */
 //
 // Draw a string of BB_FONT characters directly into the EPD framebuffer
 //
-int bbepWriteStringCustom(BBEPDIYSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
+int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
     int rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
     signed int n;
@@ -856,7 +856,7 @@ int tx, ty, iPitch, iDestPitch;
 // Draw a string of normal (8x8), small (6x8) or large (16x32) characters
 // At the given col+row
 //
-int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, int iColor)
+int bbepWriteString(FASTEPDSTATE *pBBEP, int x, int y, char *szMsg, int iSize, int iColor)
 {
     int i, iFontOff, iLen;
     uint8_t c, *s;
@@ -1135,7 +1135,7 @@ int bbepWriteString(BBEPDIYSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
 // Get the bounding rectangle of text
 // The position of the rectangle is based on the current cursor position and font
 //
-int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
+int bbepGetStringBox(FASTEPDSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
 {
     int cx = 0;
     unsigned int c, i = 0;
@@ -1190,7 +1190,7 @@ int bbepGetStringBox(BBEPDIYSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
 // Draw a line from x1,y1 to x2,y2 in the given color
 // This function supports both buffered and bufferless drawing
 //
-void bbepDrawLine(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t ucColor)
+void bbepDrawLine(FASTEPDSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t ucColor)
 {
     int temp;
     int dx = x2 - x1;
@@ -1267,7 +1267,7 @@ void bbepDrawLine(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t u
 // For drawing ellipses, a circle is drawn and the x and y pixels are scaled by a 16-bit integer fraction
 // This function draws a single pixel and scales its position based on the x/y fraction of the ellipse
 //
-static void DrawScaledPixel(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor)
+static void DrawScaledPixel(FASTEPDSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor)
 {
     if (iXFrac != 0x10000) x = ((x * iXFrac) >> 16);
     if (iYFrac != 0x10000) y = ((y * iYFrac) >> 16);
@@ -1281,7 +1281,7 @@ static void DrawScaledPixel(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y,
 //
 // For drawing filled ellipses
 //
-static void DrawScaledLine(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor)
+static void DrawScaledLine(FASTEPDSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor)
 {
     int iLen, x2;
     
@@ -1302,7 +1302,7 @@ static void DrawScaledLine(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y, 
 // Draw the 8 pixels around the Bresenham circle
 // (scaled to make an ellipse)
 //
-static void BresenhamCircle(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor, uint8_t u8Parts, uint8_t bFill)
+static void BresenhamCircle(FASTEPDSTATE *pBBEP, int iCX, int iCY, int x, int y, int32_t iXFrac, int32_t iYFrac, uint8_t ucColor, uint8_t u8Parts, uint8_t bFill)
 {
     if (bFill) // draw a filled ellipse
     {
@@ -1335,7 +1335,7 @@ static void BresenhamCircle(BBEPDIYSTATE *pBBEP, int iCX, int iCY, int x, int y,
 //
 // Draw an outline or filled ellipse
 //
-void bbepEllipse(BBEPDIYSTATE *pBBEP, int iCenterX, int iCenterY, int32_t iRadiusX, int32_t iRadiusY, uint8_t u8Parts, uint8_t ucColor, uint8_t bFilled)
+void bbepEllipse(FASTEPDSTATE *pBBEP, int iCenterX, int iCenterY, int32_t iRadiusX, int32_t iRadiusY, uint8_t u8Parts, uint8_t ucColor, uint8_t bFilled)
 {
     int32_t iXFrac, iYFrac;
     int iRadius, iDelta, x, y;
@@ -1371,12 +1371,12 @@ void bbepEllipse(BBEPDIYSTATE *pBBEP, int iCenterX, int iCenterY, int32_t iRadiu
 //
 // Draw an outline or filled rectangle
 //
-void bbepRectangle(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t ucColor, uint8_t bFilled)
+void bbepRectangle(FASTEPDSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t ucColor, uint8_t bFilled)
 {
     int tmp;
     
     if (pBBEP == NULL) {
-        return; // invalid - must have BBEPDIYSTATE structure
+        return; // invalid - must have FASTEPDSTATE structure
     }
     
     if (x1 < 0 || y1 < 0 || x2 < 0 || y2 < 0 ||
@@ -1423,7 +1423,7 @@ void bbepRectangle(BBEPDIYSTATE *pBBEP, int x1, int y1, int x2, int y2, uint8_t 
 //
 // Draw a rectangle (optionally filled) with rounded corners. The radius of the rounded corners is specified
 //
-void bbepRoundRect(BBEPDIYSTATE *pBBEP, int x, int y, int w, int h, int r, uint8_t iColor, int bFilled)
+void bbepRoundRect(FASTEPDSTATE *pBBEP, int x, int y, int w, int h, int r, uint8_t iColor, int bFilled)
 {
     if (bFilled) {
         bbepRectangle(pBBEP, x+r, y, x+w-1-r, y+h, iColor, 1);
@@ -1448,7 +1448,7 @@ void bbepRoundRect(BBEPDIYSTATE *pBBEP, int x, int y, int w, int h, int r, uint8
 //
 // Set the display rotation angle (0, 90, 180, 270)
 //
-int bbepSetRotation(BBEPDIYSTATE *pState, int iAngle)
+int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
 {
     iAngle %= 360;
     if (iAngle % 90 != 0) return BBEP_ERROR_BAD_PARAMETER;
@@ -1498,7 +1498,7 @@ int bbepSetRotation(BBEPDIYSTATE *pState, int iAngle)
 //
 // Set the graphics mode (1-bit or 4-bits per pixel)
 //
-int bbepSetMode(BBEPDIYSTATE *pState, int iMode)
+int bbepSetMode(FASTEPDSTATE *pState, int iMode)
 {
     if (iMode != BB_MODE_1BPP && iMode != BB_MODE_4BPP) return BBEP_ERROR_BAD_PARAMETER;
     pState->mode = iMode;

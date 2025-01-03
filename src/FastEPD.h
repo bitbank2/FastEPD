@@ -1,10 +1,10 @@
 //
-// bb_epdiy
+// FastEPD
 // Copyright (c) 2024 BitBank Software, Inc.
 // Written by Larry Bank (bitbank@pobox.com)
 //
-#ifndef __BB_EPDIY_H__
-#define __BB_EPDIY_H__
+#ifndef __FASTEPD_H__
+#define __FASTEPD_H__
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -20,7 +20,7 @@
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
 #define BB_PANEL_FLAG_SLOW_SPH 0x04
 
-#define BB_NOT_USED 0xffff
+#define BB_NOT_USED 0xff
 #define BBEP_TRANSPARENT 255
 
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
@@ -61,18 +61,18 @@ typedef struct _paneldef {
     uint32_t flags;
     uint8_t data[16];
     uint8_t bus_width;
-    uint16_t ioPWR;
-    uint16_t ioSPV;
-    uint16_t ioCKV;
-    uint16_t ioSPH; // XSTL
-    uint16_t ioOE; // XOE
-    uint16_t ioLE; // XLE
-    uint16_t ioCL; // XCL
-    uint16_t ioPWR_Good;
-    uint16_t ioSDA;
-    uint16_t ioSCL;
-    uint16_t ioShiftSTR; // shift store register
-    uint16_t ioShiftMask; // shift bits that can be left permanently in this state
+    uint8_t ioPWR;
+    uint8_t ioSPV;
+    uint8_t ioCKV;
+    uint8_t ioSPH; // XSTL
+    uint8_t ioOE; // XOE
+    uint8_t ioLE; // XLE
+    uint8_t ioCL; // XCL
+    uint8_t ioPWR_Good;
+    uint8_t ioSDA;
+    uint8_t ioSCL;
+    uint8_t ioShiftSTR; // shift store register
+    uint8_t ioShiftMask; // shift bits that can be left permanently in this state
     uint8_t ioDCDummy; // unused GPIO for the LCD library to needlessly toggle
     const uint8_t *pGrayMatrix; // pointer to matrix of values (waveform) for 16 gray levels
     int iMatrixSize; // size of matrix in bytes
@@ -131,7 +131,7 @@ typedef struct tag_bbeppanelprocs
     BB_ROW_CONTROL *pfnRowControl;
 } BBPANELPROCS;
 
-typedef struct tag_bbepdiystate
+typedef struct tag_fastepdstate
 {
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode, shift_data;
@@ -152,17 +152,17 @@ typedef struct tag_bbepdiystate
     BB_EINK_POWER *pfnEinkPower;
     BB_IO_INIT *pfnIOInit;
     BB_ROW_CONTROL *pfnRowControl;
-} BBEPDIYSTATE;
+} FASTEPDSTATE;
 
 #ifdef __cplusplus
 #ifdef ARDUINO
-class BBEPDIY : public Print
+class FASTEPD : public Print
 #else
-class BBEPDIY
+class FASTEPD
 #endif
 {
   public:
-    BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
+    FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setPanelSize(int width, int height);
@@ -205,8 +205,8 @@ class BBEPDIY
 #endif
 
   protected:
-    BBEPDIYSTATE _state;
-}; // class BBEPDIY
+    FASTEPDSTATE _state;
+}; // class FASTEPD
 #endif // __cplusplus
 
 #ifdef __cplusplus
@@ -220,8 +220,8 @@ extern "C" {
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "arduino_io.inl"
-#include "bb_epdiy.inl"
+#include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 #endif // __cplusplus
 
-#endif // __BB_EPDIY_H__
+#endif // __FASTEPD_H__

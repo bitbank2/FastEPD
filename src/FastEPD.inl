@@ -3,7 +3,7 @@
 // Written by Larry Bank (bitbank@pobox.com)
 // Copyright (C) 2024 BitBank Software, Inc.
 //
-#include "bb_epdiy.h"
+#include "FastEPD.h"
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 
@@ -279,7 +279,7 @@ uint8_t ucTemp[4];
     bbepI2CWrite(0x20, ucTemp, 2);
 } /* bbepPCA9535SetConfig() */
 
-void bbepTPS65186Init(BBEPDIYSTATE *pState)
+void bbepTPS65186Init(FASTEPDSTATE *pState)
 {
     uint8_t ucTemp[8];
     ucTemp[0] = 0x9; // power up sequence register
@@ -360,7 +360,7 @@ uint8_t bbepPCALDigitalRead(uint8_t pin)
 //
 // Write 8 bits (_state.shift_data) to the shift register
 //
-void bbepSendShiftData(BBEPDIYSTATE *pState)
+void bbepSendShiftData(FASTEPDSTATE *pState)
 {
     uint8_t uc = pState->shift_data;
     //Serial.printf("Sending shift data: 0x%02x\n", uc);
@@ -378,7 +378,7 @@ void bbepSendShiftData(BBEPDIYSTATE *pState)
 //
 // change the state of a bit in the shift register mask, and update the outputs
 //
-void bbepSetShiftBit(BBEPDIYSTATE *pBBEP, uint8_t u8Bit, uint8_t u8State)
+void bbepSetShiftBit(FASTEPDSTATE *pBBEP, uint8_t u8Bit, uint8_t u8State)
 {
     if (u8State) { // set it
         pBBEP->shift_data |= (1 << u8Bit);
@@ -392,7 +392,7 @@ void bbepSetShiftBit(BBEPDIYSTATE *pBBEP, uint8_t u8Bit, uint8_t u8State)
 //
 int PaperS3EinkPower(void *pBBEP, int bOn)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     if (bOn == pState->pwr_on) return BBEP_SUCCESS; // already on
     if (bOn) {
         gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 1);
@@ -414,7 +414,7 @@ int PaperS3EinkPower(void *pBBEP, int bOn)
 } /* PaperS3EinkPower() */
 int LilyGoV24EinkPower(void *pBBEP, int bOn)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     if (bOn == pState->pwr_on) return BBEP_SUCCESS; // already on
     if (bOn) {
 //        bbepSetShiftBit(pState, 5, 1); // scan_direction = true
@@ -446,7 +446,7 @@ int LilyGoV24EinkPower(void *pBBEP, int bOn)
 #define TPS_REG_PG 0x0F
 int EPDiyV7EinkPower(void *pBBEP, int bOn)
 {
-BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 uint8_t u8Value = 0; // I/O bits for the PCA9535
 
@@ -494,7 +494,7 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
 
 int Inkplate6PlusEinkPower(void *pBBEP, int bOn)
 {
-BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
@@ -544,7 +544,7 @@ uint8_t ucTemp[4];
 }
 int Inkplate5V2EinkPower(void *pBBEP, int bOn)
 {
-BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
@@ -597,7 +597,7 @@ uint8_t ucTemp[4];
 //
 int PaperS3IOInit(void *pBBEP)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
     bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
@@ -612,7 +612,7 @@ int PaperS3IOInit(void *pBBEP)
 //
 int LilyGoV24IOInit(void *pBBEP)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     Serial.println("Using shift register");
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
@@ -630,7 +630,7 @@ int LilyGoV24IOInit(void *pBBEP)
 //
 int EPDiyV7IOInit(void *pBBEP)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
     if (pState->panelDef.ioSPV < 0x100) bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
     if (pState->panelDef.ioCKV < 0x100) bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
@@ -647,7 +647,7 @@ int EPDiyV7IOInit(void *pBBEP)
 //
 int Inkplate6PlusIOInit(void *pBBEP)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioLE, OUTPUT);
@@ -672,7 +672,7 @@ int Inkplate6PlusIOInit(void *pBBEP)
 
 int Inkplate5V2IOInit(void *pBBEP)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
     bbepPCAL6416Init();
     bbepPCALDigitalWrite(9, LOW);
@@ -700,7 +700,7 @@ int Inkplate5V2IOInit(void *pBBEP)
 //
 void PaperS3RowControl(void *pBBEP, int iType)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -737,7 +737,7 @@ void PaperS3RowControl(void *pBBEP, int iType)
 
 void LilyGoV24RowControl(void *pBBEP, int iType)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -776,7 +776,7 @@ void LilyGoV24RowControl(void *pBBEP, int iType)
 }
 void EPDiyV7RowControl(void *pBBEP, int iType)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -812,7 +812,7 @@ void EPDiyV7RowControl(void *pBBEP, int iType)
 }
 void Inkplate6PlusRowControl(void *pBBEP, int iType)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -849,7 +849,7 @@ void Inkplate6PlusRowControl(void *pBBEP, int iType)
 }
 void Inkplate5V2RowControl(void *pBBEP, int iType)
 {
-    BBEPDIYSTATE *pState = (BBEPDIYSTATE *)pBBEP;
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
     gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
@@ -884,13 +884,13 @@ void Inkplate5V2RowControl(void *pBBEP, int iType)
         delayMicroseconds(0);
     }
 }
-void bbepRowControl(BBEPDIYSTATE *pState, int iType)
+void bbepRowControl(FASTEPDSTATE *pState, int iType)
 {
     (*(pState->pfnRowControl))(pState, iType);
     return;
 } /* bbepRowControl() */
 
-void bbepWriteRow(BBEPDIYSTATE *pState, uint8_t *pData, int iLen)
+void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
 {
     esp_err_t err;
 
@@ -920,7 +920,7 @@ uint8_t ucTemp[4];
     return ucTemp[0];
 }
 
-int bbepIOInit(BBEPDIYSTATE *pState)
+int bbepIOInit(FASTEPDSTATE *pState)
 {
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
@@ -978,7 +978,7 @@ int bbepIOInit(BBEPDIYSTATE *pState)
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 
-int bbepSetPanelSize(BBEPDIYSTATE *pState, int width, int height) {
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height) {
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
@@ -993,7 +993,7 @@ int bbepSetPanelSize(BBEPDIYSTATE *pState, int width, int height) {
 // e.g. BB_PANEL_M5PAPERs3
 // The device is ready to use after returning from this function
 //
-int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
+int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
 {
     int rc, iPasses;
     uint8_t *pMatrix;
@@ -1042,7 +1042,7 @@ int bbepInitPanel(BBEPDIYSTATE *pState, int iPanel)
     return BBEP_ERROR_BAD_PARAMETER;
 } /* bbepInitPanel() */
 
-int bbepEinkPower(BBEPDIYSTATE *pState, int bOn)
+int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
     return (*(pState->pfnEinkPower))(pState, bOn);
 } /* bbepEinkPower() */
@@ -1051,7 +1051,7 @@ int bbepEinkPower(BBEPDIYSTATE *pState, int bOn)
 // Clear the display with the given code for the given number of repetitions
 // val: 0 = lighten, 1 = darken, 2 = discharge, 3 = skip
 //
-void bbepClear(BBEPDIYSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect)
+void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect)
 {
     uint8_t u8;
     int i, k, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
@@ -1134,7 +1134,7 @@ void bbepClear(BBEPDIYSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect
     }
 } /* bbepClear() */
 
-int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRect)
+int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRect)
 {
     int passes;
 #ifdef SHOW_TIME
@@ -1280,7 +1280,7 @@ int bbepFullUpdate(BBEPDIYSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
     return BBEP_SUCCESS;
 } /* bbepFullUdate() */
 
-int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
+int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
 //   long l = millis();
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
@@ -1369,7 +1369,7 @@ int bbepPartialUpdate(BBEPDIYSTATE *pState, bool bKeepOn, int iStartLine, int iE
 // Copy the current pixels to the previous
 // This facilitates doing partial updates after the power is lost
 //
-void bbepBackupPlane(BBEPDIYSTATE *pState)
+void bbepBackupPlane(FASTEPDSTATE *pState)
 {
     int iSize = (pState->native_width/2) * pState->native_height;
     memcpy(pState->pPrevious, pState->pCurrent, iSize);
