@@ -1,5 +1,5 @@
-BB_EPDIY
-========
+FastEPD
+=======
 A complete solution for driving parallel eink displays (think Kindle)<br>
 Written by Larry Bank<br>
 
