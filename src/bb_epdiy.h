@@ -18,18 +18,8 @@
 #define BB_PANEL_FLAG_NONE     0x00
 #define BB_PANEL_FLAG_MIRROR_X 0x01
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
-#define BB_PANEL_FLAG_TPS65185 0x04
-#define BB_PANEL_FLAG_TPS65186 0x08
-#define BB_PANEL_FLAG_SHIFTREG 0x10
-#define BB_PANEL_FLAG_SLOW_SPH 0x20
+#define BB_PANEL_FLAG_SLOW_SPH 0x04
 
-// Flags indicating the connection type and behavior of the EPD signals
-#define BB_IO_FLAG_GPIO      0x0000
-#define BB_IO_FLAG_INVERTED  0x8000
-#define BB_IO_FLAG_MCP23017  0x4000
-#define BB_IO_FLAG_PCA9535   0x2000
-#define BB_IO_FLAG_PCAL6416  0x1000
-#define BB_IO_FLAG_SHIFTREG  0x0800
 #define BB_NOT_USED 0xffff
 #define BBEP_TRANSPARENT 255
 
@@ -59,6 +49,7 @@ enum {
     BB_PANEL_INKPLATE5V2,
     BB_PANEL_T5EPAPERV1,
     BB_PANEL_T5EPAPERS3PRO,
+    BB_PANEL_EPDIY_V7_16,
     BB_PANEL_CUSTOM,
     BB_PANEL_COUNT
 };
@@ -68,7 +59,8 @@ typedef struct _paneldef {
     uint16_t height;
     uint32_t bus_speed;
     uint32_t flags;
-    uint8_t data[8];
+    uint8_t data[16];
+    uint8_t bus_width;
     uint16_t ioPWR;
     uint16_t ioSPV;
     uint16_t ioCKV;
@@ -98,7 +90,6 @@ typedef struct bbepr {
 enum {
     BB_MODE_NONE = 0,
     BB_MODE_1BPP, // 1 bit per pixel
-    BB_MODE_2BPP, // 2 bits per pixel
     BB_MODE_4BPP, // 4 bits per pixel
 };
 #define BBEP_BLACK 0
@@ -172,10 +163,9 @@ class BBEPDIY
 {
   public:
     BBEPDIY() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
-     int initPanel(int iPanelType);
+    int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setPanelSize(int width, int height);
-    void shutdown(void);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
@@ -186,18 +176,15 @@ class BBEPDIY
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
     void backupPlane(void);
-    void drawRoundRect(int x, int y, int w, int h,
-                       int r, uint8_t color);
-    void fillRoundRect(int x, int y, int w, int h,
-                       int r, uint8_t color);
+    void drawRoundRect(int x, int y, int w, int h, int r, uint8_t color);
+    void fillRoundRect(int x, int y, int w, int h, int r, uint8_t color);
     void fillScreen(uint8_t iColor);
-    void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void drawRect(int x, int y, int w, int h, uint8_t color);
     void fillRect(int x, int y, int w, int h, uint8_t color);
     void setTextWrap(bool bWrap);
     void setTextColor(int iFG, int iBG = BBEP_TRANSPARENT);
     void setCursor(int x, int y) {_state.iCursorX = x; _state.iCursorY = y;}
     int loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG);
-    int loadBMP3(const uint8_t *pBMP, int x, int y);
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG);
     void setFont(int iFont);
     void setFont(const void *pFont);

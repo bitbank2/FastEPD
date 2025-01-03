@@ -25,7 +25,9 @@ int JPEGDraw(JPEGDRAW *pDraw)
 } /* JPEGDraw() */
 
 void setup() {
-  epaper.initPanel(BB_PANEL_M5PAPERS3);
+  epaper.initPanel(BB_PANEL_EPDIY_V7);
+  epaper.setPanelSize(1200, 825);
+//  epaper.initPanel(BB_PANEL_M5PAPERS3);
 //  epaper.initPanel(BB_PANEL_INKPLATE5V2);
   epaper.setMode(BB_MODE_4BPP);
   epaper.fillScreen(0xf);

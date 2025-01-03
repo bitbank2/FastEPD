@@ -33,6 +33,11 @@ void BBEPDIY::backupPlane(void)
     bbepBackupPlane(&_state);
 }
 
+int BBEPDIY::loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG)
+{
+    return bbepLoadBMP(&_state, pBMP, x, y, iFG, iBG);
+} /* loadBMP() */
+
 int BBEPDIY::setRotation(int iAngle)
 {
     return bbepSetRotation(&_state, iAngle);
@@ -57,7 +62,7 @@ void BBEPDIY::fillRoundRect(int x, int y, int w, int h,
     bbepRoundRect(&_state, x, y, w, h, r, color, 1);
 }
 
-void BBEPDIY::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+void BBEPDIY::drawRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 0);
 }
