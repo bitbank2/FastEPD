@@ -55,7 +55,7 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
 //
 // Pre-defined panels for popular products and boards
 //
-// width, height, bus_speed, flags, data[8], ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
+// width, height, bus_speed, flags, data[8], bus_width, ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
 // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
 const BBPANELDEF panelDefs[] = {
     {0}, // BB_PANEL_NONE
@@ -63,8 +63,8 @@ const BBPANELDEF panelDefs[] = {
       16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_M5PAPERS3
 
 
-    {960, 540, 12000000, BB_PANEL_FLAG_NONE, {8,1,2,3,4,5,6,7}, 8, 1, 4, 38, 40, 7, 0,
-      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3
+    {960, 540, 12000000, BB_PANEL_FLAG_SLOW_SPH, {8,1,2,3,4,5,6,7}, 8, 1, 4, 38, 40, 7, BB_NOT_USED,
+      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERS3
 
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
@@ -76,8 +76,8 @@ const BBPANELDEF panelDefs[] = {
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE5V2
 
 
-    {960, 540, 16000000, BB_PANEL_FLAG_SLOW_SPH, {33,32,4,19,2,27,21,22}, 8, 1, 4, 25, 26, 7, 0,
-      5, BB_NOT_USED, 23, 18, 0, 0x32, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERV1
+    {960, 540, 10000000, BB_PANEL_FLAG_SLOW_SPH, {33,32,4,19,2,27,21,22}, 8, 1, 4, 25, 26, 7, 15,
+      5, BB_NOT_USED, 23, 18, 0, 0x32, 14, u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERV1
     {960, 540, 12000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,8,7}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3PRO
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8,9,10,11,12,13,14,21,47}, 16, 11, 45, 48, 41, 8, 42,
@@ -368,9 +368,12 @@ void bbepSendShiftData(FASTEPDSTATE *pState)
     gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
     for (int i=0; i<8; i++) { // bits get pushed in reverse order (bit 7 first)
         gpio_set_level((gpio_num_t)pState->panelDef.ioSCL, 0);
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSDA, (uc & 0x80) ? 1 : 0);
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSCL, 1);
+        if (uc & 0x80)
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSDA, 1);
+        else
+            gpio_set_level((gpio_num_t)pState->panelDef.ioSDA, 0);
         uc <<= 1;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSCL, 1);
     }
     // set STR to write the new data to the output to pins
     gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 1);
@@ -617,6 +620,9 @@ int LilyGoV24IOInit(void *pBBEP)
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    if (pState->panelDef.ioLE != BB_NOT_USED) {
+        bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    }
     pState->shift_data = pState->panelDef.ioShiftMask;
     bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
     bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
@@ -768,8 +774,13 @@ void LilyGoV24RowControl(void *pBBEP, int iType)
     } else if (iType == ROW_STEP) {
         gpio_set_level(ckv, 0); //CKV_CLEAR;
         delayMicroseconds(500);
-        bbepSetShiftBit(pState, 0, 1); // EP_LE = true
-        bbepSetShiftBit(pState, 0, 0); // EP_LE = false
+        if (le == BB_NOT_USED) {
+            bbepSetShiftBit(pState, 0, 1); // EP_LE = true
+            bbepSetShiftBit(pState, 0, 0); // EP_LE = false
+        } else {
+            gpio_set_level(le, 1);
+            gpio_set_level(le, 0);
+        }
         delayMicroseconds(0);
         gpio_set_level(ckv, 1); //CKV_SET;
     }
