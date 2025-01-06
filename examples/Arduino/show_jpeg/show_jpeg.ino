@@ -2,11 +2,11 @@
 // Example to show a JPEG image
 // as 16-gray levels
 //
-#include <bb_epdiy.h>
+#include <FastEPD.h>
 #include <JPEGDEC.h>
 #include "it_cartoon.h"
 JPEGDEC jpg;
-BBEPDIY epaper;
+FASTEPD epaper;
 
 int JPEGDraw(JPEGDRAW *pDraw)
 {
@@ -25,6 +25,7 @@ int JPEGDraw(JPEGDRAW *pDraw)
 } /* JPEGDraw() */
 
 void setup() {
+// For EPDiy v7 PCB, you need to specify the panel size explicitly
   epaper.initPanel(BB_PANEL_EPDIY_V7);
   epaper.setPanelSize(1200, 825);
 //  epaper.initPanel(BB_PANEL_M5PAPERS3);

@@ -51,6 +51,14 @@ void FASTEPD::drawPixelFast(int16_t x, int16_t y, uint8_t color)
     (*_state.pfnSetPixelFast)(&_state, x, y, color);
 }
 
+void FASTEPD::drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color)
+{
+    bbepEllipse(&_state, x, y, r, r, 0xf, color, 0);
+}
+void FASTEPD::fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color)
+{
+    bbepEllipse(&_state, x, y, r, r, 0xf, color, 1);
+}
 void FASTEPD::drawRoundRect(int x, int y, int w, int h,
                    int r, uint8_t color)
 {
