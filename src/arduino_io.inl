@@ -34,6 +34,7 @@
 #define INPUT 1
 #define INPUT_PULLUP 2
 #define OUTPUT 3
+#define INPUT_PULLDOWN 4
 unsigned long IRAM_ATTR micros(void)
 {
     return (unsigned long)(esp_timer_get_time());

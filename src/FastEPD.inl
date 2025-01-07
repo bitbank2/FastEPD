@@ -380,7 +380,11 @@ void bbepPCALDigitalWrite(uint8_t pin, uint8_t value)
     uint8_t port = pin / 8;
     pin &= 7;
 
-    value ? ioRegs[PCAL6416A_OUTPORT0_ARRAY + port] |= (1 << pin) : ioRegs[PCAL6416A_OUTPORT0_ARRAY + port] &= ~(1 << pin);
+    if (value) {
+        ioRegs[PCAL6416A_OUTPORT0_ARRAY + port] |= (1 << pin);
+    } else {
+        ioRegs[PCAL6416A_OUTPORT0_ARRAY + port] &= ~(1 << pin);
+    }
     ucTemp[0] = PCAL6416A_OUTPORT0_ARRAY + port;
     ucTemp[1] = ioRegs[PCAL6416A_OUTPORT0_ARRAY + port];
     bbepI2CWrite(0x20, ucTemp, 2);
@@ -1208,7 +1212,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         int dy; // destination Y for flipped displays
         for (int i = 0; i < pState->native_height; i++) {
             s = &pState->pCurrent[i * (pState->native_width/8)];
-            dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? dy = pState->native_height - 1 - i : dy = i;
+            dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
             d = &pState->pTemp[dy * (pState->native_width/4)];
             memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
             if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -1245,7 +1249,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             uint8_t *s, *d;
             bbepRowControl(pState, ROW_START);
             for (int i = 0; i < pState->native_height; i++) {
-                dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? dy = pState->native_height - 1 - i : dy = i;
+                dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 s = &pState->pCurrent[(pState->native_width/8) * dy];
                 d = pState->dma_buf;
             if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
