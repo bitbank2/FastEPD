@@ -6,8 +6,8 @@ void setup() {
 //  epaper.initPanel(BB_PANEL_INKPLATE6PLUS);
 //  epaper.initPanel(BB_PANEL_INKPLATE5V2);
   epaper.initPanel(BB_PANEL_EPDIY_V7);
-//  epaper.setPanelSize(1024, 758);
-  epaper.setPanelSize(1280, 720);
+  epaper.setPanelSize(1024, 758);
+//  epaper.setPanelSize(1280, 720);
   epaper.setMode(BB_MODE_4BPP);
   epaper.fillScreen(0xf);
   for (int i=0; i<800; i+=50) {
