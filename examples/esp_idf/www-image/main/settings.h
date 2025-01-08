@@ -1,6 +1,6 @@
 // WiFi configuration:
-#define ESP_WIFI_SSID "SercommB918"
-#define ESP_WIFI_PASSWORD "MEFWMYSWDGCM5P"
+#define ESP_WIFI_SSID ""
+#define ESP_WIFI_PASSWORD "yourPass"
 
 // DISPLAY settings
 #define EPD_WIDTH 1200
