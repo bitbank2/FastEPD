@@ -15,6 +15,9 @@
 //===========================================================================
 //
 #include "FastEPD.h"
+#ifndef ARDUINO
+#include "driver/gpio.h"
+#endif
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 
@@ -403,7 +406,7 @@ uint8_t bbepPCALDigitalRead(uint8_t pin)
 void bbepSendShiftData(FASTEPDSTATE *pState)
 {
     uint8_t uc = pState->shift_data;
-    //Serial.printf("Sending shift data: 0x%02x\n", uc);
+    //printf("Sending shift data: 0x%02x\n", uc);
     // Clear STR (store) to allow updating the value
     gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
     for (int i=0; i<8; i++) { // bits get pushed in reverse order (bit 7 first)
@@ -522,7 +525,7 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
             vTaskDelay(1);
         }
         if (iTimeout >= 400) {
-             Serial.println("The power_good signal never arrived!");
+            printf("The power_good signal never arrived!");
             return BBEP_IO_ERROR;
         }
         pState->pwr_on = 1;
@@ -656,7 +659,7 @@ int PaperS3IOInit(void *pBBEP)
 int LilyGoV24IOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    Serial.println("Using shift register");
+    printf("Using shift register");
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
@@ -995,7 +998,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     }
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
     transfer_is_done = true;
-    Serial.println("IO init done");
+    printf("IO init done");
 // Create the lookup tables for 1-bit mode. Allow for inverted and mirrored
     for (int i=0; i<256; i++) {
         uint16_t b, w, l2, u16W, u16B, u16L2;
@@ -1326,7 +1329,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
     
 #ifdef SHOW_TIME
     l = millis() - l;
-    Serial.printf("fullUpdate time: %dms\n", (int)l);
+    printf("fullUpdate time: %dms\n", (int)l);
 #endif
     return BBEP_SUCCESS;
 } /* bbepFullUdate() */
@@ -1413,7 +1416,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     memcpy(&pState->pPrevious[offset], &pState->pCurrent[offset], (pState->native_width/8) * (iEndLine - iStartLine+1));
 
 //    l = millis() - l;
-//    Serial.printf("partial update time: %dms\n", (int)l);
+//   printf("partial update time: %dms\n", (int)l);
     return BBEP_SUCCESS;
 } /* bbepPartialUpdate() */
 //

@@ -19,7 +19,9 @@
 // limitations under the License.
 //===========================================================================
 //
+#ifdef ARDUINO
 #include <Wire.h>
+#endif
 #include "FastEPD.h"
 #include "arduino_io.inl"
 #include "FastEPD.inl"
