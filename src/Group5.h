@@ -115,13 +115,13 @@ inline uint32_t TIFFMOTOLONG(uint8_t *p)
 // G5 Encoder
 //
 
-typedef struct pil_buffered_bits
+typedef struct g5_buffered_bits
 {
 unsigned char *pBuf; // buffer pointer
 uint32_t ulBits; // buffered bits
 uint32_t ulBitOff; // current bit offset
 uint32_t ulDataSize; // available data
-} BUFFERED_BITS;
+} G5_BUFFERED_BITS;
 
 //
 // Encoder state
@@ -135,7 +135,7 @@ typedef struct g5_enc_image_tag
     int iDataSize; // generated output size
     uint8_t *pOutBuf;
     int16_t *pCur, *pRef; // pointers to swap current and reference lines
-    BUFFERED_BITS bb;
+    G5_BUFFERED_BITS bb;
     int16_t CurFlips[MAX_IMAGE_FLIPS];
     int16_t RefFlips[MAX_IMAGE_FLIPS];
 } G5ENCIMAGE;
