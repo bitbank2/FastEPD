@@ -46,10 +46,6 @@ FASTEPD epaper;
 #include "JPEGDEC.h"
 
 JPEGDEC jpeg;
-// EXPERIMENTAL: If JPEG_CPY_FRAMEBUFFER is true the JPG is decoded directly in EPD framebuffer
-// On true it looses rotation. Still to check:
-// FALSE now: Need to check how can I copy the buffer directly with FastEPD
-#define JPEG_CPY_FRAMEBUFFER true
 
 // Dither space allocation
 uint8_t* dither_space;
@@ -129,10 +125,6 @@ static void obtain_time(void) {
 uint16_t mcu_count = 0;
 int JPEGDraw4Bits(JPEGDRAW* pDraw) {
     uint32_t render_start = esp_timer_get_time();
-
-#if JPEG_CPY_FRAMEBUFFER
-    // Highly experimental: Does not support rotation and gamma correction
-    // Can be washed out compared to JPEG_CPY_FRAMEBUFFER false
     for (uint16_t yy = 0; yy < pDraw->iHeight; yy++) {
         // Copy directly horizontal MCU pixels in EPD fb
         memcpy(
@@ -141,29 +133,6 @@ int JPEGDraw4Bits(JPEGDRAW* pDraw) {
             pDraw->iWidth
         );
     }
-
-#else
-    // Rotation aware
-    for (int16_t xx = 0; xx < pDraw->iWidth; xx += 4) {
-        for (int16_t yy = 0; yy < pDraw->iHeight; yy++) {
-            uint16_t col = pDraw->pPixels[(xx + (yy * pDraw->iWidth)) >> 2];
-
-            uint8_t col1 = col & 0xf;
-            uint8_t col2 = (col >> 4) & 0xf;
-            uint8_t col3 = (col >> 8) & 0xf;
-            uint8_t col4 = (col >> 12) & 0xf;
-            epaper.drawPixel(pDraw->x + xx, pDraw->y + yy, col1); // gamme_curve[col1]
-            epaper.drawPixel(pDraw->x + xx + 1, pDraw->y + yy, col2);
-            epaper.drawPixel(pDraw->x + xx + 2, pDraw->y + yy, col3);
-            epaper.drawPixel(pDraw->x + xx + 3, pDraw->y + yy, col4);
-
-            if (yy==0 && mcu_count==0) {
-              printf("1.%d %d %d %d ",col1,col2,col3,col4);
-            }
-        }
-    }
-#endif
-
     mcu_count++;
     time_render += (esp_timer_get_time() - render_start) / 1000;
     return 1;
@@ -263,9 +232,8 @@ esp_err_t _http_event_handler(esp_http_client_event_t* evt) {
                 ESP_LOGI("www-dw", "%lld ms - download", time_download);
                 ESP_LOGI(
                     "render",
-                    "%lld ms - copying pix (JPEG_CPY_FRAMEBUFFER:%d)",
-                    time_render,
-                    (int)JPEG_CPY_FRAMEBUFFER
+                    "%lld ms - copying pix (memcpy)",
+                    time_render
                 );
                 // Refresh display
                 epaper.fullUpdate();
@@ -449,9 +417,7 @@ void app_main() {
     for (int gray_value = 0; gray_value < 256; gray_value++)
         gamme_curve[gray_value] = round(255 * pow(gray_value / 255.0, gammaCorrection));
 
-#if JPEG_CPY_FRAMEBUFFER == false
-    epaper.setRotation(EPD_ROTATION);
-#endif
+    epaper.setRotation(0);
 
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
