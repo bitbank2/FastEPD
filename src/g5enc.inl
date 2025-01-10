@@ -50,7 +50,7 @@ static const uint8_t vtable[14] =
          2,7};    /* V(3)  = 0000010 */
 
 
-static void G5ENCInsertCode(BUFFERED_BITS *bb, BIGUINT ulCode, int iLen)
+static void G5ENCInsertCode(G5_BUFFERED_BITS *bb, BIGUINT ulCode, int iLen)
 {
     if ((bb->ulBitOff + iLen) > REGISTER_WIDTH) { // need to write data
         bb->ulBits |= (ulCode >> (bb->ulBitOff + iLen - REGISTER_WIDTH)); // partial bits on first word
@@ -66,7 +66,7 @@ static void G5ENCInsertCode(BUFFERED_BITS *bb, BIGUINT ulCode, int iLen)
 //
 // Flush any buffered bits to the output
 //
-static void G5ENCFlushBits(BUFFERED_BITS *bb)
+static void G5ENCFlushBits(G5_BUFFERED_BITS *bb)
 {
     while (bb->ulBitOff >= 8)
     {
@@ -204,13 +204,13 @@ int xsize, iErr, iHighWater;
 int iCur, iRef, iLen;
 int iHLen; // number of bits for long horizontal codes
 int16_t *CurFlips, *RefFlips;
-BUFFERED_BITS bb;
+G5_BUFFERED_BITS bb;
 
     if (pImage == NULL || pPixels == NULL)
         return G5_INVALID_PARAMETER;
     iHighWater = pImage->iOutSize - 32;
     iHLen = 32 - __builtin_clz(pImage->iWidth);
-    memcpy(&bb, &pImage->bb, sizeof(BUFFERED_BITS)); // keep local copy
+    memcpy(&bb, &pImage->bb, sizeof(G5_BUFFERED_BITS)); // keep local copy
     CurFlips = pImage->pCur;
     RefFlips = pImage->pRef;
     xsize = pImage->iWidth; /* For performance reasons */
