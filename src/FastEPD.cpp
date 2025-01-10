@@ -27,9 +27,6 @@
 #include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 
-#if !(defined(CONFIG_ESP32_SPIRAM_SUPPORT) || defined(CONFIG_ESP32S3_SPIRAM_SUPPORT))
-#error "Please enable PSRAM support"
-#endif
 //#pragma GCC optimize("O2")
 // Display how much time each operation takes on the serial monitor
 #define SHOW_TIME
@@ -188,8 +185,8 @@ int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
     return (*(_state.pfnIOInit))(&_state);
 } /* setPanelType() */
 
-int FASTEPD::setPanelSize(int width, int height) {
-    return bbepSetPanelSize(&_state, width, height);
+int FASTEPD::setPanelSize(int width, int height, int flags) {
+    return bbepSetPanelSize(&_state, width, height, flags);
 } /* setPanelSize() */
 
 int FASTEPD::initPanel(int iPanel)
