@@ -652,13 +652,11 @@ void bbepSetTextWrap(FASTEPDSTATE *pBBEP, int bWrap)
 //
 int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
-    int rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
-    signed int n;
-    unsigned int c;
+    int16_t n, rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
     uint8_t *s;
     BB_GLYPH *pGlyph;
     uint8_t *pBits, u8EndMask;
-    uint8_t first, last;
+    uint8_t c, first, last;
     
     if (pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
     if (pFont == NULL) {

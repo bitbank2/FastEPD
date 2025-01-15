@@ -178,7 +178,7 @@ class FASTEPD
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
-    int setPanelSize(int width, int height);
+    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void) { return _state.pPrevious;}

@@ -21,6 +21,10 @@
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 
+#if !(defined(CONFIG_ESP32_SPIRAM_SUPPORT) || defined(CONFIG_ESP32S3_SPIRAM_SUPPORT))
+#error "Please enable PSRAM support"
+#endif
+
 #ifndef __BB_EP__
 #define __BB_EP__
 
@@ -113,7 +117,7 @@ const BBPANELDEF panelDefs[] = {
       5, BB_NOT_USED, 23, 18, 0, 0x32, 14, u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERV1
     {960, 540, 12000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,8,7}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3PRO
-    {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8,9,10,11,12,13,14,21,47}, 16, 11, 45, 48, 41, 8, 42,
+    {0, 0, 10000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8,9,10,11,12,13,14,21,47}, 16, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 1, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_EPDIY_V7_16
     {1200, 820, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE10
@@ -525,7 +529,7 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
             vTaskDelay(1);
         }
         if (iTimeout >= 400) {
-            printf("The power_good signal never arrived!");
+            // Serial.println("The power_good signal never arrived!");
             return BBEP_IO_ERROR;
         }
         pState->pwr_on = 1;
@@ -659,7 +663,8 @@ int PaperS3IOInit(void *pBBEP)
 int LilyGoV24IOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    printf("Using shift register");
+
+    //Serial.println("Using shift register");
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
@@ -998,7 +1003,9 @@ int bbepIOInit(FASTEPDSTATE *pState)
     }
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
     transfer_is_done = true;
-    printf("IO init done");
+
+    //Serial.println("IO init done");
+
 // Create the lookup tables for 1-bit mode. Allow for inverted and mirrored
     for (int i=0; i<256; i++) {
         uint16_t b, w, l2, u16W, u16B, u16L2;
@@ -1032,12 +1039,25 @@ int bbepIOInit(FASTEPDSTATE *pState)
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 
-int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height) {
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
+    if (pState->width && pState->height) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
+
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
+    pState->iFlags = flags;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
+    if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
+    if (!pState->pPrevious) {
+        free(pState->pCurrent);
+        return BBEP_ERROR_NO_MEMORY;
+    }
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+    if (!pState->pTemp) {
+        free(pState->pCurrent);
+        free(pState->pPrevious);
+        return BBEP_ERROR_NO_MEMORY;
+    }
     return BBEP_SUCCESS;
 } /* setPanelSize() */
 
@@ -1075,7 +1095,12 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         }
         iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
         GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!GLUT) return BBEP_ERROR_NO_MEMORY;
         GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!GLUT2) {
+            free(GLUT);
+            return BBEP_ERROR_NO_MEMORY;
+        }
         // Prepare grayscale lookup tables
         pMatrix = (uint8_t *)pState->panelDef.pGrayMatrix;
         for (int j = 0; j < iPasses; j++) {
@@ -1329,7 +1354,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
     
 #ifdef SHOW_TIME
     l = millis() - l;
-    printf("fullUpdate time: %dms\n", (int)l);
+    //Serial.printf("fullUpdate time: %dms\n", (int)l);
 #endif
     return BBEP_SUCCESS;
 } /* bbepFullUdate() */

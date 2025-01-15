@@ -1,0 +1,18 @@
+dependencies:
+  bitbank2/jpegdec:
+    component_hash: d1f2ee29cffb627bc54138ccbd0206389b9951ec75b45393cb298c446bfe30a7
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.6.2
+  idf:
+    source:
+      type: idf
+    version: 5.3.0
+direct_dependencies:
+- bitbank2/jpegdec
+- idf
+manifest_hash: 7d1eff6faa7521d1f23e420f561952ce7f68e53ce828779b42d92e59727e9a5c
+target: esp32s3
+version: 2.0.0
