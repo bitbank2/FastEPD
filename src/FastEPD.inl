@@ -1034,12 +1034,24 @@ int bbepIOInit(FASTEPDSTATE *pState)
 } /* bbepIOInit() */
 
 int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
+    if (pState->width && pState->height) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
+
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
+    if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
+    if (!pState->pPrevious) {
+        free(pState->pCurrent);
+        return BBEP_ERROR_NO_MEMORY;
+    }
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+    if (!pState->pTemp) {
+        free(pState->pCurrent);
+        free(pState->pPrevious);
+        return BBEP_ERROR_NO_MEMORY;
+    }
     return BBEP_SUCCESS;
 } /* setPanelSize() */
 
@@ -1077,7 +1089,12 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         }
         iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
         GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!GLUT) return BBEP_ERROR_NO_MEMORY;
         GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!GLUT2) {
+            free(GLUT);
+            return BBEP_ERROR_NO_MEMORY;
+        }
         // Prepare grayscale lookup tables
         pMatrix = (uint8_t *)pState->panelDef.pGrayMatrix;
         for (int j = 0; j < iPasses; j++) {
