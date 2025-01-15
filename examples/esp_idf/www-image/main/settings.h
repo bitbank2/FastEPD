@@ -1,11 +1,7 @@
 // WiFi configuration:
-#define ESP_WIFI_SSID ""
-#define ESP_WIFI_PASSWORD "yourPass"
+#define ESP_WIFI_SSID "MEO-B970C0"
+#define ESP_WIFI_PASSWORD "19b59e2bf7"
 
-// DISPLAY settings
-#define EPD_WIDTH 1200
-#define EPD_HEIGHT 825
-#define EPD_ROTATION 0   // 0, 90, 180
 // Affects the gamma to calculate gray (lower is darker/higher contrast)
 // Nice test values: 0.9 1.2 1.4 higher and is too bright
 double gamma_value = 0.9;

@@ -212,10 +212,11 @@ class FASTEPD
     void fillEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color);
     void drawString(const char *pText, int x, int y);
     void drawSprite(const uint8_t *pSprite, int cx, int cy, int iPitch, int x, int y, uint8_t iColor);
-    size_t write(uint8_t c);
 #ifdef ARDUINO
     using Print::write;
     virtual size_t write(uint8_t);
+#else
+    size_t write(uint8_t);
 #endif
 
   protected:

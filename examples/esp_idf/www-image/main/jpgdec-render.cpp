@@ -130,7 +130,7 @@ int JPEGDraw4Bits(JPEGDRAW* pDraw) {
         memcpy(
             &fb[(pDraw->y + yy) * epaper.width() / 2 + pDraw->x / 2],
             &pDraw->pPixels[(yy * pDraw->iWidth) >> 2],
-            pDraw->iWidth
+            pDraw->iWidth/2
         );
     }
     mcu_count++;
@@ -403,7 +403,7 @@ void wifi_init_sta(void) {
 
 void app_main() {
     epaper.initPanel(BB_PANEL_EPDIY_V7);
-    epaper.setPanelSize(EPD_WIDTH, EPD_HEIGHT);
+    epaper.setPanelSize(1024, 758);
     epaper.setMode(BB_MODE_4BPP);
     epaper.fillScreen(0xf);
     fb = epaper.currentBuffer();
