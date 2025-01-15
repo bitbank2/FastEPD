@@ -1,0 +1,6 @@
+[submodule "examples/esp_idf/www-image/components/jpegdec"]
+	path = examples/esp_idf/www-image/components/jpegdec
+	url = https://github.com/bitbank2/JPEGDEC.git
+[submodule "examples/esp_idf/www-image/components/esp-dsp"]
+	path = examples/esp_idf/www-image/components/esp-dsp
+	url = https://github.com/espressif/esp-dsp

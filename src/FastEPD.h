@@ -215,6 +215,8 @@ class FASTEPD
 #ifdef ARDUINO
     using Print::write;
     virtual size_t write(uint8_t);
+#else
+    size_t write(uint8_t);
 #endif
 
   protected:

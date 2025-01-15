@@ -21,6 +21,11 @@
 #ifndef __BB_EP_IO__
 #define __BB_EP_IO__
 
+#ifndef ARDUINO
+#include "driver/gpio.h"
+#include "driver/i2c.h"
+#endif
+
 // GPIO modes
 #ifndef ARDUINO
 #define memcpy_P memcpy
