@@ -1233,8 +1233,8 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         uint8_t *s, *d;
         int dy; // destination Y for flipped displays
         for (int i = 0; i < pState->native_height; i++) {
-            s = &pState->pCurrent[i * (pState->native_width/8)];
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+            s = &pState->pCurrent[i * (pState->native_width/8)];
             d = &pState->pTemp[dy * (pState->native_width/4)];
             memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
             if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -1310,12 +1310,13 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             delayMicroseconds(230);
         }
     } else { // must be 4BPP mode
-        int iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
+        int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
         for (int k = 0; k < iPasses; k++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
             bbepRowControl(pState, ROW_START);
             for (int i = 0; i < pState->native_height; i++) {
-                s = &pState->pCurrent[i *(pState->native_width / 2)];
+                dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+                s = &pState->pCurrent[dy *(pState->native_width / 2)];
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
                     s += (pState->native_width / 2) - 8;
                     for (int j = 0; j < (pState->native_width / 4); j += 4) {
@@ -1398,9 +1399,24 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
             }
         }
     }
+    if (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) {
+        // adjust start/end line to be flipped
+        int i;
+        iStartLine = pState->native_height - 1 - iStartLine;
+        iEndLine = pState->native_height - 1 - iEndLine;
+        // now swap them
+        i = iStartLine;
+        iStartLine = iEndLine;
+        iEndLine = i;
+    }
     for (int k = 0; k < 6; ++k) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
+        int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) {
+            dp = &pState->pTemp[(pState->native_height-1) * iDelta]; // read the memory upside down
+            iDelta = -iDelta;
+        }
         bbepRowControl(pState, ROW_START);
         for (int i = 0; i < pState->native_height; i++) {
             if (i >= iStartLine && i <= iEndLine) {
@@ -1421,7 +1437,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
                 iSkipped++;
             }
             bbepRowControl(pState, ROW_STEP);
-            dp += (pState->native_width / 4);
+            dp += iDelta;
         }
         //delayMicroseconds(230);
     }
