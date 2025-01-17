@@ -1,6 +1,6 @@
 // WiFi configuration:
-#define ESP_WIFI_SSID "MEO-B970C0"
-#define ESP_WIFI_PASSWORD "19b59e2bf7"
+#define ESP_WIFI_SSID "your_ssid"
+#define ESP_WIFI_PASSWORD "your_pw"
 
 // Affects the gamma to calculate gray (lower is darker/higher contrast)
 // Nice test values: 0.9 1.2 1.4 higher and is too bright
