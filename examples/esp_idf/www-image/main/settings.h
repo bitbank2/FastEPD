@@ -1,6 +1,6 @@
 // WiFi configuration:
-#define ESP_WIFI_SSID "ssid"
-#define ESP_WIFI_PASSWORD ""
+#define ESP_WIFI_SSID "your_ssid"
+#define ESP_WIFI_PASSWORD "your_pw"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -17,7 +17,11 @@ double gamma_value = 0.9;
 #define EPD_WIDTH 1200
 #define EPD_HEIGHT 825
 #define IMG_URL "https://loremflickr.com/" STR(EPD_WIDTH) "/" STR(EPD_HEIGHT)
+
+// Additionally you can try CALE.es to create a custom JPG gallery
+// Using a non-ssl URL is faster since does not have to sync time
 //#define IMG_URL ("http://img.cale.es/jpg/fasani/5e5ff140694ee")
+
 // idf >= 4.3 needs VALIDATE_SSL_CERTIFICATE set to true for https URLs
 // Please check the README to understand how to use an SSL Certificate
 // Note: This makes a sntp time sync query for cert validation  (It's slower)
