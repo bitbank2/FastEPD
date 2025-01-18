@@ -24,6 +24,7 @@
 #ifndef ARDUINO
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "esp_timer.h"
 #endif
 
 // GPIO modes
