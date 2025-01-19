@@ -195,15 +195,15 @@ esp_err_t _http_event_handler(esp_http_client_event_t* evt) {
         if (strncmp(evt->header_key, "Content-Length", 14) == 0) {
                 // Should be big enough to hold the JPEG file size
                 size_t content_len = atol(evt->header_value);
-                ESP_LOGI("epdiy", "Allocating content buffer of length %X", content_len);
+                ESP_LOGI("epdiy", "Allocating content buffer of length %d", content_len);
 
                 source_buf = (uint8_t*)heap_caps_malloc(content_len, MALLOC_CAP_SPIRAM);
 
                 if (source_buf == NULL) {
-                    ESP_LOGE("main", "Initial alloc source_buf failed!");
+                    ESP_LOGE("main", "JPG alloc of source_buf failed! This can fail if the target server does not delviver Content-Length header");
                 }
 
-                printf("Free heap after buffers allocation: %X\n", xPortGetFreeHeapSize());
+                printf("Free heap after buffers allocation: %d\n", xPortGetFreeHeapSize());
         }
             break;
         case HTTP_EVENT_ON_DATA:

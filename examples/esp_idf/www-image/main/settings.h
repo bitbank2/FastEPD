@@ -33,6 +33,6 @@ double gamma_value = 0.9;
 // To make an insecure request please check Readme
 
 // As default is 512 without setting buffer_size property in esp_http_client_config_t
-#define HTTP_RECEIVE_BUFFER_SIZE 500
+#define HTTP_RECEIVE_BUFFER_SIZE 1024
 
-#define DEBUG_VERBOSE true
+#define DEBUG_VERBOSE false
