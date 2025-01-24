@@ -195,15 +195,15 @@ esp_err_t _http_event_handler(esp_http_client_event_t* evt) {
         if (strncmp(evt->header_key, "Content-Length", 14) == 0) {
                 // Should be big enough to hold the JPEG file size
                 size_t content_len = atol(evt->header_value);
-                ESP_LOGI("epdiy", "Allocating content buffer of length %X", content_len);
+                ESP_LOGI("epdiy", "Allocating content buffer of length %d", content_len);
 
                 source_buf = (uint8_t*)heap_caps_malloc(content_len, MALLOC_CAP_SPIRAM);
 
                 if (source_buf == NULL) {
-                    ESP_LOGE("main", "Initial alloc source_buf failed!");
+                    ESP_LOGE("main", "JPG alloc of source_buf failed! This can fail if the target server does not delviver Content-Length header");
                 }
 
-                printf("Free heap after buffers allocation: %X\n", xPortGetFreeHeapSize());
+                printf("Free heap after buffers allocation: %d\n", xPortGetFreeHeapSize());
         }
             break;
         case HTTP_EVENT_ON_DATA:
@@ -216,6 +216,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t* evt) {
 
             if (countDataEventCalls == 1)
                 start_time = esp_timer_get_time();
+            //ESP_LOG_BUFFER_HEX_LEVEL("SOURCE", source_buf, (int)evt->data_len, (esp_log_level_t)0);
             // Append received data into source_buf
             memcpy(&source_buf[img_buf_pos], evt->data, (int)evt->data_len);
             img_buf_pos += evt->data_len;
@@ -403,11 +404,13 @@ void wifi_init_sta(void) {
 
 void app_main() {
     epaper.initPanel(BB_PANEL_EPDIY_V7);
-    epaper.setPanelSize(1024, 758);
+    // Display EPD_WIDTH & EPD_HEIGHT editable in settings.h:
+    epaper.setPanelSize(EPD_WIDTH, EPD_HEIGHT);
+    // 4 bit per pixel: 16 grays mode
     epaper.setMode(BB_MODE_4BPP);
     epaper.fillScreen(0xf);
     fb = epaper.currentBuffer();
-    printf("JPGDEC version @bitbank2\n");
+    printf("JPGDEC version @bitbank2. IMG: %s\n", IMG_URL);
     dither_space = (uint8_t*)heap_caps_malloc(epaper.width() * 16, MALLOC_CAP_SPIRAM);
     if (dither_space == NULL) {
         ESP_LOGE("main", "Initial alloc ditherSpace failed!");
