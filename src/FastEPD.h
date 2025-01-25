@@ -185,7 +185,7 @@ class FASTEPD
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
     int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
-    int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 2047);
+    int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
     void backupPlane(void);

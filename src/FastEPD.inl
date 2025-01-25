@@ -101,7 +101,7 @@ const BBPANELDEF panelDefs[] = {
       41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERS3
 
 
-    {0, 0, 10000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
+    {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 47, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0}, // BB_PANEL_EPDIY_V7
     {1024, 758, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_INKPLATE6PLUS
@@ -155,6 +155,7 @@ const BBPANELPROCS panelProcs[] = {
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl}, // Inkplate5V2
     {LilyGoV24EinkPower, LilyGoV24IOInit, LilyGoV24RowControl}, // BB_PANEL_T5EPAPERV1
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_T5EPAPERS3PRO
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7_16
     {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE10
     {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE6 (old)
 };
@@ -179,8 +180,8 @@ static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
     return false;
 }           
 
-// Maximum line width = 512 * 4 = 2048 pixels
-#define MAX_TX_SIZE 512
+// Maximum line width = 1024 * 4 = 4096 pixels
+#define MAX_TX_SIZE 1024
 esp_lcd_i80_bus_config_t s3_bus_config = { 
     .dc_gpio_num = 0,
     .wr_gpio_num = 0,
@@ -501,6 +502,7 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
     if (bOn) {
         //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
         u8Value |= 1; // OE on
+        u8Value |= 2; // GMOD on
         u8Value |= 0x20; // WAKEUP on
         bbepPCA9535Write(1, u8Value);
         u8Value |= 8; // PWRUP on
@@ -1409,7 +1411,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
         iStartLine = iEndLine;
         iEndLine = i;
     }
-    for (int k = 0; k < 6; ++k) { // each pass is about 32ms
+    for (int k = 0; k < 5; ++k) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
         int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;
