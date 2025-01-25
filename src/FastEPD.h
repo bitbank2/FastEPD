@@ -178,6 +178,7 @@ class FASTEPD
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
+    int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
@@ -202,8 +203,8 @@ class FASTEPD
     void setFont(int iFont);
     void setFont(const void *pFont);
     void drawLine(int x1, int y1, int x2, int y2, int iColor);
-    void drawPixel(int16_t x, int16_t y, uint8_t color);
-    void drawPixelFast(int16_t x, int16_t y, uint8_t color);
+    void drawPixel(int x, int y, uint8_t color);
+    void drawPixelFast(int x, int y, uint8_t color);
     int16_t height(void) { return _state.height;}
     int16_t width(void) {return _state.width;}
     void drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color);

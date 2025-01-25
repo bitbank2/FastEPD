@@ -43,6 +43,11 @@ void FASTEPD::backupPlane(void)
     bbepBackupPlane(&_state);
 }
 
+int FASTEPD::setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size)
+{
+    return bbepSetCustomMatrix(&_state, pMatrix, matrix_size);
+} /* setCustomMatrix() */
+
 int FASTEPD::loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG)
 {
     return bbepLoadBMP(&_state, pBMP, x, y, iFG, iBG);
@@ -52,11 +57,11 @@ int FASTEPD::setRotation(int iAngle)
 {
     return bbepSetRotation(&_state, iAngle);
 }
-void FASTEPD::drawPixel(int16_t x, int16_t y, uint8_t color)
+void FASTEPD::drawPixel(int x, int y, uint8_t color)
 {
     (*_state.pfnSetPixel)(&_state, x, y, color);
 }
-void FASTEPD::drawPixelFast(int16_t x, int16_t y, uint8_t color)
+void FASTEPD::drawPixelFast(int x, int y, uint8_t color)
 {
     (*_state.pfnSetPixelFast)(&_state, x, y, color);
 }

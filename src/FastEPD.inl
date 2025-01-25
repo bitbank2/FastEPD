@@ -25,6 +25,9 @@
 #ifndef __BB_EP__
 #define __BB_EP__
 
+// For measuring the performance of each stage of updates
+#define SHOW_TIME
+
 // 38 columns by 16 rows. From white (15) to each gray (0-black to 15-white) at 20C
 const uint8_t u8GrayMatrix[] = {
 /* 0 */	    0,  0,  0,  2,  2,  2,  2,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,
@@ -1117,6 +1120,41 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
     return BBEP_ERROR_BAD_PARAMETER;
 } /* bbepInitPanel() */
 
+//
+// Allow the user to set up a custom grayscale matrix
+// The number of passes is determined by dividing the table size by 16
+//
+int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t matrix_size)
+{
+int iPasses;
+
+    if (pState == NULL || pMatrix == NULL) return BBEP_ERROR_BAD_PARAMETER;
+    if ((matrix_size & 15) != 0) return BBEP_ERROR_BAD_PARAMETER; // must be divisible by 16
+    if (GLUT) free(GLUT);
+    if (GLUT2) free(GLUT2);
+    iPasses = (int)matrix_size / 16; // number of passes
+    GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    if (!GLUT) return BBEP_ERROR_NO_MEMORY;
+    GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!GLUT2) {
+            free(GLUT);
+            return BBEP_ERROR_NO_MEMORY;
+        }
+    // Prepare grayscale lookup tables
+    for (int j = 0; j < iPasses; j++) {
+        for (int i = 0; i < 256; i++) {
+            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                GLUT[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
+                GLUT2[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
+            } else {
+                GLUT[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
+                GLUT2[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
+            }
+        }
+    }
+    return BBEP_SUCCESS;
+} /* bbepSetCustomMatrix() */
+
 int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
     return (*(pState->pfnEinkPower))(pState, bOn);
@@ -1351,14 +1389,20 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
     
 #ifdef SHOW_TIME
     l = millis() - l;
-    //Serial.printf("fullUpdate time: %dms\n", (int)l);
-#endif
+#ifdef ARDUINO
+    Serial.printf("fullUpdate time: %dms\n", (int)l);
+#else
+    printf("fullUpdate time: %dms\n", (int)l);
+#endif 
+#endif // SHOW_TIME
     return BBEP_SUCCESS;
 } /* bbepFullUdate() */
 
 int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
-//   long l = millis();
+#ifdef SHOW_TIME
+    long l = millis();
+#endif
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     if (iStartLine < 0) iStartLine = 0;
     if (iEndLine >= pState->native_height) iEndLine = pState->native_height-1;
@@ -1452,8 +1496,14 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     int offset = iStartLine * (pState->native_width/8);
     memcpy(&pState->pPrevious[offset], &pState->pCurrent[offset], (pState->native_width/8) * (iEndLine - iStartLine+1));
 
-//    l = millis() - l;
-//    Serial.printf("partial update time: %dms\n", (int)l);
+#ifdef SHOW_TIME
+    l = millis() - l;
+#ifdef ARDUINO
+    Serial.printf("partialUpdate time: %dms\n", (int)l);
+#else
+    printf("partialUpdate time: %dms\n", (int)l);
+#endif
+#endif // SHOW_TIME
     return BBEP_SUCCESS;
 } /* bbepPartialUpdate() */
 //
