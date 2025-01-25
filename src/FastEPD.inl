@@ -26,7 +26,7 @@
 #define __BB_EP__
 
 // For measuring the performance of each stage of updates
-#define SHOW_TIME
+//#define SHOW_TIME
 
 // 38 columns by 16 rows. From white (15) to each gray (0-black to 15-white) at 20C
 const uint8_t u8GrayMatrix[] = {
@@ -168,7 +168,7 @@ static uint16_t LUTW_16[256];
 static uint16_t LUTB_16[256];
 static uint16_t LUT2_16[256];
 // Lookup tables for grayscale mode
-static uint32_t *GLUT, *GLUT2;
+static uint32_t *pGrayLower, *pGrayUpper;
 volatile bool transfer_is_done = true;
 uint8_t u8Cache[512];
 static gpio_num_t u8CKV, u8SPH;
@@ -551,9 +551,8 @@ uint8_t ucTemp[4];
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
-        bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP_SET;
+        bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP on;
         delay(5);
-        // Modify power up sequence  (VEE and VNEG are swapped)
         ucTemp[0] = 0x09;
         ucTemp[1] = 0xe1;
         bbepI2CWrite(0x48, ucTemp, 2);
@@ -561,35 +560,35 @@ uint8_t ucTemp[4];
         ucTemp[0] = 0x01;
         ucTemp[1] = 0x3f;
         bbepI2CWrite(0x48, ucTemp, 2);
-        bbepMCPDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP_SET;
+        bbepMCPDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP on;
         //pinsAsOutputs();
-        gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH_SET;
-        bbepMCPDigitalWrite(/*GMOD*/1, 1); // GMOD_SET
-        bbepMCPDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV_SET;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM_SET;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE off;
+        bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE off;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH on;
+        bbepMCPDigitalWrite(1, 1); // GMOD on
+        bbepMCPDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV on;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off;
+        bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM on;
         unsigned long timer = millis();
         do {
             delay(1);
         } while (!bbepReadPowerGood() && (millis() - timer) < 250);
         if ((millis() - timer) >= 250) {
-            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM_CLEAR;
-            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+            bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off;
+            bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off;
             return BBEP_IO_ERROR;
         }
-        bbepMCPDigitalWrite(pState->panelDef.ioOE, 1); // OE_SET;
+        bbepMCPDigitalWrite(pState->panelDef.ioOE, 1); // OE on;
         pState->pwr_on = 1;
     } else { // power off
-        bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-        bbepMCPDigitalWrite(/*GMOD*/1, 0); // GMOD_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioLE, 0); //LE_CLEAR;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); //SPH_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioSPV, 0); //SPV_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); //VCOM_CLEAR;
-        bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+        bbepMCPDigitalWrite(pState->panelDef.ioOE, 0); // OE off;
+        bbepMCPDigitalWrite(1, 0); // GMODE off;
+        bbepMCPDigitalWrite(pState->panelDef.ioLE, 0); // LE off;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); //SPH off;
+        bbepMCPDigitalWrite(pState->panelDef.ioSPV, 0); //SPV off;
+        bbepMCPDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off;
+        bbepMCPDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off;
         pState->pwr_on = 0;
     }
     return BBEP_SUCCESS;
@@ -601,9 +600,8 @@ uint8_t ucTemp[4];
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
-        bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP_SET;
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP on;
         delay(5);
-        // Modify power up sequence  (VEE and VNEG are swapped)
         ucTemp[0] = 0x09;
         ucTemp[1] = 0xe1;
         bbepI2CWrite(0x48, ucTemp, 2);
@@ -611,35 +609,35 @@ uint8_t ucTemp[4];
         ucTemp[0] = 0x01;
         ucTemp[1] = 0x3f;
         bbepI2CWrite(0x48, ucTemp, 2);
-        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP_SET;
+        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 1); // PWR on;
         //pinsAsOutputs();
-        gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH_SET;
-        bbepPCALDigitalWrite(/*GMOD*/1, 1); // GMOD_SET
-        bbepPCALDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV_SET;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM_SET;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE off;
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE off;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH on;
+        bbepPCALDigitalWrite(1, 1); // GMODE on
+        bbepPCALDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV on;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off;
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM on;
         unsigned long timer = millis();
         do {
             delay(1);
         } while (!bbepReadPowerGood() && (millis() - timer) < 250);
         if ((millis() - timer) >= 250) {
-            bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM_CLEAR;
-            bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+            bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off;
+            bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off;
             return BBEP_IO_ERROR;
         }
-        bbepPCALDigitalWrite(pState->panelDef.ioOE, 1); // OE_SET;
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 1); // OE on;
         pState->pwr_on = 1;
     } else { // power off
-        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE_CLEAR;
-        bbepPCALDigitalWrite(/*GMOD*/1, 0); // GMOD_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioLE, 0); //LE_CLEAR;
-        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV_CLEAR
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); //SPH_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioSPV, 0); //SPV_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); //VCOM_CLEAR;
-        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWRUP_CLEAR;
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE off;
+        bbepPCALDigitalWrite(1, 0); // GMODE off;
+        bbepPCALDigitalWrite(pState->panelDef.ioLE, 0); // LE off;
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); // SPH off;
+        bbepPCALDigitalWrite(pState->panelDef.ioSPV, 0); // SPV off;
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off;
+        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off;
         pState->pwr_on = 0;
     }
     return BBEP_SUCCESS;
@@ -712,16 +710,16 @@ int Inkplate6PlusIOInit(void *pBBEP)
     bbepMCPPinMode(pState->panelDef.ioShiftMask, OUTPUT); // VCOM
     bbepMCPPinMode(pState->panelDef.ioPWR, OUTPUT); // PWRUP
     bbepMCPPinMode(pState->panelDef.ioShiftSTR, OUTPUT); // WAKEUP
-    bbepMCPPinMode(/*GPIO0_ENABLE*/ 8, OUTPUT);
-    bbepMCPDigitalWrite(/*GPIO0_ENABLE*/ 8, HIGH);
+    bbepMCPPinMode(8, OUTPUT);
+    bbepMCPDigitalWrite(8, HIGH);
     bbepMCPPinMode(pState->panelDef.ioOE, OUTPUT);
-    bbepMCPPinMode(/*GMOD*/1, OUTPUT);
+    bbepMCPPinMode(1, OUTPUT); // GMODE
     bbepMCPPinMode(pState->panelDef.ioSPV, OUTPUT);
-    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP ON
+    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP on
     delay(1);
     bbepTPS65186Init(pState);
     delay(1);
-    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP OFF
+    bbepMCPDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP off
     return BBEP_SUCCESS;
 } /* Inkplate6PlusIOInit() */
 
@@ -738,16 +736,16 @@ int Inkplate5V2IOInit(void *pBBEP)
     bbepPCALPinMode(pState->panelDef.ioShiftMask, OUTPUT); // VCOM
     bbepPCALPinMode(pState->panelDef.ioPWR, OUTPUT); // PWRUP
     bbepPCALPinMode(pState->panelDef.ioShiftSTR, OUTPUT); // WAKEUP
-    bbepPCALPinMode(/*GPIO0_ENABLE*/ 8, OUTPUT);
-    bbepPCALDigitalWrite(/*GPIO0_ENABLE*/ 8, HIGH);
+    bbepPCALPinMode(8, OUTPUT);
+    bbepPCALDigitalWrite(8, HIGH);
     bbepPCALPinMode(pState->panelDef.ioOE, OUTPUT);
-    bbepPCALPinMode(/*GMOD*/1, OUTPUT);
+    bbepPCALPinMode(1, OUTPUT); // GMODE
     bbepPCALPinMode(pState->panelDef.ioSPV, OUTPUT);
-    bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP ON
+    bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP on
     delay(1);
     bbepTPS65186Init(pState);
     delay(1);
-    bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP OFF
+    bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 0); // WAKEUP off
     return BBEP_SUCCESS;
 } /* Inkplate5V2IOInit() */
 //
@@ -761,31 +759,31 @@ void PaperS3RowControl(void *pBBEP, int iType)
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
     if (iType == ROW_START) {
-        gpio_set_level(ckv, 1); //CKV_SET
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(7);
-        gpio_set_level(spv, 0); //SPV_CLEAR;
+        gpio_set_level(spv, 0); // SPV off
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(8);                    
-        gpio_set_level(spv, 1); //SPV_SET;
+        gpio_set_level(spv, 1); // SPV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
     } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
-        gpio_set_level(le, 1); //LE_SET;
-        gpio_set_level(le, 0); //LE_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
+        gpio_set_level(le, 1); // LE toggle
+        gpio_set_level(le, 0);
         delayMicroseconds(0);
     }
 } /* PaperS3RowControl() */
@@ -798,40 +796,40 @@ void LilyGoV24RowControl(void *pBBEP, int iType)
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
     if (iType == ROW_START) {
-        bbepSetShiftBit(pState, 6, 1); // EP_MODE = true
-        gpio_set_level(ckv, 1); //CKV_SET
+        bbepSetShiftBit(pState, 6, 1); // GMODE = 1
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(10);
-        bbepSetShiftBit(pState, 4, 0); // STV = false
-       // gpio_set_level(spv, 0); //SPV_CLEAR;
+        bbepSetShiftBit(pState, 4, 0); // STV off
+       // gpio_set_level(spv, 0); //SPV off;
         delayMicroseconds(1);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(100);                    
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(100);
-        bbepSetShiftBit(pState, 4, 1); // STV = true
-//        gpio_set_level(spv, 1); //SPV_SET;
-        gpio_set_level(ckv, 1); //CKV_SET;
+        bbepSetShiftBit(pState, 4, 1); // STV on
+//        gpio_set_level(spv, 1); // SPV on
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(100);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV on
         bbepSetShiftBit(pState, 7, 1); // output_enable = true
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(10);
     } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(500);
         if (le == BB_NOT_USED) {
-            bbepSetShiftBit(pState, 0, 1); // EP_LE = true
-            bbepSetShiftBit(pState, 0, 0); // EP_LE = false
+            bbepSetShiftBit(pState, 0, 1); // LE toggle
+            bbepSetShiftBit(pState, 0, 0);
         } else {
-            gpio_set_level(le, 1);
+            gpio_set_level(le, 1); // LE toggle
             gpio_set_level(le, 0);
         }
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
     }
 }
 void EPDiyV7RowControl(void *pBBEP, int iType)
@@ -842,31 +840,31 @@ void EPDiyV7RowControl(void *pBBEP, int iType)
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
     if (iType == ROW_START) {
-        gpio_set_level(ckv, 1); //CKV_SET
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(7);
-        gpio_set_level(spv, 0); //SPV_CLEAR;
+        gpio_set_level(spv, 0); // SPV off
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(8);                    
-        gpio_set_level(spv, 1); //SPV_SET;
+        gpio_set_level(spv, 1); // SPV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
     } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
-        gpio_set_level(le, 1); //LE_SET;
-        gpio_set_level(le, 0); //LE_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
+        gpio_set_level(le, 1); // LE toggle
+        gpio_set_level(le, 0);
         delayMicroseconds(0);
     }
 }
@@ -878,32 +876,32 @@ void Inkplate6PlusRowControl(void *pBBEP, int iType)
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
     if (iType == ROW_START) {
-        gpio_set_level(ckv, 1); //CKV_SET
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(7);
         bbepMCPDigitalWrite(spv, 0);
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(8);                    
-        bbepMCPDigitalWrite(spv, 1);
+        bbepMCPDigitalWrite(spv, 1); // SPV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
         bbepMCPDigitalWrite(pState->panelDef.ioOE, 1);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
     } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
-        gpio_set_level(le, 1); //LE_SET;
-        gpio_set_level(le, 0); //LE_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
+        gpio_set_level(le, 1); // LE toggle
+        gpio_set_level(le, 0);
         delayMicroseconds(0);
     }
 }
@@ -915,32 +913,32 @@ void Inkplate5V2RowControl(void *pBBEP, int iType)
     gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
 
     if (iType == ROW_START) {
-        gpio_set_level(ckv, 1); //CKV_SET
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(7);
         bbepPCALDigitalWrite(spv, 0);
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(8);                    
-        bbepPCALDigitalWrite(spv, 1);
+        bbepPCALDigitalWrite(spv, 1); // SPV on
         delayMicroseconds(10);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        gpio_set_level(ckv, 1); // CKV on
         delayMicroseconds(18);
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
         delayMicroseconds(0);
-        bbepPCALDigitalWrite(pState->panelDef.ioOE, 1);
-        gpio_set_level(ckv, 1); //CKV_SET;
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 1); // OE on
+        gpio_set_level(ckv, 1); // CKV on
     } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); //CKV_CLEAR;
-        gpio_set_level(le, 1); //LE_SET;
-        gpio_set_level(le, 0); //LE_CLEAR;
+        gpio_set_level(ckv, 0); // CKV off
+        gpio_set_level(le, 1); // LE toggle
+        gpio_set_level(le, 0);
         delayMicroseconds(0);
     }
 }
@@ -958,11 +956,11 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
         delayMicroseconds(1);
     }
     if (bSlowSPH) {
-        gpio_set_level(u8SPH, 0); // CS active
-        gpio_set_level(u8CKV, 1); // CKV set
+        gpio_set_level(u8SPH, 0); // SPH/CS active
+        gpio_set_level(u8CKV, 1); // CKV on
     }
     transfer_is_done = false;
-    gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); //CKV_SET;
+    gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
     err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen + pState->panelDef.iLinePadding);
     if (err != ESP_OK) {
      //   Serial.printf("Error %d sending LCD data\n", (int)err);
@@ -970,7 +968,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
     while (!transfer_is_done) {
         delayMicroseconds(1);
     }
-}
+} /* bbepWriteRow() */
 
 uint8_t TPS65185PowerGood(void)
 {
@@ -979,7 +977,10 @@ uint8_t ucTemp[4];
     bbepI2CReadRegister(0x68, 0x0f, ucTemp, 1);
     return ucTemp[0];
 }
-
+//
+// Initialize the board-specific I/O components (IOInit callback)
+// and then initialize the ESP32 LCD API to drive the parallel data bus
+//
 int bbepIOInit(FASTEPDSTATE *pState)
 {
     int rc = (*(pState->pfnIOInit))(pState);
@@ -1037,7 +1038,10 @@ int bbepIOInit(FASTEPDSTATE *pState)
 
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
-
+//
+// For board definitions without an associated display (e.g. EPDiy V7 PCB)
+// Set the display size and flags
+//
 int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
     if (pState->width && pState->height) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
 
@@ -1062,9 +1066,8 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
 
 //
 // Initialize the panel based on the constant name
-// Each name points to a configuration with info about the PCB and display
-// e.g. BB_PANEL_M5PAPERs3
-// The device is ready to use after returning from this function
+// Each name points to a configuration with info about the PCB and possibly a display
+// e.g. BB_PANEL_M5PAPERs3 has both PCB and display info in a single configuration
 //
 int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
 {
@@ -1093,11 +1096,11 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
             }
         }
         iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-        GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-        if (!GLUT) return BBEP_ERROR_NO_MEMORY;
-        GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-        if (!GLUT2) {
-            free(GLUT);
+        pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
+        pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!pGrayUpper) {
+            free(pGrayLower);
             return BBEP_ERROR_NO_MEMORY;
         }
         // Prepare grayscale lookup tables
@@ -1105,11 +1108,11 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         for (int j = 0; j < iPasses; j++) {
             for (int i = 0; i < 256; i++) {
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                    GLUT[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
-                    GLUT2[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
+                    pGrayLower[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
+                    pGrayUpper[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
                 } else {
-                    GLUT[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
-                    GLUT2[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
+                    pGrayLower[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
+                    pGrayUpper[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
                 }
             }
         }
@@ -1130,31 +1133,33 @@ int iPasses;
 
     if (pState == NULL || pMatrix == NULL) return BBEP_ERROR_BAD_PARAMETER;
     if ((matrix_size & 15) != 0) return BBEP_ERROR_BAD_PARAMETER; // must be divisible by 16
-    if (GLUT) free(GLUT);
-    if (GLUT2) free(GLUT2);
+    if (pGrayLower) free(pGrayLower);
+    if (pGrayUpper) free(pGrayUpper);
     iPasses = (int)matrix_size / 16; // number of passes
-    GLUT = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-    if (!GLUT) return BBEP_ERROR_NO_MEMORY;
-    GLUT2 = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-        if (!GLUT2) {
-            free(GLUT);
+    pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
+    pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+        if (!pGrayUpper) {
+            free(pGrayLower);
             return BBEP_ERROR_NO_MEMORY;
         }
     // Prepare grayscale lookup tables
     for (int j = 0; j < iPasses; j++) {
         for (int i = 0; i < 256; i++) {
             if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                GLUT[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
-                GLUT2[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
+                pGrayLower[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
+                pGrayUpper[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
             } else {
-                GLUT[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
-                GLUT2[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
+                pGrayLower[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
+                pGrayUpper[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
             }
         }
     }
     return BBEP_SUCCESS;
 } /* bbepSetCustomMatrix() */
-
+//
+// Turn the DC/DC boost circuit on or off
+//
 int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
     return (*(pState->pfnEinkPower))(pState, bOn);
@@ -1246,10 +1251,14 @@ void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect
         delayMicroseconds(230);
     }
 } /* bbepClear() */
-
+//
+// Perform a full (flashing) update given the current mode and pixels
+// The time to perform the update can vary greatly depending on the pixel mode
+// and selected options
+//
 int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRect)
 {
-    int passes;
+    int i, n, pass, passes;
 #ifdef SHOW_TIME
     long l = millis();
 #endif
@@ -1272,21 +1281,21 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         // First create the 2-bit codes per pixel for the black pixels
         uint8_t *s, *d;
         int dy; // destination Y for flipped displays
-        for (int i = 0; i < pState->native_height; i++) {
+        for (i = 0; i < pState->native_height; i++) {
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
             s = &pState->pCurrent[i * (pState->native_width/8)];
             d = &pState->pTemp[dy * (pState->native_width/4)];
             memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
             if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
                 s += (pState->native_width/8) - 1;
-                for (int n = 0; n <(pState->native_width / 4); n += 4) {
+                for (n = 0; n <(pState->native_width / 4); n += 4) {
                     uint8_t dram2 = *(s--);
                     uint8_t dram1 = *(s--);
                     *(uint16_t *)&d[n] = LUTB_16[dram2];
                     *(uint16_t *)&d[n+2] = LUTB_16[dram1];
                 }
             } else {
-                for (int n = 0; n < (pState->native_width / 4); n += 4) {
+                for (n = 0; n < (pState->native_width / 4); n += 4) {
                     uint8_t dram1 = *s++;
                     uint8_t dram2 = *s++;
                     *(uint16_t *)&d[n+2] = LUTB_16[dram2];
@@ -1295,9 +1304,9 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             }
         }
         // Write 5 passes of the black data to the whole display
-        for (int k = 0; k < 5; ++k) {
+        for (pass = 0; pass < 5; pass++) {
             bbepRowControl(pState, ROW_START);
-            for (int i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height; i++) {
                 s = &pState->pTemp[i * (pState->native_width / 4)];
                 // Send the data for the row
                 bbepWriteRow(pState, s, (pState->native_width / 4));
@@ -1305,12 +1314,12 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                 bbepRowControl(pState, ROW_STEP);
             }
             delayMicroseconds(230);
-        }
+        } // for pass
 
-        for (int k = 0; k < 1; ++k) {
+        for (pass = 0; pass < 1; pass++) {
             uint8_t *s, *d;
             bbepRowControl(pState, ROW_START);
-            for (int i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height; i++) {
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 s = &pState->pCurrent[(pState->native_width/8) * dy];
                 d = pState->dma_buf;
@@ -1336,9 +1345,9 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                 bbepRowControl(pState, ROW_STEP);
             }
             delayMicroseconds(230);
-        }
+        } // for pass
 
-        for (int k = 0; k < 1; ++k) {
+        for (pass = 0; pass < 1; pass++) {
             bbepRowControl(pState, ROW_START);
             memset((void *)pState->dma_buf, 0, pState->native_width /4); // send 0's
             for (int i = 0; i < pState->native_height; i++) {
@@ -1348,30 +1357,30 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                 bbepRowControl(pState, ROW_STEP);
             }
             delayMicroseconds(230);
-        }
+        } // for pass
     } else { // must be 4BPP mode
         int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-        for (int k = 0; k < iPasses; k++) { // number of passes to make 16 unique gray levels
+        for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
             bbepRowControl(pState, ROW_START);
-            for (int i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height; i++) {
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 s = &pState->pCurrent[dy *(pState->native_width / 2)];
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
                     s += (pState->native_width / 2) - 8;
-                    for (int j = 0; j < (pState->native_width / 4); j += 4) {
-                        d[j + 0] = (GLUT2[k * 256 + s[7]] | GLUT[k * 256 + s[6]]);
-                        d[j + 1] = (GLUT2[k * 256 + s[5]] | GLUT[k * 256 + s[4]]);
-                        d[j + 2] = (GLUT2[k * 256 + s[3]] | GLUT[k * 256 + s[2]]);
-                        d[j + 3] = (GLUT2[k * 256 + s[1]] | GLUT[k * 256 + s[0]]);
+                    for (n = 0; n < (pState->native_width / 4); n += 4) {
+                        d[n + 0] = (pGrayUpper[pass * 256 + s[7]] | pGrayLower[pass * 256 + s[6]]);
+                        d[n + 1] = (pGrayUpper[pass * 256 + s[5]] | pGrayLower[pass * 256 + s[4]]);
+                        d[n + 2] = (pGrayUpper[pass * 256 + s[3]] | pGrayLower[pass * 256 + s[2]]);
+                        d[n + 3] = (pGrayUpper[pass * 256 + s[1]] | pGrayLower[pass * 256 + s[0]]);
                         s -= 8;
                     } // for j
                 } else {
-                    for (int j = 0; j < (pState->native_width / 4); j += 4) {
-                        d[j + 0] = (GLUT2[k * 256 + s[0]] | GLUT[k * 256 + s[1]]);
-                        d[j + 1] = (GLUT2[k * 256 + s[2]] | GLUT[k * 256 + s[3]]);
-                        d[j + 2] = (GLUT2[k * 256 + s[4]] | GLUT[k * 256 + s[5]]);
-                        d[j + 3] = (GLUT2[k * 256 + s[6]] | GLUT[k * 256 + s[7]]);
+                    for (n = 0; n < (pState->native_width / 4); n += 4) {
+                        d[n + 0] = (pGrayUpper[pass * 256 + s[0]] | pGrayLower[pass * 256 + s[1]]);
+                        d[n + 1] = (pGrayUpper[pass * 256 + s[2]] | pGrayLower[pass * 256 + s[3]]);
+                        d[n + 2] = (pGrayUpper[pass * 256 + s[4]] | pGrayLower[pass * 256 + s[5]]);
+                        d[n + 3] = (pGrayUpper[pass * 256 + s[6]] | pGrayLower[pass * 256 + s[7]]);
                         s += 8;
                     } // for j
                 }
@@ -1380,7 +1389,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                 bbepRowControl(pState, ROW_STEP);
             } // for i
             delayMicroseconds(230);
-        } // for k
+        } // for pass
     } // 4bpp
 
         // Set the drivers inside epaper panel into dischare state.
@@ -1400,6 +1409,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
 
 int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
+    int i, n, pass;
 #ifdef SHOW_TIME
     long l = millis();
 #endif
@@ -1411,14 +1421,14 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     uint8_t *pCur, *pPrev, *d;
     uint8_t diffw, diffb, cur, prev;
     
-    for (int i = iStartLine; i <= iEndLine; i++) {
+    for (i = iStartLine; i <= iEndLine; i++) {
         d = &pState->pTemp[i * (pState->native_width/4)]; // LUT temp storage
         pCur = &pState->pCurrent[i * (pState->native_width / 8)];
         pPrev = &pState->pPrevious[i * (pState->native_width / 8)];
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
             pCur += (pState->native_width / 8) - 1;
             pPrev += (pState->native_width / 8) - 1;
-            for (int j = 0; j < pState->native_width / 16; j++) {
+            for (n = 0; n < pState->native_width / 16; n++) {
                 cur = *pCur--; prev = *pPrev--;
                 diffw = prev & ~cur;
                 diffb = ~prev & cur;
@@ -1431,7 +1441,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
                 d += 4;
             }
         } else {
-            for (int j = 0; j < pState->native_width / 16; j++) {
+            for (n = 0; n < pState->native_width / 16; n++) {
                 cur = *pCur++; prev = *pPrev++;
                 diffw = prev & ~cur;
                 diffb = ~prev & cur;
@@ -1455,7 +1465,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
         iStartLine = iEndLine;
         iEndLine = i;
     }
-    for (int k = 0; k < 5; ++k) { // each pass is about 32ms
+    for (pass = 0; pass < 5; pass++) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
         int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;
@@ -1464,7 +1474,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
             iDelta = -iDelta;
         }
         bbepRowControl(pState, ROW_START);
-        for (int i = 0; i < pState->native_height; i++) {
+        for (i = 0; i < pState->native_height; i++) {
             if (i >= iStartLine && i <= iEndLine) {
                 // Send the data
                 bbepWriteRow(pState, dp, (pState->native_width / 4));
@@ -1486,7 +1496,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
             dp += iDelta;
         }
         //delayMicroseconds(230);
-    }
+    } // for each pass
 
     if (bKeepOn) {
         bbepClear(pState, 2, 1, NULL);
