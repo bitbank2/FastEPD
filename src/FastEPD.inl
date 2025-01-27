@@ -1043,22 +1043,17 @@ int bbepIOInit(FASTEPDSTATE *pState)
 // Set the display size and flags
 //
 int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
-    if (pState->width && pState->height) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
+    if (pState->pCurrent) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
 
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
-    pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
-    if (!pState->pPrevious) {
-        free(pState->pCurrent);
-        return BBEP_ERROR_NO_MEMORY;
-    }
+    pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
     if (!pState->pTemp) {
         free(pState->pCurrent);
-        free(pState->pPrevious);
         return BBEP_ERROR_NO_MEMORY;
     }
     return BBEP_SUCCESS;
@@ -1088,11 +1083,10 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         pState->iFG = BBEP_BLACK;
         pState->iBG = BBEP_TRANSPARENT;
         if (rc == BBEP_SUCCESS) {
-            // allocate memory for the buffers
+            // allocate memory for the buffers if the paneldef contains the size
             if (pState->width) { // if size is defined
-                pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
-                pState->pPrevious = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // comparison with previous buffer
-                pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags);
+                if (rc != BBEP_SUCCESS) return rc; // no memory? stop
             }
         }
         iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
@@ -1413,6 +1407,9 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
 #ifdef SHOW_TIME
     long l = millis();
 #endif
+// Only supported in 1-bit mode (for now)
+    if (pState->mode != BB_MODE_1BPP) return BBEP_ERROR_BAD_PARAMETER;
+
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     if (iStartLine < 0) iStartLine = 0;
     if (iEndLine >= pState->native_height) iEndLine = pState->native_height-1;
