@@ -43,23 +43,64 @@ FASTEPD epaper; // a static instance of the FastEPD class
 //
 void setup()
 {
-  // initialize the I/O and memory for the Inkplate6 (older)
-  //  epaper.initPanel(BB_PANEL_INKPLATE6);
-    epaper.initPanel(BB_PANEL_EPDIY_V7);
-    epaper.setPanelSize(1024, 758);
-    epaper.fillScreen(BBEP_WHITE); // fill the current image buffer with white
-    epaper.fullUpdate(true); // do a full update, but use the faster option
-    epaper.setFont(Roboto_Black_40);
-    epaper.setTextColor(BBEP_BLACK);
-    epaper.setCursor(0, 60); // TTF means Y==0-> baseline of characters, not the top
-    for (int i=0; i<8; i++) { // show how fast partial updates are
-        epaper.println("Hello FastEPD!");
-        epaper.partialUpdate(true);
-    }
-    epaper.einkPower(0); // done, turn off the DC/DC circuit
+  Serial.begin(115200);
+  delay(3000); // wait for CDC-Serial to start
 } /* setup() */
 
 void loop()
 {
-
+  BBEPRECT rect;
+  int i, j;
+  // initialize the I/O and memory
+  epaper.initPanel(BB_PANEL_M5PAPERS3);
+//    epaper.initPanel(BB_PANEL_INKPLATE5V2);
+//    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
+//    epaper.setPanelSize(2760, 2070, 0);
+//    epaper.initPanel(BB_PANEL_EPDIY_V7);
+//    epaper.setPanelSize(1024, 758);
+    // The default drawing mode is 1-bit per pixel
+    epaper.fillScreen(BBEP_WHITE); // fill the current image buffer with white
+    epaper.fullUpdate(true); // do a full update, but use the faster option
+    epaper.setFont(Roboto_Black_40);
+    epaper.setTextColor(BBEP_BLACK);
+    epaper.setCursor(0, 80); // TTF means Y==0-> baseline of characters, not the top
+    for (i=0; i<8; i++) { // show how fast partial updates are
+        epaper.getStringBox("Hello FastEPD!", &rect);
+        // Tell FastEPD to only update the lines which changed (faster)
+        epaper.println("Hello FastEPD!");
+        epaper.partialUpdate(true, rect.y, rect.y + rect.h - 1);
+    }
+    delay(2000);
+    // now switch to 4-bpp grayscale mode
+    epaper.setMode(BB_MODE_4BPP);
+    epaper.fillScreen(15); // fill with 4-bit white (0=black, 15=white)
+    // Display a grayscale spectrum
+    for (i=0, j=0; i<epaper.height(); i+=epaper.height()/16, j++) {
+      epaper.fillRect(0, i, epaper.width(), epaper.height()/16, j);
+    }
+    epaper.fullUpdate(true);
+    delay(2000);
+    epaper.setMode(BB_MODE_1BPP); // now switch back to 1-bpp mode and do a regional update
+    epaper.fillRect(100, 100, 200, 200, BBEP_WHITE);
+    epaper.drawRect(100, 100, 200, 200, BBEP_BLACK);
+    epaper.setFont(FONT_12x16);
+    epaper.setTextColor(BBEP_BLACK);
+    epaper.drawString("1-bpp", 170, 160);
+    epaper.drawString("Regional Update", 110, 192);
+    rect.x = rect.y = 100;
+    rect.h = rect.w = 200;
+    epaper.fullUpdate(true, false, &rect); // update only the rectangle
+    delay(2000);
+    // Now update another rectangle in grayscale mode
+    epaper.setMode(BB_MODE_4BPP);
+    epaper.fillRect(600, 100, 200, 200, 0x8);
+    epaper.setFont(FONT_12x16);
+    epaper.setTextColor(0xe);
+    epaper.drawString("4-bpp", 670, 160);
+    epaper.drawString("Regional Update", 610, 192);
+    rect.x = 600;
+    rect.y = 100;
+    rect.h = rect.w = 200;
+    epaper.fullUpdate(true, false, &rect); // update only the rectangle
+    while (1) {};
 } /* loop() */

@@ -105,7 +105,7 @@ const BBPANELDEF panelDefs[] = {
 
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 47, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0}, // BB_PANEL_EPDIY_V7
+      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0}, // BB_PANEL_EPDIY_V7
     {1024, 758, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_INKPLATE6PLUS
 
@@ -117,8 +117,8 @@ const BBPANELDEF panelDefs[] = {
       5, BB_NOT_USED, 23, 18, 0, 0x32, 14, u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERV1
     {960, 540, 12000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,8,7}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3PRO
-    {0, 0, 10000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8,9,10,11,12,13,14,21,47}, 16, 11, 45, 48, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 1, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_EPDIY_V7_16
+    {0, 0, 16000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
+      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_EPDIY_V7_16
     {1200, 820, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE10
     {800, 600, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
@@ -170,7 +170,7 @@ static uint16_t LUT2_16[256];
 // Lookup tables for grayscale mode
 static uint32_t *pGrayLower, *pGrayUpper;
 volatile bool transfer_is_done = true;
-uint8_t u8Cache[512];
+uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, needs to handle up to 4096 pixels wide
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
@@ -521,6 +521,8 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
         ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
         ucTemp[1] = (uint8_t)(160);
         ucTemp[2] = (uint8_t)(160 >> 8);
+//        ucTemp[1] = (uint8_t)(160);
+//        ucTemp[2] = (uint8_t)(160 >> 8);
         bbepI2CWrite(0x68, ucTemp, 3);
 
         int iTimeout = 0;
@@ -1158,6 +1160,49 @@ int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
     return (*(pState->pfnEinkPower))(pState, bOn);
 } /* bbepEinkPower() */
+//
+// Fix a rectangle's coordinates for the current rotation and mirroring flags
+// returns FALSE (0) if okay, TRUE (1) if invalid
+//
+int bbepFixRect(FASTEPDSTATE *pState, BBEPRECT *pRect, int *iStartCol, int *iEndCol, int *iStartRow, int *iEndRow)
+{
+    int i;
+        *iStartCol = pRect->x;
+        *iEndCol = *iStartCol + pRect->w - 1;
+        *iStartRow = pRect->y;
+        *iEndRow = *iStartRow + pRect->h - 1;
+        if (*iStartCol >= *iEndCol || *iStartRow >= *iEndRow) return 1; // invalid area
+
+        if (*iStartCol < 0) *iStartCol = 0;
+        if (*iStartRow < 0) *iStartRow = 0;
+        if (*iEndCol >= pState->width) *iEndCol = pState->width - 1;
+        if (*iEndRow >= pState->height) *iEndRow = pState->height - 1;
+        switch (pState->rotation) { // rotate to native panel direction
+            case 0: // nothing to do
+                break;
+            case 90:
+                i = *iStartCol;
+                *iStartCol = *iStartRow;
+                *iStartRow = pState->width - 1 - *iEndCol;
+                *iEndCol = *iEndRow;
+                *iEndRow = pState->width - 1 - i; // iStartCol
+                break;
+            case 270:
+                i = *iStartCol;
+                *iStartCol = pState->height - 1 - *iEndRow;
+                *iEndRow = *iEndCol;
+                *iEndCol = pState->height - 1 - *iStartRow;
+                *iStartRow = i; // iStartCol
+                break;
+            case 180:
+                *iStartCol = pState->width - 1 - *iStartCol;
+                *iEndCol = pState->width - 1 - *iEndCol;
+                *iStartRow = pState->height - 1 - *iStartRow;
+                *iEndRow = pState->height - 1 - *iEndRow;
+                break;
+        }
+    return 0;
+} /* bbepFixRect() */
 
 //
 // Clear the display with the given code for the given number of repetitions
@@ -1173,40 +1218,7 @@ void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect
     else val = 0xff;
 
     if (pRect) {
-        iStartCol = pRect->x;
-        iEndCol = iStartCol + pRect->w - 1;
-        iStartRow = pRect->y;
-        iEndRow = iStartRow + pRect->h - 1;
-        if (iStartCol >= iEndCol || iStartRow >= iEndRow) return; // invalid area
-
-        if (iStartCol < 0) iStartCol = 0;
-        if (iStartRow < 0) iStartRow = 0;
-        if (iEndCol >= pState->width) iEndCol = pState->width - 1;
-        if (iEndRow >= pState->height) iEndRow = pState->height - 1;
-        switch (pState->rotation) { // rotate to native panel direction
-            case 0: // nothing to do
-                break;
-            case 90:
-                i = iStartCol;
-                iStartCol = iStartRow;
-                iStartRow = pState->width - 1 - iEndCol;
-                iEndCol = iEndRow;
-                iEndRow = pState->width - 1 - i; // iStartCol
-                break;
-            case 270:
-                i = iStartCol;
-                iStartCol = pState->height - 1 - iEndRow;
-                iEndRow = iEndCol;
-                iEndCol = pState->height - 1 - iStartRow;
-                iStartRow = i; // iStartCol
-                break;
-            case 180:
-                iStartCol = pState->width - 1 - iStartCol;
-                iEndCol = pState->width - 1 - iEndCol;
-                iStartRow = pState->height - 1 - iStartRow;
-                iEndRow = pState->height - 1 - iEndRow;
-                break;
-        }
+        if (bbepFixRect(pState, pRect, &iStartCol, &iEndCol, &iStartRow, &iEndRow)) return;
     } else { // use the whole display
         iStartCol = iStartRow = 0;
         iEndCol = pState->native_width - 1;
@@ -1253,6 +1265,9 @@ void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect
 int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRect)
 {
     int i, n, pass, passes;
+    int iStartCol, iStartRow, iEndCol, iEndRow;
+    uint8_t u8;
+
 #ifdef SHOW_TIME
     long l = millis();
 #endif
@@ -1270,6 +1285,28 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
     bbepClear(pState, 2, 1, pRect);
     bbepClear(pState, 0, passes, pRect);
 
+    if (pRect) {
+        if (bbepFixRect(pState, pRect, &iStartCol, &iEndCol, &iStartRow, &iEndRow)) return BBEP_ERROR_BAD_PARAMETER;
+        // Prepare masked row
+        memset(u8Cache, 0xff, pState->native_width / 4);
+        i = iStartCol/4;
+        memset(u8Cache, 0, i); // whole bytes on left side
+        if ((iStartCol & 3) != 0) { // partial byte
+            u8 = 0xff >> ((iStartCol & 3)*2);
+            u8Cache[i] = u8;
+        }
+        i = (iEndCol + 3)/4;
+        memset(&u8Cache[i], 0, (pState->native_width / 4) - i); // whole bytes on right side
+        if ((iEndCol & 3) != 3) { // partial byte
+            u8 = 0xff << ((3-(iEndCol & 3))*2);
+            u8Cache[i-1] = u8;
+        }
+    } else { // use the whole display
+        iStartCol = iStartRow = 0;
+        iEndCol = pState->native_width - 1;
+        iEndRow = pState->native_height - 1;
+    }
+
     if (pState->mode == BB_MODE_1BPP) {
         // Set the color in multiple passes starting from white
         // First create the 2-bit codes per pixel for the black pixels
@@ -1277,26 +1314,39 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         int dy; // destination Y for flipped displays
         for (i = 0; i < pState->native_height; i++) {
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
-            s = &pState->pCurrent[i * (pState->native_width/8)];
-            d = &pState->pTemp[dy * (pState->native_width/4)];
-            memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
-            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                s += (pState->native_width/8) - 1;
-                for (n = 0; n <(pState->native_width / 4); n += 4) {
-                    uint8_t dram2 = *(s--);
-                    uint8_t dram1 = *(s--);
-                    *(uint16_t *)&d[n] = LUTB_16[dram2];
-                    *(uint16_t *)&d[n+2] = LUTB_16[dram1];
+            if (i >= iStartRow && i <= iEndRow) {
+                s = &pState->pCurrent[i * (pState->native_width/8)];
+                d = &pState->pTemp[dy * (pState->native_width/4)];
+                memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
+                if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                    s += (pState->native_width/8) - 1;
+                    for (n = 0; n <(pState->native_width / 4); n += 4) {
+                        uint8_t dram2 = *(s--);
+                        uint8_t dram1 = *(s--);
+                        *(uint16_t *)&d[n] = LUTB_16[dram2];
+                        *(uint16_t *)&d[n+2] = LUTB_16[dram1];
+                    }
+                } else {
+                    for (n = 0; n < (pState->native_width / 4); n += 4) {
+                        uint8_t dram1 = *s++;
+                        uint8_t dram2 = *s++;
+                        *(uint16_t *)&d[n+2] = LUTB_16[dram2];
+                        *(uint16_t *)&d[n] = LUTB_16[dram1];
+                    }
                 }
-            } else {
-                for (n = 0; n < (pState->native_width / 4); n += 4) {
-                    uint8_t dram1 = *s++;
-                    uint8_t dram2 = *s++;
-                    *(uint16_t *)&d[n+2] = LUTB_16[dram2];
-                    *(uint16_t *)&d[n] = LUTB_16[dram1];
+                if (iStartCol > 0 || iEndCol < pState->native_width-1) { // There is a region rectangle defined, clip the output to it
+                    uint32_t *src, *dst;
+                    src = (uint32_t *)u8Cache;
+                    dst = (uint32_t *)d;
+                    for (n=0; n<pState->native_width/16; n++) { // mask off non-changing pixels to 0s
+                        dst[n] &= src[n];
+                    }
                 }
+            } else { // row is not in update area
+                d = &pState->pTemp[dy * (pState->native_width/4)];
+                memset(d, 0, pState->native_width/4); // skip all these pixels
             }
-        }
+        } // for i
         // Write 5 passes of the black data to the whole display
         for (pass = 0; pass < 5; pass++) {
             bbepRowControl(pState, ROW_START);
@@ -1309,7 +1359,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             }
             delayMicroseconds(230);
         } // for pass
-
+#ifdef FUTURE
         for (pass = 0; pass < 1; pass++) {
             uint8_t *s, *d;
             bbepRowControl(pState, ROW_START);
@@ -1340,7 +1390,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             }
             delayMicroseconds(230);
         } // for pass
-
+#endif // FUTURE
         for (pass = 0; pass < 1; pass++) {
             bbepRowControl(pState, ROW_START);
             memset((void *)pState->dma_buf, 0, pState->native_width /4); // send 0's
@@ -1358,25 +1408,37 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             uint8_t *s, *d = pState->dma_buf;
             bbepRowControl(pState, ROW_START);
             for (i = 0; i < pState->native_height; i++) {
-                dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
-                s = &pState->pCurrent[dy *(pState->native_width / 2)];
-                if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                    s += (pState->native_width / 2) - 8;
-                    for (n = 0; n < (pState->native_width / 4); n += 4) {
-                        d[n + 0] = (pGrayUpper[pass * 256 + s[7]] | pGrayLower[pass * 256 + s[6]]);
-                        d[n + 1] = (pGrayUpper[pass * 256 + s[5]] | pGrayLower[pass * 256 + s[4]]);
-                        d[n + 2] = (pGrayUpper[pass * 256 + s[3]] | pGrayLower[pass * 256 + s[2]]);
-                        d[n + 3] = (pGrayUpper[pass * 256 + s[1]] | pGrayLower[pass * 256 + s[0]]);
-                        s -= 8;
-                    } // for j
-                } else {
-                    for (n = 0; n < (pState->native_width / 4); n += 4) {
-                        d[n + 0] = (pGrayUpper[pass * 256 + s[0]] | pGrayLower[pass * 256 + s[1]]);
-                        d[n + 1] = (pGrayUpper[pass * 256 + s[2]] | pGrayLower[pass * 256 + s[3]]);
-                        d[n + 2] = (pGrayUpper[pass * 256 + s[4]] | pGrayLower[pass * 256 + s[5]]);
-                        d[n + 3] = (pGrayUpper[pass * 256 + s[6]] | pGrayLower[pass * 256 + s[7]]);
-                        s += 8;
-                    } // for j
+                if (i >= iStartRow && i <= iEndRow) { // within the clip rectangle
+                    dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+                    s = &pState->pCurrent[dy *(pState->native_width / 2)];
+                    if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                        s += (pState->native_width / 2) - 8;
+                        for (n = 0; n < (pState->native_width / 4); n += 4) {
+                            d[n + 0] = (pGrayUpper[pass * 256 + s[7]] | pGrayLower[pass * 256 + s[6]]);
+                            d[n + 1] = (pGrayUpper[pass * 256 + s[5]] | pGrayLower[pass * 256 + s[4]]);
+                            d[n + 2] = (pGrayUpper[pass * 256 + s[3]] | pGrayLower[pass * 256 + s[2]]);
+                            d[n + 3] = (pGrayUpper[pass * 256 + s[1]] | pGrayLower[pass * 256 + s[0]]);
+                            s -= 8;
+                        } // for j
+                    } else {
+                        for (n = 0; n < (pState->native_width / 4); n += 4) {
+                            d[n + 0] = (pGrayUpper[pass * 256 + s[0]] | pGrayLower[pass * 256 + s[1]]);
+                            d[n + 1] = (pGrayUpper[pass * 256 + s[2]] | pGrayLower[pass * 256 + s[3]]);
+                            d[n + 2] = (pGrayUpper[pass * 256 + s[4]] | pGrayLower[pass * 256 + s[5]]);
+                            d[n + 3] = (pGrayUpper[pass * 256 + s[6]] | pGrayLower[pass * 256 + s[7]]);
+                            s += 8;
+                        } // for j
+                    }
+                    if (iStartCol > 0 || iEndCol < pState->native_width-1) { // There is a region rectangle defined, clip the output to it
+                        uint32_t *src, *dst;
+                        src = (uint32_t *)u8Cache;
+                        dst = (uint32_t *)pState->dma_buf;
+                        for (n=0; n<pState->native_width/16; n++) { // mask off non-changing pixels to 0s
+                            dst[n] &= src[n];
+                        }
+                    }
+                } else { // outside the clip rectangle
+                    memset(pState->dma_buf, 0, pState->native_width/4);
                 }
                 bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4));
                // delayMicroseconds(15);
@@ -1386,7 +1448,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         } // for pass
     } // 4bpp
 
-        // Set the drivers inside epaper panel into dischare state.
+        // Set the drivers inside epaper panel into discharge state.
         bbepClear(pState, 2, 1, pRect);
         if (!bKeepOn) bbepEinkPower(pState, 0);
     
@@ -1462,7 +1524,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
         iStartLine = iEndLine;
         iEndLine = i;
     }
-    for (pass = 0; pass < 5; pass++) { // each pass is about 32ms
+    for (pass = 0; pass < 4; pass++) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
         int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;
@@ -1496,7 +1558,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     } // for each pass
 
     if (bKeepOn) {
-        bbepClear(pState, 2, 1, NULL);
+        bbepClear(pState, 3, 1, NULL);
     } else {
         bbepEinkPower(pState, 0);
     }
