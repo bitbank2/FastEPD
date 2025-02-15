@@ -52,15 +52,16 @@ void loop()
   BBEPRECT rect;
   int i, j;
   // initialize the I/O and memory
-  epaper.initPanel(BB_PANEL_M5PAPERS3);
+//  epaper.initPanel(BB_PANEL_T5EPAPERS3);
+//    epaper.initPanel(BB_PANEL_V7_RAW);
+//    epaper.setPanelSize(1280, 720, BB_PANEL_FLAG_MIRROR_Y, 20);
 //    epaper.initPanel(BB_PANEL_INKPLATE5V2);
 //    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
 //    epaper.setPanelSize(2760, 2070, 0);
-//    epaper.initPanel(BB_PANEL_EPDIY_V7);
-//    epaper.setPanelSize(1024, 758);
+    epaper.initPanel(BB_PANEL_EPDIY_V7);
+    epaper.setPanelSize(1024, 758);
     // The default drawing mode is 1-bit per pixel
-    epaper.fillScreen(BBEP_WHITE); // fill the current image buffer with white
-    epaper.fullUpdate(true); // do a full update, but use the faster option
+    epaper.clearWhite(true); // fill the current image buffer and eink panel with white
     epaper.setFont(Roboto_Black_40);
     epaper.setTextColor(BBEP_BLACK);
     epaper.setCursor(0, 80); // TTF means Y==0-> baseline of characters, not the top

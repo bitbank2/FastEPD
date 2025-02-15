@@ -100,6 +100,14 @@ typedef struct bbepr {
     int h;
 } BBEPRECT;
 
+// Display clearing pass type
+enum {
+    BB_CLEAR_LIGHTEN = 0,
+    BB_CLEAR_DARKEN,
+    BB_CLEAR_NEUTRAL,
+    BB_CLEAR_SKIP
+};
+
 // Graphics modes
 enum {
     BB_MODE_NONE = 0,
@@ -148,7 +156,8 @@ typedef struct tag_bbeppanelprocs
 typedef struct tag_fastepdstate
 {
     int iPanelType;
-    uint8_t wrap, last_error, pwr_on, mode, shift_data;
+    uint8_t wrap, last_error, pwr_on, mode;
+    uint8_t shift_data, skip_delay;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
     int rotation;
@@ -180,7 +189,7 @@ class FASTEPD
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
-    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
+    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE, uint8_t iSkipDelay = 35);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
@@ -194,6 +203,8 @@ class FASTEPD
     void drawRoundRect(int x, int y, int w, int h, int r, uint8_t color);
     void fillRoundRect(int x, int y, int w, int h, int r, uint8_t color);
     void fillScreen(uint8_t iColor);
+    int clearWhite(bool bKeepOn = false);
+    int clearBlack(bool bKeepOn = false);
     void drawRect(int x, int y, int w, int h, uint8_t color);
     void fillRect(int x, int y, int w, int h, uint8_t color);
     void setTextWrap(bool bWrap);

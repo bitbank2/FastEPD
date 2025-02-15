@@ -190,8 +190,8 @@ int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
     return (*(_state.pfnIOInit))(&_state);
 } /* setPanelType() */
 
-int FASTEPD::setPanelSize(int width, int height, int flags) {
-    return bbepSetPanelSize(&_state, width, height, flags);
+int FASTEPD::setPanelSize(int width, int height, int flags, uint8_t skip_delay) {
+    return bbepSetPanelSize(&_state, width, height, flags, skip_delay);
 } /* setPanelSize() */
 
 int FASTEPD::initPanel(int iPanel)
@@ -203,6 +203,30 @@ int FASTEPD::einkPower(int bOn)
 {
     return bbepEinkPower(&_state, bOn);
 } /* einkPower() */
+
+int FASTEPD::clearWhite(bool bKeepOn)
+{
+    if (bbepEinkPower(&_state, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+    fillScreen(BBEP_WHITE);
+    backupPlane(); // previous buffer set to the same color
+    bbepClear(&_state, BB_CLEAR_DARKEN, 5, NULL);
+    bbepClear(&_state, BB_CLEAR_LIGHTEN, 5, NULL);
+    bbepClear(&_state, BB_CLEAR_NEUTRAL, 1, NULL);
+    if (!bKeepOn) bbepEinkPower(&_state, 0);
+    return BBEP_SUCCESS;
+} /* clearWhite() */
+
+int FASTEPD::clearBlack(bool bKeepOn)
+{
+    if (bbepEinkPower(&_state, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+    fillScreen(BBEP_BLACK);
+    backupPlane(); // previous buffer set to the same color
+    bbepClear(&_state, BB_CLEAR_LIGHTEN, 5, NULL);
+    bbepClear(&_state, BB_CLEAR_DARKEN, 5, NULL);
+    bbepClear(&_state, BB_CLEAR_NEUTRAL, 1, NULL);
+    if (!bKeepOn) bbepEinkPower(&_state, 0);
+    return BBEP_SUCCESS;
+} /* clearBlack() */
 
 void FASTEPD::fillScreen(uint8_t u8Color)
 {
