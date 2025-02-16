@@ -209,8 +209,9 @@ int FASTEPD::clearWhite(bool bKeepOn)
     if (bbepEinkPower(&_state, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     fillScreen(BBEP_WHITE);
     backupPlane(); // previous buffer set to the same color
-    bbepClear(&_state, BB_CLEAR_DARKEN, 5, NULL);
-    bbepClear(&_state, BB_CLEAR_LIGHTEN, 5, NULL);
+    // 7 passes is enough to set all of the displays I've used to pure white or black
+    bbepClear(&_state, BB_CLEAR_DARKEN, 7, NULL);
+    bbepClear(&_state, BB_CLEAR_LIGHTEN, 7, NULL);
     bbepClear(&_state, BB_CLEAR_NEUTRAL, 1, NULL);
     if (!bKeepOn) bbepEinkPower(&_state, 0);
     return BBEP_SUCCESS;
@@ -221,8 +222,9 @@ int FASTEPD::clearBlack(bool bKeepOn)
     if (bbepEinkPower(&_state, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     fillScreen(BBEP_BLACK);
     backupPlane(); // previous buffer set to the same color
-    bbepClear(&_state, BB_CLEAR_LIGHTEN, 5, NULL);
-    bbepClear(&_state, BB_CLEAR_DARKEN, 5, NULL);
+    // 7 passes is enough to set all of the displays I've used to pure white or black
+    bbepClear(&_state, BB_CLEAR_LIGHTEN, 7, NULL);
+    bbepClear(&_state, BB_CLEAR_DARKEN, 7, NULL);
     bbepClear(&_state, BB_CLEAR_NEUTRAL, 1, NULL);
     if (!bKeepOn) bbepEinkPower(&_state, 0);
     return BBEP_SUCCESS;

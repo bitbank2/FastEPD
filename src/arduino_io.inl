@@ -21,12 +21,12 @@
 #ifndef __BB_EP_IO__
 #define __BB_EP_IO__
 
+#ifndef ARDUINO
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "esp_timer.h"
 
 // GPIO modes
-#ifndef ARDUINO
 #define memcpy_P memcpy
 #define pgm_read_byte(a) (*(uint8_t *)a)
 #define pgm_read_word(a) (*(uint16_t *)a)
@@ -74,7 +74,7 @@ void delay(uint32_t ms)
     }
     delayMicroseconds((ms % 10) * 1000);
 }
-#endif
+#endif // !ARDUINO
 
 void bbepPinMode(int iPin, int iMode)
 {
@@ -100,6 +100,12 @@ void bbepPinMode(int iPin, int iMode)
 //
 int bbepI2CInit(uint8_t sda, uint8_t scl)
 {
+#ifdef ARDUINO
+    Wire.end();
+    Wire.begin(sda, scl);
+    Wire.setClock(400000);
+    Wire.setTimeout(100);
+#else
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;
     conf.sda_io_num = sda;
@@ -110,11 +116,19 @@ int bbepI2CInit(uint8_t sda, uint8_t scl)
     conf.clk_flags = 0; 
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
+#endif
     return BBEP_SUCCESS;
 } /* bbepI2CInit() */
 
 int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
 {
+#ifdef ARDUINO
+    int rc = 0;
+    Wire.beginTransmission(iAddr);
+    Wire.write(pData, (unsigned char)iLen);
+    rc = !Wire.endTransmission();
+    return rc;
+#else
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     if (cmd == NULL) {
        // ESP_LOGE("bb_epdiy", "insufficient memory for I2C transaction");
@@ -126,12 +140,19 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
     return (ret == ESP_OK);
+#endif
 }
 
 int bbepI2CRead(unsigned char iAddr, unsigned char *pData, int iLen)
 {
 int i = 0;
 
+#ifdef ARDUINO
+    Wire.requestFrom(iAddr, (unsigned char)iLen);
+    while (i < iLen && Wire.available()) {
+        pData[i++] = Wire.read();
+    }
+#else
     esp_err_t ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     if (cmd == NULL) {
@@ -150,6 +171,7 @@ int i = 0;
         i = iLen;
     }
     i2c_cmd_link_delete(cmd);
+#endif
     return i;
 }
 int bbepI2CReadRegister(unsigned char iAddr, unsigned char u8Register, unsigned char *pData, int iLen)
