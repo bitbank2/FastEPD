@@ -53,6 +53,11 @@ int FASTEPD::loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG)
     return bbepLoadBMP(&_state, pBMP, x, y, iFG, iBG);
 } /* loadBMP() */
 
+int FASTEPD::loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale)
+{
+    return bbepLoadG5(&_state, pG5, x, y, iFG, iBG, fScale);
+}
+
 int FASTEPD::setRotation(int iAngle)
 {
     return bbepSetRotation(&_state, iAngle);

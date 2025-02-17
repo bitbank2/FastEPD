@@ -514,46 +514,65 @@ void InvertBytes(uint8_t *pData, uint8_t bLen)
     }
 } /* InvertBytes() */
 //
-// Load a 1-bpp Group5 compressed bitmap
+// Load a 1-bpp Group5 compressed bitmap at the given scale
 // Pass the pointer to the beginning of the G5 file
-// If the FG == BG color, and there is a back buffer, it will
-// draw the 1's bits as the FG color and leave
-// the background (0 pixels) unchanged - aka transparent.
+// If the FG == BG color, it will draw the 1's bits
+// as the FG color and leave the background (0 bits)
+// unchanged - aka transparent.
 //
-int bbepLoadG5(FASTEPDSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, int iBG)
+int bbepLoadG5(FASTEPDSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale)
 {
-    uint16_t rc, tx, ty, cx, cy, size;
+    uint16_t rc, tx, ty, dx, dy, cx, cy, size;
+    uint16_t width, height;
     BB_BITMAP *pbbb;
-    
-    if (pBBEP == NULL || pG5 == NULL) return BBEP_ERROR_BAD_PARAMETER;
+    uint32_t u32Frac, u32XAcc, u32YAcc; // integer fraction vars
+
+    if (pBBEP == NULL || pG5 == NULL || fScale < 0.01) return BBEP_ERROR_BAD_PARAMETER;
+    u32Frac = (uint32_t)(65536.0f / fScale); // calculate the fraction to advance the destination x/y
     pbbb = (BB_BITMAP *)pG5;
     if (pgm_read_word(&pbbb->u16Marker) != BB_BITMAP_MARKER) return BBEP_ERROR_BAD_DATA;
+    width = pBBEP->width;
+    height = pBBEP->height;
     cx = pgm_read_word(&pbbb->width);
     cy = pgm_read_word(&pbbb->height);
+    // Calculate scaled destination size
+    dx = (int)(fScale * (float)cx);
+    dy = (int)(fScale * (float)cy);
     size = pgm_read_word(&pbbb->size);
     if (iFG == -1) iFG = BBEP_WHITE;
     if (iBG == -1) iBG = BBEP_BLACK;
     rc = g5_decode_init(&g5dec, cx, cy, (uint8_t *)&pbbb[1], size);
     if (rc != G5_SUCCESS) return BBEP_ERROR_BAD_DATA; // corrupt data?
-    for (ty=y; ty<y+cy && ty < pBBEP->height; ty++) {
+    u32YAcc = 65536; // force first line to get decoded
+    for (ty=y; ty<y+dy && ty < height; ty++) {
         uint8_t u8, *s, src_mask;
-        g5_decode_line(&g5dec, u8Cache);
-            src_mask = 0; // make it read a byte to start
-            s = u8Cache;
-            for (tx=x; tx<x+cx; tx++) {
+        while (u32YAcc >= 65536) { // advance to next source line
+            g5_decode_line(&g5dec, u8Cache);
+            u32YAcc -= 65536;
+        }
+        s = u8Cache;
+        u32XAcc = 0;
+        u8 = *s++; // grab first source byte (8 pixels)
+        src_mask = 0x80; // MSB on left
+        for (tx=x; tx<x+dx && tx < width; tx++) {
+            if (u8 & src_mask) {
+                if (iFG != BBEP_TRANSPARENT)
+                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iFG);
+            } else {
+                if (iBG != BBEP_TRANSPARENT)
+                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iBG);
+            }
+            u32XAcc += u32Frac;
+            while (u32XAcc >= 65536) {
+                u32XAcc -= 65536; // whole source pixel horizontal movement
+                src_mask >>= 1;
                 if (src_mask == 0) { // need to load the next byte
                     u8 = *s++;
-                    src_mask = 0x80; // MSB on left
+                    src_mask = 0x80;
                 }
-                if (u8 & src_mask) {
-                    if (iFG != BBEP_TRANSPARENT)
-                        (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iFG);
-                } else {
-                    if (iBG != BBEP_TRANSPARENT)
-                        (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iBG);
-                }
-                src_mask >>= 1;
-            } // for tx
+            }
+        } // for tx
+        u32YAcc += u32Frac;
     } // for y
     return BBEP_SUCCESS;
 } /* bbepLoadG5() */
