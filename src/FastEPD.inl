@@ -99,30 +99,18 @@ const BBPANELDEF panelDefs[] = {
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 8, 46, 17, 18, 13, 45, 15,
       16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_M5PAPERS3
 
-
-    {960, 540, 12000000, BB_PANEL_FLAG_SLOW_SPH, {8,1,2,3,4,5,6,7}, 8, 1, 4, 38, 40, 7, BB_NOT_USED,
-      41, BB_NOT_USED, 13, 12, 0, 0x32, 47,u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERS3
-
-
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 0, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0}, // BB_PANEL_EPDIY_V7
+
     {1024, 758, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_INKPLATE6PLUS
 
     {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE5V2
 
-
-    {960, 540, 10000000, BB_PANEL_FLAG_SLOW_SPH, {33,32,4,19,2,27,21,22}, 8, 1, 4, 25, 26, 7, 15,
-      5, BB_NOT_USED, 23, 18, 0, 0x32, 14, u8GrayMatrix, sizeof(u8GrayMatrix), 32}, // BB_PANEL_T5EPAPERV1
-    {960, 540, 12000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,8,7}, 8, 11, 45, 48, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 13,u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_T5EPAPERS3PRO
     {0, 0, 16000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_EPDIY_V7_16
-    {1200, 820, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
-      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE10
-    {800, 600, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
-      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE6
+
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 9, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_V7_RAW
 };
@@ -133,10 +121,6 @@ const BBPANELDEF panelDefs[] = {
 int PaperS3EinkPower(void *pBBEP, int bOn);
 int PaperS3IOInit(void *pBBEP);
 void PaperS3RowControl(void *pBBEP, int iMode);
-// LilyGo T5 Epaper S3 V2.4
-int LilyGoV24EinkPower(void *pBBEP, int bOn);
-int LilyGoV24IOInit(void *pBBEP);
-void LilyGoV24RowControl(void *pBBEP, int iMode);
 // EPDiy V7
 int EPDiyV7EinkPower(void *pBBEP, int bOn);
 int EPDiyV7IOInit(void *pBBEP);
@@ -157,15 +141,10 @@ void Inkplate5V2RowControl(void *pBBEP, int iMode);
 const BBPANELPROCS panelProcs[] = {
     {0}, // BB_PANEL_NONE
     {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl}, // BB_PANEL_M5PAPERS3
-    {LilyGoV24EinkPower, LilyGoV24IOInit, LilyGoV24RowControl}, // BB_PANEL_T5EPAPERS3
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7
     {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE6PLUS
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl}, // Inkplate5V2
-    {LilyGoV24EinkPower, LilyGoV24IOInit, LilyGoV24RowControl}, // BB_PANEL_T5EPAPERV1
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_T5EPAPERS3PRO
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7_16
-    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE10
-    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE6 (old)
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl}, // BB_PANEL_V7_RAW
 };
 
@@ -469,35 +448,6 @@ int PaperS3EinkPower(void *pBBEP, int bOn)
     }
     return BBEP_SUCCESS;
 } /* PaperS3EinkPower() */
-int LilyGoV24EinkPower(void *pBBEP, int bOn)
-{
-    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    if (bOn == pState->pwr_on) return BBEP_SUCCESS; // already on
-    if (bOn) {
-        bbepSetShiftBit(pState, 1, 0); // power_disable = false
-        delayMicroseconds(100);
-        bbepSetShiftBit(pState, 3, 1); // negative_power_enable = true
-        delayMicroseconds(500);
-        bbepSetShiftBit(pState, 2, 1); // positive_power_enable = true
-        delayMicroseconds(100);
-        bbepSetShiftBit(pState, 4, 1); // stv = true
-        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1);
-        bbepSetShiftBit(pState, 5, 1); // pwr en = true
-        pState->pwr_on = 1;
-    } else { // power off
-        bbepSetShiftBit(pState, 2, 0); // positive_power_enable = false
-        delayMicroseconds(10);
-        bbepSetShiftBit(pState, 3, 0); // negative_power_enable = false
-        delayMicroseconds(100);
-        bbepSetShiftBit(pState, 1, 1); // power_disable = true
-        bbepSetShiftBit(pState, 4, 0); // STV = false
-//        gpio_set_level((gpio_num_t)pState->panelDef.ioSPV, 0); // stv = false            
-        bbepSetShiftBit(pState, 5, 0); // pwr en = false
-        bbepSetShiftBit(pState, 7, 0); // output_enable = false
-        pState->pwr_on = 0;
-    }
-    return BBEP_SUCCESS;
-}
 #define TPS_REG_ENABLE 0x01
 #define TPS_REG_PG 0x0F
 int EPDiyV7EinkPower(void *pBBEP, int bOn)
@@ -715,27 +665,6 @@ int PaperS3IOInit(void *pBBEP)
     return BBEP_SUCCESS;
 } /* PaperS3IOInit() */
 //
-// Initialize the IO for the LilyGo T5 4.7" V2.4 PCB
-//
-int LilyGoV24IOInit(void *pBBEP)
-{
-    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    //Serial.println("Using shift register");
-    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
-    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
-    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
-    if (pState->panelDef.ioLE != BB_NOT_USED) {
-        bbepPinMode(pState->panelDef.ioLE, OUTPUT);
-    }
-    pState->shift_data = pState->panelDef.ioShiftMask;
-    bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
-    bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
-    bbepPinMode(pState->panelDef.ioSCL, OUTPUT);
-    gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
-    bbepSendShiftData(pState); // send default control bits
-    return BBEP_SUCCESS;
-} /* LilyGoV24IOInit() */
-//
 // Initialize the IO for the EPDiy V7 PCB
 //
 int EPDiyV7IOInit(void *pBBEP)
@@ -868,50 +797,6 @@ void PaperS3RowControl(void *pBBEP, int iType)
     }
 } /* PaperS3RowControl() */
 
-void LilyGoV24RowControl(void *pBBEP, int iType)
-{
-    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
-    gpio_num_t spv = (gpio_num_t)pState->panelDef.ioSPV;
-    gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
-
-    if (iType == ROW_START) {
-        bbepSetShiftBit(pState, 6, 1); // GMODE = 1
-        gpio_set_level(ckv, 1); // CKV on
-        delayMicroseconds(10);
-        gpio_set_level(ckv, 0); // CKV off
-        delayMicroseconds(10);
-        bbepSetShiftBit(pState, 4, 0); // STV off
-       // gpio_set_level(spv, 0); //SPV off;
-        delayMicroseconds(1);
-        gpio_set_level(ckv, 1); // CKV on
-        delayMicroseconds(100);                    
-        gpio_set_level(ckv, 0); // CKV off
-        delayMicroseconds(100);
-        bbepSetShiftBit(pState, 4, 1); // STV on
-//        gpio_set_level(spv, 1); // SPV on
-        gpio_set_level(ckv, 1); // CKV on
-        delayMicroseconds(100);
-        gpio_set_level(ckv, 0); // CKV on
-        bbepSetShiftBit(pState, 7, 1); // output_enable = true
-        gpio_set_level(ckv, 1); // CKV on
-        delayMicroseconds(10);
-        gpio_set_level(ckv, 0); // CKV off
-        delayMicroseconds(10);
-    } else if (iType == ROW_STEP) {
-        gpio_set_level(ckv, 0); // CKV off
-        delayMicroseconds(500);
-        if (le == BB_NOT_USED) {
-            bbepSetShiftBit(pState, 0, 1); // LE toggle
-            bbepSetShiftBit(pState, 0, 0);
-        } else {
-            gpio_set_level(le, 1); // LE toggle
-            gpio_set_level(le, 0);
-        }
-        delayMicroseconds(0);
-        gpio_set_level(ckv, 1); // CKV on
-    }
-}
 void EPDiyV7RowControl(void *pBBEP, int iType)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
