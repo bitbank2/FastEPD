@@ -114,12 +114,15 @@ void FASTEPD::setFont(int iFont)
 {
     _state.iFont = iFont;
     _state.pFont = NULL;
+    _state.anti_alias = 0;
 } /* setFont() */
 
-void FASTEPD::setFont(const void *pFont)
+void FASTEPD::setFont(const void *pFont, bool bAntiAlias)
 {
     _state.iFont = -1;
     _state.pFont = (void *)pFont;
+    if (_state.mode != BB_MODE_4BPP) bAntiAlias = false; // only works in grayscale mode
+    _state.anti_alias = (uint8_t)bAntiAlias;
 } /* setFont() */
 
 void FASTEPD::setTextColor(int iFG, int iBG)
@@ -195,8 +198,8 @@ int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
     return (*(_state.pfnIOInit))(&_state);
 } /* setPanelType() */
 
-int FASTEPD::setPanelSize(int width, int height, int flags, uint8_t skip_delay) {
-    return bbepSetPanelSize(&_state, width, height, flags, skip_delay);
+int FASTEPD::setPanelSize(int width, int height, int flags) {
+    return bbepSetPanelSize(&_state, width, height, flags);
 } /* setPanelSize() */
 
 int FASTEPD::initPanel(int iPanel)
@@ -212,7 +215,7 @@ int FASTEPD::einkPower(int bOn)
 int FASTEPD::clearWhite(bool bKeepOn)
 {
     if (bbepEinkPower(&_state, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
-    fillScreen(BBEP_WHITE);
+    fillScreen((_state.mode == BB_MODE_1BPP) ? BBEP_WHITE : 0xf);
     backupPlane(); // previous buffer set to the same color
     // 7 passes is enough to set all of the displays I've used to pure white or black
     bbepClear(&_state, BB_CLEAR_DARKEN, 7, NULL);

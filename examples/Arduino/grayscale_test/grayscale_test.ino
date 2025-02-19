@@ -1,6 +1,11 @@
 #include <FastEPD.h>
 FASTEPD epaper;
 void setup() {
+}
+
+void loop() {
+//    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
+//    epaper.setPanelSize(2760, 2070, 0);
 //  epaper.initPanel(BB_PANEL_T5EPAPERV1);
 //  epaper.initPanel(BB_PANEL_M5PAPERS3);
 //  epaper.initPanel(BB_PANEL_INKPLATE6PLUS);
@@ -10,6 +15,7 @@ void setup() {
 //  epaper.setPanelSize(1280, 720);
   epaper.setMode(BB_MODE_4BPP);
   epaper.fillScreen(0xf);
+  epaper.fullUpdate(true);
   for (int i=0; i<800; i+=50) {
     epaper.fillRect(i, 0, 50, 250, i/50);
   }
@@ -21,9 +27,5 @@ void setup() {
     epaper.print(i, DEC);
   }
   epaper.fullUpdate();
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-
+  while (1) {};
 }

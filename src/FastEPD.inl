@@ -26,7 +26,7 @@
 #define __BB_EP__
 
 // For measuring the performance of each stage of updates
-#define SHOW_TIME
+//#define SHOW_TIME
 
 // 38 columns by 16 rows. From white (15) to each gray (0-black to 15-white) at 20C
 const uint8_t u8GrayMatrix[] = {
@@ -670,13 +670,13 @@ int PaperS3IOInit(void *pBBEP)
 int EPDiyV7IOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
-    if (pState->panelDef.ioSPV < 0x100) bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
-    if (pState->panelDef.ioCKV < 0x100) bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
-    if (pState->panelDef.ioSPH < 0x100) bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
-    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
-    if (pState->panelDef.ioLE < 0x100) bbepPinMode(pState->panelDef.ioLE, OUTPUT);
-    if (pState->panelDef.ioCL < 0x100) bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+//    if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+//    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
     bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
     bbepPCA9535SetConfig(0xc0); // set lower 6 bits as outputs and 6 (PWRGOOD) and 7 (INTR) as inputs
     return BBEP_SUCCESS;
@@ -687,13 +687,13 @@ int EPDiyV7IOInit(void *pBBEP)
 int EPDiyV7RAWIOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
-    if (pState->panelDef.ioSPV < 0x100) bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
-    if (pState->panelDef.ioCKV < 0x100) bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
-    if (pState->panelDef.ioSPH < 0x100) bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
-    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
-    if (pState->panelDef.ioLE < 0x100) bbepPinMode(pState->panelDef.ioLE, OUTPUT);
-    if (pState->panelDef.ioCL < 0x100) bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+    bbepPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
     bbepPinMode(10, OUTPUT); // EP_MODE
     bbepPinMode(11, OUTPUT); // TPS_PWRUP
     bbepPinMode(12, OUTPUT); // TPS_VCOM_CTRL
@@ -1006,13 +1006,12 @@ int bbepIOInit(FASTEPDSTATE *pState)
 // For board definitions without an associated display (e.g. EPDiy V7 PCB)
 // Set the display size and flags
 //
-int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, uint8_t skip_delay) {
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
     if (pState->pCurrent) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
 
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
-    pState->skip_delay = skip_delay; // skipped row delay in microseconds
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
@@ -1050,7 +1049,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         if (rc == BBEP_SUCCESS) {
             // allocate memory for the buffers if the paneldef contains the size
             if (pState->width) { // if size is defined
-                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags, 35);
+                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags);
                 if (rc != BBEP_SUCCESS) return rc; // no memory? stop
             }
         }
@@ -1364,7 +1363,6 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             delayMicroseconds(230);
         } // for pass
     } // 4bpp
-full_update_end:
         // Set the drivers inside epaper panel into discharge state.
         bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
         if (!bKeepOn) bbepEinkPower(pState, 0);
@@ -1458,7 +1456,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
             } else {
                 if (iSkipped >= 2) {
                     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV_SET;
-                    delayMicroseconds(pState->skip_delay);
+                    delayMicroseconds(35);
                 } else {
                     // write 2 floating rows
                     if (iSkipped == 0) { // skip

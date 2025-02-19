@@ -71,7 +71,7 @@ BBEPRECT rect;
    y -= 8;
    epd.setCursor(x, y + NAMES_TOP_Y);
    if (!bLarge) { // draw a rectangle to allow seeing the current selection
-      epd.getStringBox("A", &rect);
+      epd.getStringBox("Tj", &rect);
       epd.fillRect(0, rect.y, iDisplayWidth, rect.h, (bSelected) ? BBEP_BLACK : BBEP_WHITE);
    }
    epd.print(pString);
@@ -534,7 +534,7 @@ void TIFFDraw(TIFFDRAW *pDraw)
   s = pDraw->pPixels;
   d = epd.currentBuffer();
   iPitch = DISPLAY_WIDTH/2;
-  d += (iPitch * iYOff);
+  d += (iPitch * (pDraw->y + iYOff));
   d += iXOff/2;
   for (x=0; x<pDraw->iWidth+7; x+=8) {
     uc = *s++;
@@ -674,7 +674,7 @@ uint8_t *pDitherBuffer;
           epd.fullUpdate(true);
           Serial.println("Finished tiff decode");
       } else {
-        Serial.printf("Error opening TIFF = %d\n", rc);
+        Serial.printf("Error opening TIFF = %d\n", tif->getLastError());
       }
     } // tif
     return 0;
@@ -711,7 +711,8 @@ void setup() {
     Serial.println("Cap touch initialization failed!");
     while (1) {};
   }
-  epd.initPanel(BB_PANEL_M5PAPERS3);
+  rc = epd.initPanel(BB_PANEL_M5PAPERS3);
+  Serial.printf("initPanel returned %d\n", rc);
   epd.setRotation(270);
   epd.fillScreen(BBEP_WHITE);
   epd.fullUpdate(true, true);

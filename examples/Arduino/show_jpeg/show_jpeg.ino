@@ -25,9 +25,14 @@ int JPEGDraw(JPEGDRAW *pDraw)
 } /* JPEGDraw() */
 
 void setup() {
+  Serial.begin(115200);
+  delay(3000); // wait for CDC-Serial to start
 // For EPDiy v7 PCB, you need to specify the panel size explicitly
+//    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
+//    epaper.setPanelSize(2760, 2070, 0);
   epaper.initPanel(BB_PANEL_EPDIY_V7);
-  epaper.setPanelSize(1200, 825);
+  epaper.setPanelSize(1024, 758);
+//  epaper.setPanelSize(1280, 720, BB_PANEL_FLAG_MIRROR_X);
 //  epaper.initPanel(BB_PANEL_M5PAPERS3);
 //  epaper.initPanel(BB_PANEL_INKPLATE5V2);
   epaper.setMode(BB_MODE_4BPP);
@@ -41,8 +46,8 @@ void setup() {
 } /* setup() */ 
 
 void loop() {
-  delay(5000);
-  esp_sleep_enable_timer_wakeup(5000000);
-  esp_deep_sleep_start();
+  delay(50000);
+ // esp_sleep_enable_timer_wakeup(5000000);
+ // esp_deep_sleep_start();
 
 } /* loop() */

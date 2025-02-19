@@ -152,7 +152,7 @@ typedef struct tag_fastepdstate
 {
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode;
-    uint8_t shift_data, skip_delay;
+    uint8_t shift_data, anti_alias;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
     int rotation;
@@ -184,7 +184,7 @@ class FASTEPD
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
-    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE, uint8_t iSkipDelay = 35);
+    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
@@ -208,7 +208,7 @@ class FASTEPD
     int loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG);
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale = 1.0f);
     void setFont(int iFont);
-    void setFont(const void *pFont);
+    void setFont(const void *pFont, bool bAntiAliased = false);
     void drawLine(int x1, int y1, int x2, int y2, int iColor);
     void drawPixel(int x, int y, uint8_t color);
     void drawPixelFast(int x, int y, uint8_t color);

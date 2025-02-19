@@ -29,6 +29,28 @@ static G5DECIMAGE g5dec;
 // forward declarations
 void InvertBytes(uint8_t *pData, uint8_t bLen);
 
+//
+// Table to convert a 2x2 block of 1-bit pixels into a 2-bit gray level
+// (lower 4 bits)
+//
+const uint8_t ucGray2BPP[256] PROGMEM = {
+0x00,0x01,0x01,0x02,0x04,0x05,0x05,0x06,0x04,0x05,0x05,0x06,0x08,0x09,0x09,0x0a,
+0x01,0x02,0x02,0x02,0x05,0x06,0x06,0x06,0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,
+0x01,0x02,0x02,0x02,0x05,0x06,0x06,0x06,0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,
+0x02,0x02,0x02,0x03,0x06,0x06,0x06,0x07,0x06,0x06,0x06,0x07,0x0a,0x0a,0x0a,0x0b,
+0x04,0x05,0x05,0x06,0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,
+0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,
+0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,
+0x06,0x06,0x06,0x07,0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,
+0x04,0x05,0x05,0x06,0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,
+0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,
+0x05,0x06,0x06,0x06,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,
+0x06,0x06,0x06,0x07,0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,
+0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,0x08,0x09,0x09,0x0a,0x0c,0x0d,0x0d,0x0e,
+0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x0d,0x0e,0x0e,0x0e,
+0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x09,0x0a,0x0a,0x0a,0x0d,0x0e,0x0e,0x0e,
+0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,0x0a,0x0a,0x0a,0x0b,0x0e,0x0e,0x0e,0x0f};
+
 const uint8_t ucFont[]PROGMEM = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x06,0x5f,0x5f,0x06,0x00,
     0x00,0x07,0x07,0x00,0x07,0x07,0x00,0x14,0x7f,0x7f,0x14,0x7f,0x7f,0x14,
@@ -667,12 +689,48 @@ void bbepSetTextWrap(FASTEPDSTATE *pBBEP, int bWrap)
     pBBEP->wrap = bWrap;
 } /* bbepSetTextWrap() */
 //
+// Width is the doubled pixel width
+// Convert 1-bpp into 2-bit grayscale
+//
+static void Scale2Gray(uint8_t *source, int width, int iPitch)
+{
+    int x;
+    uint8_t ucPixels, c, d, *dest;
+
+    dest = source; // write the new pixels over the old to save memory
+
+    for (x=0; x<width/8; x+=2) /* Convert a pair of lines to gray */
+    {
+        c = source[x];  // first 4x2 block
+        d = source[x+iPitch];
+        /* two lines of 8 pixels are converted to one line of 4 pixels */
+        ucPixels = (ucGray2BPP[(unsigned char)((c & 0xf0) | (d >> 4))] << 4);
+        ucPixels |= (ucGray2BPP[(unsigned char)((c << 4) | (d & 0x0f))]);
+        *dest++ = ucPixels;
+        c = source[x+1];  // next 4x2 block
+        d = source[x+iPitch+1];
+        ucPixels = (ucGray2BPP[(unsigned char)((c & 0xf0) | (d >> 4))])<<4;
+        ucPixels |= ucGray2BPP[(unsigned char)((c << 4) | (d & 0x0f))];
+        *dest++ = ucPixels;
+    }
+    if (width & 4) // 2 more pixels to do
+    {
+        c = source[x];
+        d = source[x + iPitch];
+        ucPixels = (ucGray2BPP[(unsigned char) ((c & 0xf0) | (d >> 4))]) << 4;
+        ucPixels |= (ucGray2BPP[(unsigned char) ((c << 4) | (d & 0x0f))]);
+        dest[0] = ucPixels;
+    }
+} /* Scale2Gray() */
+
+//
 // Draw a string of BB_FONT characters directly into the EPD framebuffer
 //
 int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
 {
     int16_t n, rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
     uint8_t *s;
+    int width, height;
     BB_GLYPH *pGlyph;
     uint8_t *pBits, u8EndMask;
     uint8_t c, first, last;
@@ -681,6 +739,12 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
     if (pFont == NULL) {
         pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
         return BBEP_ERROR_BAD_PARAMETER; // invalid param
+    }
+    width = pBBEP->width;
+    height = pBBEP->height;
+    if (pBBEP->anti_alias) {
+        width *= 2;
+        height *= 2;
     }
     iBG = pBBEP->iBG;
     if (iBG == -1) iBG = BBEP_TRANSPARENT; // -1 = don't care
@@ -708,7 +772,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
     pBits += sizeof(BB_FONT);
     pBits += (last - first + 1) * sizeof(BB_GLYPH);
     i = 0;
-    while (szMsg[i] && x < pBBEP->width && y < pBBEP->height) {
+    while (szMsg[i] && x < width && y < height) {
         c = szMsg[i++];
         if (c < first || c > last) // undefined character
             continue; // skip it
@@ -730,8 +794,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 if (-n < w) dx -= (w+n); // since we draw from the baseline
                 dy = y + (int16_t)pgm_read_word(&pGlyph->xOffset);
             }
-            if ((dy + h) > pBBEP->height) { // trim it
-                h = pBBEP->height - dy;
+            if ((dy + h) > height) { // trim it
+                h = height - dy;
             }
             u8EndMask = 0xff;
             if (w & 7) { // width ends on a partial byte
@@ -745,9 +809,34 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 pBBEP->last_error = BBEP_ERROR_BAD_DATA;
                  return BBEP_ERROR_BAD_DATA; // corrupt data?
             }
-                tw = w;
-                if (x+tw+x_off > pBBEP->width) tw = pBBEP->width - (x+x_off); // clip to right edge
-                for (ty=dy; ty<end_y && ty < pBBEP->height; ty++) {
+            tw = w;
+            if (pBBEP->anti_alias) { // draw half-size anti-aliased characters
+                const uint8_t grayColors[4] = {0xf, 0xc, 0x6, 0};
+                int iLineSize = (tw+7)/8;
+                memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
+                for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
+                    uint8_t u8, u8Count, u8Color;
+                    g5_decode_line(&g5dec, &u8Cache[(ty & 1) * iLineSize]);
+                    if (ty & 1 && ty/2 >= 0) {
+                        Scale2Gray(u8Cache, iLineSize, iLineSize); // convert a pair of lines
+                        s = u8Cache;
+                        u8 = *s++; // grab first byte
+                        u8Count = 4;
+                        for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
+                            u8Color = grayColors[u8>>6];
+                            (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            u8 <<= 2;
+                            u8Count--;
+                            if (u8Count == 0) {
+                                u8Count = 4;
+                                u8 = *s++;
+                            }
+                        } // for tx
+                    } // if completed a pair of lines
+                } // for ty
+            } else {
+                if (x+tw+x_off > width) tw = width - (x+x_off); // clip to right edge
+                for (ty=dy; ty<end_y && ty < height; ty++) {
                     uint8_t u8, u8Count;
                     g5_decode_line(&g5dec, u8Cache);
                     s = u8Cache;
@@ -771,6 +860,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                         }
                     }
                 }
+            } // non-antialased
         } // if not drawing a space
         if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
             x += pgm_read_byte(&pGlyph->xAdvance); // width of this character
