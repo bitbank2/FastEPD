@@ -917,6 +917,13 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
 {
     esp_err_t err;
 
+    if (pData != pState->dma_buf) {
+        // the transaction needs to come from a DMA buffer or the Espressif DMA driver
+        // will allocate (and leak) an internal buffer each time
+        memcpy(pState->dma_buf, pData, iLen);
+        pData = pState->dma_buf;
+    }
+    
     while (!transfer_is_done) {
         delayMicroseconds(1);
     }

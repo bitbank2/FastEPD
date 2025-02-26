@@ -187,6 +187,7 @@ class FASTEPD
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
+    int getMode(void) {return _state.mode;}
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
