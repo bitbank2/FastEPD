@@ -154,7 +154,7 @@ static uint16_t LUTB_16[256];
 // Lookup tables for grayscale mode
 static uint32_t *pGrayLower, *pGrayUpper;
 volatile bool transfer_is_done = true;
-uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, needs to handle up to 4096 pixels wide
+static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, needs to handle up to 4096 pixels wide
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
@@ -923,7 +923,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
         memcpy(pState->dma_buf, pData, iLen);
         pData = pState->dma_buf;
     }
-    
+
     while (!transfer_is_done) {
         delayMicroseconds(1);
     }
@@ -1003,10 +1003,6 @@ int bbepIOInit(FASTEPDSTATE *pState)
         LUTW_16[i] = __builtin_bswap16(u16W);
         LUTB_16[i] = __builtin_bswap16(u16B);
     } // for i
-
-    // Allocate memory for each line to transmit
-      pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 4) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
-
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 //
@@ -1014,20 +1010,46 @@ int bbepIOInit(FASTEPDSTATE *pState)
 // Set the display size and flags
 //
 int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
+    int iPasses;
+    uint8_t *pMatrix;
+
     if (pState->pCurrent) return BBEP_ERROR_BAD_PARAMETER; // panel size is already set
 
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
-    pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 2, MALLOC_CAP_SPIRAM); // current pixels
+    pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
-    pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, pState->width * pState->height / 4, MALLOC_CAP_SPIRAM); // LUT data
+    pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
     if (!pState->pTemp) {
         free(pState->pCurrent);
         return BBEP_ERROR_NO_MEMORY;
     }
-    return BBEP_SUCCESS;
+    // Allocate memory for each line to transmit
+    pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 4) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
+    iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
+    pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
+    pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    if (!pGrayUpper) {
+        free(pGrayLower);
+        return BBEP_ERROR_NO_MEMORY;
+    }
+    // Prepare grayscale lookup tables
+    pMatrix = (uint8_t *)pState->panelDef.pGrayMatrix;
+    for (int j = 0; j < iPasses; j++) {
+        for (int i = 0; i < 256; i++) {
+            if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+                pGrayLower[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
+                pGrayUpper[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
+            } else {
+                pGrayLower[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
+                pGrayUpper[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
+            }
+        }
+    }
+return BBEP_SUCCESS;
 } /* setPanelSize() */
 
 //
@@ -1037,8 +1059,7 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
 //
 int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
 {
-    int rc, iPasses;
-    uint8_t *pMatrix;
+    int rc;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
         pState->iPanelType = iPanel;
         pState->width = pState->native_width = panelDefs[iPanel].width;
@@ -1049,7 +1070,10 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
         pState->pfnRowControl = panelProcs[iPanel].pfnRowControl;
+        pState->pfnSetPixel = bbepSetPixel2Clr;
+        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         rc = bbepIOInit(pState);
+        pState->pCurrent = NULL; // make sure the memory is allocated
         pState->mode = BB_MODE_1BPP; // start in 1-bit mode
         pState->iFG = BBEP_BLACK;
         pState->iBG = BBEP_TRANSPARENT;
@@ -1060,29 +1084,6 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
                 if (rc != BBEP_SUCCESS) return rc; // no memory? stop
             }
         }
-        iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-        pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-        if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
-        pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
-        if (!pGrayUpper) {
-            free(pGrayLower);
-            return BBEP_ERROR_NO_MEMORY;
-        }
-        // Prepare grayscale lookup tables
-        pMatrix = (uint8_t *)pState->panelDef.pGrayMatrix;
-        for (int j = 0; j < iPasses; j++) {
-            for (int i = 0; i < 256; i++) {
-                if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-                    pGrayLower[j * 256 + i] = (pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j]);
-                    pGrayUpper[j * 256 + i] = ((pMatrix[((i & 0xf)*iPasses)+j] << 2) | (pMatrix[((i >> 4)*iPasses)+j])) << 4;
-                } else {
-                    pGrayLower[j * 256 + i] = (pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j]);
-                    pGrayUpper[j * 256 + i] = ((pMatrix[((i >> 4)*iPasses)+j] << 2) | (pMatrix[((i & 0xf)*iPasses)+j])) << 4;
-                }
-            }
-        }
-        pState->pfnSetPixel = bbepSetPixel2Clr;
-        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         return rc;
     }
     return BBEP_ERROR_BAD_PARAMETER;
@@ -1272,7 +1273,6 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
         iEndCol = pState->native_width - 1;
         iEndRow = pState->native_height - 1;
     }
-
     if (pState->mode == BB_MODE_1BPP) {
         // Set the color in multiple passes starting from white
         // First create the 2-bit codes per pixel for the black pixels
