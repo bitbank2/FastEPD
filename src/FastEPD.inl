@@ -17,7 +17,7 @@
 #include "FastEPD.h"
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
-
+#include <esp_log.h>
 #if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT)
 #error "Please enable PSRAM support"
 #endif
@@ -939,6 +939,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen)
     }
     while (!transfer_is_done) {
         delayMicroseconds(1);
+        vTaskDelay(0);
     }
 } /* bbepWriteRow() */
 
@@ -955,6 +956,9 @@ uint8_t ucTemp[4];
 //
 int bbepIOInit(FASTEPDSTATE *pState)
 {
+    #ifndef ARDUINO
+        esp_log_level_set("gpio", ESP_LOG_NONE);
+    #endif
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
     // Initialize the ESP32 LCD API to drive parallel data at high speed
@@ -1351,6 +1355,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                             d[n + 3] = (pGrayUpper[pass * 256 + s[6]] | pGrayLower[pass * 256 + s[7]]);
                             s += 8;
                         } // for j
+                        vTaskDelay(0);
                     }
                     if (iStartCol > 0 || iEndCol < pState->native_width-1) { // There is a region rectangle defined, clip the output to it
                         uint32_t *src, *dst;

@@ -29,9 +29,9 @@ static uint8_t u8SDA_Pin, u8SCL_Pin;
 static int iDelay = 1;
 #endif
 
+#include "rom/ets_sys.h"
 #ifndef ARDUINO
 #include "driver/gpio.h"
-#include "driver/i2c.h"
 #include "esp_timer.h"
 
 // GPIO modes
@@ -55,25 +55,11 @@ unsigned long millis(void)
 {
     return micros() / 1000;
 }
+
 void IRAM_ATTR delayMicroseconds(uint32_t us)
 {
-    uint32_t m = micros();
-    if (us)
-    {
-        uint32_t e = (m + us);
-        if (m > e)
-        { //overflow
-            while (micros() > e)
-            {
-                __asm__ __volatile__("nop\n");
-            }
-        }
-        while (micros() < e)
-        {
-            __asm__ __volatile__("nop\n");
-        }
-    }
-} /* delayMicroseconds() */
+    ets_delay_us(us);
+}
 
 void delay(uint32_t ms)
 {
