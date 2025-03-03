@@ -1106,6 +1106,7 @@ int iPasses;
     if (pGrayLower) free(pGrayLower);
     if (pGrayUpper) free(pGrayUpper);
     iPasses = (int)matrix_size / 16; // number of passes
+    pState->panelDef.iMatrixSize = matrix_size;
     pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
     if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
     pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
