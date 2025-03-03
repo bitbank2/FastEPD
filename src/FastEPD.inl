@@ -1316,6 +1316,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
                 d = &pState->pTemp[dy * (pState->native_width/4)];
                 memset(d, 0, pState->native_width/4); // skip all these pixels
             }
+            vTaskDelay(0);
         } // for i
         // Write 5 passes of the black data to the whole display
         for (pass = 0; pass < 5; pass++) {
