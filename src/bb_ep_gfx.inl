@@ -1570,8 +1570,10 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             pState->width = pState->native_width;
             pState->height = pState->native_height;
             if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
             } else {
+                pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr;
             }
             break;
@@ -1579,8 +1581,10 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             pState->width = pState->native_height;
             pState->height = pState->native_width;
             if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_90;
             } else {
+                pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_90;
             }
             break;
@@ -1588,8 +1592,10 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             pState->width = pState->native_width;
             pState->height = pState->native_height;
             if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_180;
             } else {
+                pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_180;
             }
             break;
@@ -1597,8 +1603,10 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             pState->width = pState->native_height;
             pState->height = pState->native_width;
             if (pState->mode == BB_MODE_1BPP) {
+                pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_270;
             } else {
+                pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_270;
             }
             break;
