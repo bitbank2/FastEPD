@@ -15,6 +15,7 @@ jobs:
         include:
           - version: v5.3
             example: examples/esp_idf/jpeg_demo
+            # For now it shows error
 #          - version: v5.3
 #            example: examples/esp_idf/papers3_demo
 
@@ -40,7 +41,7 @@ jobs:
         version:
           - release-v5.3
         example:
-          - Arduino/show_jpeg
+          - Arduino/grayscale_test
         arduino-esp32: 
           - 3.1.3 
 
