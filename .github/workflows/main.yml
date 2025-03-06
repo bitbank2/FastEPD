@@ -1,6 +1,6 @@
 name: ESP-IDF
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -12,8 +12,6 @@ jobs:
           - v5.3
         target:
           - esp32s3
-        example:
-          - examples
         include:
           - version: v5.3
             example: examples/esp_idf/jpeg_demo
@@ -62,5 +60,6 @@ jobs:
           . $IDF_PATH/export.sh
           cd examples/${{ matrix.example }}
           idf.py set-target esp32s3
+          idf.py fullclean
           idf.py build
 

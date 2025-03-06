@@ -6,7 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "../../../../src/bb_epdiy.h"
+#include "../../../../src/FastEPD.h"
 #include "Roboto_Black_100.h"
 
 BBEPDIYSTATE bbep;
