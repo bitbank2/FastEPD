@@ -30,7 +30,7 @@ jobs:
         with:
           esp_idf_version: ${{ matrix.version }}
           target: ${{ matrix.target }}
-          path: 'examples/${{ matrix.example }}'
+          path: '${{ matrix.example }}'
 
   build-arduino:
     runs-on: ubuntu-latest
