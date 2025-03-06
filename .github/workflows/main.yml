@@ -16,9 +16,9 @@ jobs:
           - examples
         include:
           - version: v5.3
-            example: examples/esp-idf/jpeg_demo
+            example: examples/esp_idf/jpeg_demo
           - version: v5.3
-            example: examples/esp-idf/papers3_demo
+            example: examples/esp_idf/papers3_demo
 
     continue-on-error: ${{ matrix.version == 'latest' }}
 
