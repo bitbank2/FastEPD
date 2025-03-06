@@ -13,7 +13,7 @@ jobs:
         target:
           - esp32s3
         example:
-          - examples/esp_idf
+          - examples
         include:
           - version: v5.3
             example: jpeg_demo
