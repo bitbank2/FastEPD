@@ -15,9 +15,11 @@ jobs:
         include:
           - version: v5.3
             example: examples/esp_idf/jpeg_demo
-            # For now it shows error
-#          - version: v5.3
-#            example: examples/esp_idf/papers3_demo
+            # For now it some will show errors
+          - version: v5.3
+            example: examples/esp_idf/papers3_demo
+          - version: v5.3
+            example: examples/esp_idf/www-image
 
     continue-on-error: ${{ matrix.version == 'latest' }}
 
