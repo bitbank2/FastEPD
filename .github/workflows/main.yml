@@ -55,7 +55,7 @@ jobs:
         version:
           - release-v5.3
         example:
-          - examples/Arduino/show_jpeg
+          - Arduino/show_jpeg
         arduino-esp32: 
           - 3.1.3 
 
