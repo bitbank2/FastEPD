@@ -13,12 +13,12 @@ jobs:
         target:
           - esp32s3
         example:
-          - examples
+          - esp-idf
         include:
           - version: v5.3
-            example: esp-idf/jpeg_demo
+            example: jpeg_demo
           - version: v5.3
-            example: esp-idf/papers3_demo
+            example: papers3_demo
 
     continue-on-error: ${{ matrix.version == 'latest' }}
 
