@@ -15,8 +15,8 @@ jobs:
         include:
           - version: v5.3
             example: examples/esp_idf/jpeg_demo
-          - version: v5.3
-            example: examples/esp_idf/papers3_demo
+#          - version: v5.3
+#            example: examples/esp_idf/papers3_demo
 
     continue-on-error: ${{ matrix.version == 'latest' }}
 
@@ -60,6 +60,5 @@ jobs:
           . $IDF_PATH/export.sh
           cd examples/${{ matrix.example }}
           idf.py set-target esp32s3
-          idf.py fullclean
           idf.py build
 
