@@ -21,6 +21,7 @@ jobs:
           libraries: |
             - name: FastEPD
             - name: AnimatedGIF
+            - name: JPEGDEC
   build-idf:
     runs-on: ubuntu-latest
     strategy:
