@@ -24,6 +24,7 @@ jobs:
             - name: JPEGDEC
             - name: TIFF_G4
             - name: PNGdec
+            - name: bb_captouch
   build-idf:
     runs-on: ubuntu-latest
     strategy:
