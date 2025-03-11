@@ -17,7 +17,7 @@ jobs:
             - examples/Arduino/gif_player
             - examples/Arduino/grayscale_test
             - examples/Arduino/sd_file_explorer
-            - show_jpeg
+            - examples/Arduino/show_jpeg
           libraries: |
             - name: FastEPD
   build-idf:
