@@ -3,7 +3,7 @@ name: ESP-IDF
 on: [push, pull_request]
 
 jobs:
-  compile-sketch:
+  compile-examples-arduino:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -12,8 +12,8 @@ jobs:
           sketch-paths: |
             - examples/Arduino/antialias_font
           libraries: |
-            - FastEPD
-  build:
+            - name: FastEPD
+  build-idf:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,31 +42,3 @@ jobs:
           esp_idf_version: ${{ matrix.version }}
           target: ${{ matrix.target }}
           path: '${{ matrix.example }}'
-
-  build-arduino:
-    runs-on: ubuntu-latest
-    container:
-      image: "espressif/idf:${{ matrix.version }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        version:
-          - release-v5.3
-        example:
-          - Arduino/grayscale_test
-        arduino-esp32: 
-          - 3.1.3 
-
-    steps:
-      - name: Install latest git
-        run: |
-          apt update -qq && apt install -y -qq git
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      - name: Install Arduino ESP
-        run: |
-          cd examples/${{ matrix.example }}
-          mkdir components && cd components
-          git clone --depth 1 --recursive --branch ${{ matrix.arduino-esp32 }} https://github.com/espressif/arduino-esp32.git arduino
-
-
