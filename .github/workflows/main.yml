@@ -22,6 +22,8 @@ jobs:
             - name: FastEPD
             - name: AnimatedGIF
             - name: JPEGDEC
+            - name: TIFF_G4
+            - name: PNGdec
   build-idf:
     runs-on: ubuntu-latest
     strategy:
