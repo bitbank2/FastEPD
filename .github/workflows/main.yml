@@ -12,6 +12,12 @@ jobs:
           fqbn: esp32:esp32:fri3d_2024_esp32s3
           sketch-paths: |
             - examples/Arduino/antialias_font
+            - examples/Arduino/compressed_images
+            - examples/Arduino/getting_started
+            - examples/Arduino/gif_player
+            - examples/Arduino/grayscale_test
+            - examples/Arduino/sd_file_explorer
+            - show_jpeg
           libraries: |
             - name: FastEPD
   build-idf:
