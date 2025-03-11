@@ -1,8 +1,18 @@
 name: ESP-IDF
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
+  compile-sketch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: arduino/compile-sketches@v1
+        with:
+          sketch-paths: |
+            - examples/Arduino/antialias_font
+          libraries: |
+            - FastEPD
   build:
     runs-on: ubuntu-latest
     strategy:
