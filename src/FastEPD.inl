@@ -113,8 +113,8 @@ const BBPANELDEF panelDefs[] = {
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 9, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_V7_RAW
-    //                                    D8                 15 D0                  D7          STV,CKV,XSTL,OE,XLE
-    {0, 0, 20000000, BB_PANEL_FLAG_NONE, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 41, 42, 45, 8, 48,
+    //                                             D8                 15 D0                  D7          STV,CKV,XSTL,OE,XLE
+    {1872, 1404, 20000000, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 41, 42, 45, 8, 48,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_V7_103
 };
 //
