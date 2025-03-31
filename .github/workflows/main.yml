@@ -1,0 +1,56 @@
+name: ESP-IDF
+
+on: [push, pull_request]
+
+jobs:
+  compile-examples-arduino:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32s3
+          sketch-paths: |
+            - examples/Arduino/antialias_font
+            - examples/Arduino/compressed_images
+            - examples/Arduino/getting_started
+            - examples/Arduino/gif_player
+            - examples/Arduino/grayscale_test
+            - examples/Arduino/sd_file_explorer
+            - examples/Arduino/show_jpeg
+          libraries: |
+            - name: FastEPD
+            - name: AnimatedGIF
+            - name: JPEGDEC
+            - name: TIFF_G4
+            - name: PNGdec
+            - name: bb_captouch
+  build-idf:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - v5.3
+        target:
+          - esp32s3
+        include:
+          - version: v5.3
+            example: examples/esp_idf/jpeg_demo
+            # For now it some will show errors
+          - version: v5.3
+            example: examples/esp_idf/papers3_demo
+          - version: v5.3
+            example: examples/esp_idf/www-image
+
+    continue-on-error: ${{ matrix.version == 'latest' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - uses: 'espressif/esp-idf-ci-action@main'
+        with:
+          esp_idf_version: ${{ matrix.version }}
+          target: ${{ matrix.target }}
+          path: '${{ matrix.example }}'
