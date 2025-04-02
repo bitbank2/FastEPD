@@ -57,6 +57,10 @@ extern "C" {
 void app_main();
 }
 
+// For root certificates
+#include "esp_tls.h"
+#include "esp_crt_bundle.h"
+
 // Load the EMBED_TXTFILES. Then doing (char*) server_cert_pem_start you get the SSL certificate
 // Reference:
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#embedding-binary-data
@@ -266,21 +270,22 @@ static void http_post(void) {
      * NOTE: All the configuration parameters for http_client must be specified
      * either in URL or as host and path parameters.
      */
-    esp_http_client_config_t config
-        = {.url = IMG_URL,
+    esp_http_client_config_t config = {};
+    config.url = IMG_URL;
 #if VALIDATE_SSL_CERTIFICATE == true
-           .cert_pem = (char*)server_cert_pem_start,
+    // Using the ESP-IDF certificate bundle
+    config.crt_bundle_attach = esp_crt_bundle_attach;
 #endif
-           .disable_auto_redirect = false,
-           .event_handler = _http_event_handler,
-           .buffer_size = HTTP_RECEIVE_BUFFER_SIZE };
+    config.disable_auto_redirect = false;
+    config.event_handler = _http_event_handler;
+    config.buffer_size = HTTP_RECEIVE_BUFFER_SIZE;
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
 #if DEBUG_VERBOSE
     printf("Free heap before HTTP download: %d\n", xPortGetFreeHeapSize());
-    if (esp_http_client_get_transport_type(client) == HTTP_TRANSPORT_OVER_SSL && config.cert_pem) {
-        printf("SSL CERT:\n%s\n\n", (char*)server_cert_pem_start);
+    if (esp_http_client_get_transport_type(client) == HTTP_TRANSPORT_OVER_SSL) {
+        printf("Using ESP-IDF certificate bundle for SSL verification\n");
     }
 #endif
 
@@ -402,8 +407,20 @@ void wifi_init_sta(void) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
+// Initialize the CA certificate bundle
+void init_certificate_bundle(void) {
+    // Enable the certificate bundle
+    esp_err_t ret = esp_crt_bundle_attach(NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to attach certificate bundle: %d", ret);
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Successfully attached the built-in certificate bundle");
+}
+
 void app_main() {
-    epaper.initPanel(BB_PANEL_EPDIY_V7);
+    epaper.initPanel(BB_PANEL_V7_103);
     // Display EPD_WIDTH & EPD_HEIGHT editable in settings.h:
     epaper.setPanelSize(EPD_WIDTH, EPD_HEIGHT);
     // 4 bit per pixel: 16 grays mode
@@ -440,6 +457,7 @@ void app_main() {
     wifi_init_sta();
 #if VALIDATE_SSL_CERTIFICATE == true
     obtain_time();
+    init_certificate_bundle();
 #endif
 
     http_post();
