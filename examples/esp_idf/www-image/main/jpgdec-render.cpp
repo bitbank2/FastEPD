@@ -39,11 +39,11 @@ idf_component_register(SRCS ${srcs}
 #include "esp_netif.h"
 #include "esp_sntp.h"
 // FastEPD component. ../../../../src/FastEPD.cpp
-#include "../../../../src/FastEPD.cpp"
+#include <FastEPD.h>
 FASTEPD epaper;
 
 // JPG decoder from @bitbank2
-#include "JPEGDEC.h"
+#include <JPEGDEC.h>
 
 JPEGDEC jpeg;
 
