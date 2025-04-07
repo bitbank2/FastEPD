@@ -1174,10 +1174,12 @@ int bbepFixRect(FASTEPDSTATE *pState, BBEPRECT *pRect, int *iStartCol, int *iEnd
                 *iStartRow = i; // iStartCol
                 break;
             case 180:
-                *iStartCol = pState->width - 1 - *iStartCol;
-                *iEndCol = pState->width - 1 - *iEndCol;
-                *iStartRow = pState->height - 1 - *iStartRow;
-                *iEndRow = pState->height - 1 - *iEndRow;
+                i = *iStartCol;
+                *iStartCol = pState->width - 1 - *iEndCol;
+                *iEndCol = pState->width - 1 - i;
+                i = *iStartRow;
+                *iStartRow = pState->height - 1 - *iEndRow;
+                *iEndRow = pState->height - 1 - i;
                 break;
         }
     return 0;
