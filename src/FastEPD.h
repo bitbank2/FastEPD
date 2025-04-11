@@ -194,6 +194,7 @@ class FASTEPD
     int einkPower(int bOn);
     int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
+    int smoothUpdate(bool bKeepOn, uint8_t u8Color);
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
     void backupPlane(void);

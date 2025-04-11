@@ -252,3 +252,7 @@ int FASTEPD::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
 {
     return bbepPartialUpdate(&_state, bKeepOn, iStartLine, iEndLine);
 } /* partialUpdate() */
+int FASTEPD::smoothUpdate(bool bKeepOn, uint8_t u8Color)
+{
+    return bbepSmoothUpdate(&_state, bKeepOn, u8Color);
+} /* smoothUpdate() */
