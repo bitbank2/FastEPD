@@ -82,9 +82,9 @@ int delimitedValue(char *szText, int *pValue, int iLen)
 int i, j, val;
   // skip leading spaces
   i = 0;
-  while (i < iLen && szText[i] == ' ') i++;
+  while (i < iLen && (szText[i] == ' ' || szText[i] == ',')) i++;
   j = i;
-  while (j < iLen && szText[j] != ' ') j++;
+  while (j < iLen && szText[j] != ' ' && szText[j] != ',') j++;
   if (szText[i] == '0' && (szText[i+1] == 'x' || szText[i+1] == 'X')) { // interpret as HEX
     sscanf(&szText[i+2], "%x", &val);
   } else { // interpret as decimal
