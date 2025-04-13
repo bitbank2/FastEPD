@@ -16,28 +16,29 @@ FASTEPD epaper;
 uint8_t ucTemp[64];
 uint8_t u8_last[16 * 48]; // to allow UNDO of a single change
 // Starting gray matrix. Copy your current one here before compiling/running the program
+// This should normally be "const" data so that it gets written to FLASH, but for this
+// program to be able to edit the values, it needs to be declared so it loads in RAM
 uint8_t u8_graytable[] = {
-/* 0 */	  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  0,  0,  0,
-/* 1 */		0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	2,	1,	1,	1,	0,	0,	0,	0,
-/* 2 */		0,	0,	0,	0,	0,	1,	1,	1,	2,	1,	1,	1,	2,	1,	0,	0,	0,	0,
-/* 3 */		0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	2,	1,	0,	0,	0,	0,	0,
-/* 4 */	  0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	2,	1,	0,	0,	0,	0,	0,	0,
-/* 5 */		0,	0,	0,	0,	0,	1,	0,	0,	1,	2,	0,	1,	0,	0,	0,	0,	0,	0,
-/* 6 */		0,	0,	0,	0,	0,	1,  2,	0,	1,	2,	0,	1,	0,	0,	0,	0,	0,	0,
-/* 7 */ 	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	0,	0,	0,
-/* 8 */ 	0,	0,	0,	0,	0,	0,	0,	1,	2,	2,	1,	2,	1,	0,	0,	0,	0,	0,
-/* 9 */ 	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	2,	0,	0,	0,
-/* 10 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	2,	0,	0,	0,
-/* 11 */	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	2,	1,	2,	0,	0,
-/* 12 */	0,	0,	0,	0,	0,	1,	1,	1,	2,	1,	2,	0,	0,	0,	0,	0,	0,	0,
-/* 13 */	0,	0,	0,	0,	0,	1,	1,	2,	2,	2,	2,	1,	2,	0,	0,	0,	0,	0,
-/* 14 */	1,	1,	1,	1,	1,	1,	2,	2,	1,	2,	2,	0,	0,	0,	0,	0,	0,	0,
-/* 15 */	0,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2
+/* 0 */  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 
+/* 1 */  0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0, 
+/* 2 */  0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 2, 1, 0, 0, 0, 0, 
+/* 3 */  0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 1, 0, 0, 0, 0, 0, 0, 
+/* 4 */  0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 1, 0, 0, 0, 0, 0, 
+/* 5 */  0, 0, 0, 0, 1, 0, 0, 1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 
+/* 6 */  0, 0, 0, 0, 1, 2, 0, 1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 
+/* 7 */  0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 
+/* 8 */  0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 2, 1, 0, 0, 0, 0, 0, 
+/* 9 */  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 
+/* 10 */  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 0, 0, 0, 
+/* 11 */  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 1, 2, 0, 0, 
+/* 12 */  0, 0, 0, 0, 0, 1, 1, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0, 
+/* 13 */  0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 1, 2, 0, 0, 0, 0, 0, 
+/* 14 */  0, 0, 0, 1, 1, 2, 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 
+/* 15 */  1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
-
 static int passes; // Calculated at startup based on the matrix size
 // List of supported commands
-const char *szCMDs[] = {"HELP", "LIST", "SHOW", "COPY", "SWAP", "EDIT", "UNDO", 0};
+const char *szCMDs[] = {"HELP", "LIST", "SHOW", "COPY", "SWAP", "EDIT", "UNDO", "CODE", 0};
 enum {
   CMD_HELP = 0,
   CMD_LIST,
@@ -46,6 +47,7 @@ enum {
   CMD_SWAP,
   CMD_EDIT,
   CMD_UNDO,
+  CMD_CODE,
   CMD_COUNT
 };
 
@@ -144,17 +146,18 @@ void showHelp()
   Serial.println("Interactive FastEPD gray matrix editor command list");
   Serial.println("(case insensitive, decimal numbers assumed, space or comma delimited)");
   Serial.println("HELP - This command list");
-  Serial.println("LIST - show the current gray matrix values");
+  Serial.println("LIST n - show a row of gray matrix values to copy/edit");
   Serial.println("SHOW - Display the gray matrix on the EPD panel");
   Serial.println("COPY n m - copy row n to row m");
   Serial.println("SWAP n m - swap the contents of row n with row m");
   Serial.println("EDIT n 0 1 2 2 1 0 0... write new values for row n");
   Serial.println("UNDO - undo the last change (only 1 step is reversible)");
+  Serial.println("CODE - generate the code for the current gray matrix");
 } /* showHelp() */
 
 // List the current values of the gray matrix in a form that can be easily copied
 // back into your code
-void ListMatrix(void)
+void ListCode(void)
 {
   int i, j;
   uint8_t *s;
@@ -174,7 +177,7 @@ void ListMatrix(void)
       Serial.print("\n");
   } // for i
   Serial.print("};\n");
-} /* ListMatrix() */
+} /* ListCode() */
 
 // Display the grayscale test image on the panel to see how your current gray matrix performs
 void ShowMatrix(void)
@@ -209,11 +212,23 @@ uint8_t *s, *d;
     case CMD_HELP:
       showHelp();
       break;
-    case CMD_LIST:
-      ListMatrix();
+    case CMD_CODE:
+      ListCode();
       break;
     case CMD_SHOW:
       ShowMatrix();
+      break;
+    case CMD_LIST:
+      if (pData[1] < 0 || pData[1] > 15) {
+        Serial.println("LIST: Row must be in the range 0 to 15");
+        return;
+      }
+      Serial.printf("EDIT %d ", pData[1]);
+      s = &u8_graytable[passes * pData[1]];
+      for (i=0; i<passes; i++) {
+        Serial.printf("%d ", s[i]);
+      }
+      Serial.print("\n");
       break;
     case CMD_COPY:
       if (pData[1] < 0 || pData[1] > 15 || pData[2] < 0 || pData[2] > 15) {
