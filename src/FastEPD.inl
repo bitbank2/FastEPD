@@ -108,7 +108,7 @@ const BBPANELDEF panelDefs[] = {
     {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE5V2
 
-    {0, 0, 16000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
+    {0, 0, 20000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_EPDIY_V7_16
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 9, 42,
@@ -128,6 +128,7 @@ void PaperS3RowControl(void *pBBEP, int iMode);
 int EPDiyV7EinkPower(void *pBBEP, int bOn);
 int EPDiyV7IOInit(void *pBBEP);
 void EPDiyV7RowControl(void *pBBEP, int iMode);
+void EPDiyV7IODeInit(void *pBBEP);
 // EPDiy V7 RAW
 int EPDiyV7RAWEinkPower(void *pBBEP, int bOn);
 int EPDiyV7RAWIOInit(void *pBBEP);
@@ -143,13 +144,13 @@ void Inkplate5V2RowControl(void *pBBEP, int iMode);
 // BB_EINK_POWER, BB_IO_INIT, BB_ROW_CONTROL
 const BBPANELPROCS panelProcs[] = {
     {0}, // BB_PANEL_NONE
-    {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl}, // BB_PANEL_M5PAPERS3
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7
-    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl}, // BB_PANEL_INKPLATE6PLUS
-    {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl}, // Inkplate5V2
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_EPDIY_V7_16
-    {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl}, // BB_PANEL_V7_RAW
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl}, // BB_PANEL_V7_103
+    {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl, NULL}, // BB_PANEL_M5PAPERS3
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_EPDIY_V7
+    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl, NULL}, // BB_PANEL_INKPLATE6PLUS
+    {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL}, // Inkplate5V2
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_EPDIY_V7_16
+    {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL}, // BB_PANEL_V7_RAW
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_V7_103
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -669,6 +670,20 @@ int PaperS3IOInit(void *pBBEP)
     return BBEP_SUCCESS;
 } /* PaperS3IOInit() */
 //
+// Shut down the IO to save power (EPDiy V7 PCB)
+//
+void EPDiyV7IODeInit(void *pBBEP)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    bbepPinMode(pState->panelDef.ioSPV, INPUT); // set I/O to high impedance
+    bbepPinMode(pState->panelDef.ioCKV, INPUT);
+    bbepPinMode(pState->panelDef.ioSPH, INPUT);
+//    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, INPUT);
+    bbepPinMode(pState->panelDef.ioCL, INPUT);
+    bbepPCA9535Write(1, 0); // turn TPS65185 WAKEUP off
+} /* EPDiyV7IODeInit() */
+//
 // Initialize the IO for the EPDiy V7 PCB
 //
 int EPDiyV7IOInit(void *pBBEP)
@@ -1078,6 +1093,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         // get the 3 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
+        pState->pfnIODeInit = panelProcs[iPanel].pfnIODeInit;
         pState->pfnRowControl = panelProcs[iPanel].pfnRowControl;
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
@@ -1350,7 +1366,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
 #endif
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
 // Fast mode ~= 600ms, normal mode ~=1000ms
-    passes = (bFast) ? 5:8;
+    passes = (bFast) ? 5:10;
     if (!bFast) { // skip initial black phase for fast mode
         bbepClear(pState, BB_CLEAR_DARKEN, passes, pRect);
         bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
@@ -1492,7 +1508,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
 #endif 
 #endif // SHOW_TIME
     return BBEP_SUCCESS;
-} /* bbepFullUdate() */
+} /* bbepFullUpdate() */
 
 int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {

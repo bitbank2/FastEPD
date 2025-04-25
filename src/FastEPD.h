@@ -139,6 +139,8 @@ typedef void (BB_SET_PIXEL_FAST)(void *pBBEP, int x, int y, unsigned char color)
 typedef int (BB_EINK_POWER)(void *pBBEP, int bOn);
 // Callback function for initializing all of the I/O devices
 typedef int (BB_IO_INIT)(void *pBBEP);
+// Callback function to shut down the extra I/O (e.g. extenders)
+typedef void (BB_IO_DEINIT)(void *pBBEP);
 // Callback function for controlling the row start/step
 typedef void (BB_ROW_CONTROL)(void *pBBEP, int iMode);
 
@@ -147,6 +149,7 @@ typedef struct tag_bbeppanelprocs
     BB_EINK_POWER *pfnEinkPower;
     BB_IO_INIT *pfnIOInit;
     BB_ROW_CONTROL *pfnRowControl;
+    BB_IO_DEINIT *pfnIODeInit;
 } BBPANELPROCS;
 
 typedef struct tag_fastepdstate
@@ -170,6 +173,7 @@ typedef struct tag_fastepdstate
     BB_SET_PIXEL_FAST *pfnSetPixelFast;
     BB_EINK_POWER *pfnEinkPower;
     BB_IO_INIT *pfnIOInit;
+    BB_IO_DEINIT *pfnIODeInit;
     BB_ROW_CONTROL *pfnRowControl;
 } FASTEPDSTATE;
 
@@ -192,6 +196,7 @@ class FASTEPD
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
+    void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
     int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
