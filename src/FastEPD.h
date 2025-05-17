@@ -63,6 +63,16 @@ enum {
     BB_PANEL_CUSTOM,
     BB_PANEL_COUNT
 };
+
+// Pre-configured displays
+enum {
+    BBEP_DISPLAY_EC060TC1,
+    BBEP_DISPLAY_ED0970TC1,
+    BBEP_DISPLAY_ED103TC2,
+    BBEP_DISPLAY_ED052TC4,
+    BBEP_DISPLAY_COUNT
+};
+
 // A complete description of an EPD panel
 typedef struct _paneldef {
     uint16_t width;
@@ -95,6 +105,14 @@ typedef struct bbepr {
     int w;
     int h;
 } BBEPRECT;
+
+// To access external IO through a single function pointer
+// This enum defines the operation
+enum {
+    BB_EXTIO_SET_MODE=0,
+    BB_EXTIO_WRITE,
+    BB_EXTIO_READ
+};
 
 // Display clearing pass type
 enum {
@@ -143,6 +161,8 @@ typedef int (BB_IO_INIT)(void *pBBEP);
 typedef void (BB_IO_DEINIT)(void *pBBEP);
 // Callback function for controlling the row start/step
 typedef void (BB_ROW_CONTROL)(void *pBBEP, int iMode);
+// Callback function to access external IO expanders
+typedef uint8_t (BB_EXT_IO)(uint8_t iOP, uint8_t iPin, uint8_t iValue);
 
 typedef struct tag_bbeppanelprocs
 {
@@ -150,6 +170,7 @@ typedef struct tag_bbeppanelprocs
     BB_IO_INIT *pfnIOInit;
     BB_ROW_CONTROL *pfnRowControl;
     BB_IO_DEINIT *pfnIODeInit;
+    BB_EXT_IO *pfnExtIO;
 } BBPANELPROCS;
 
 typedef struct tag_fastepdstate
@@ -172,6 +193,7 @@ typedef struct tag_fastepdstate
     BB_SET_PIXEL *pfnSetPixel;
     BB_SET_PIXEL_FAST *pfnSetPixelFast;
     BB_EINK_POWER *pfnEinkPower;
+    BB_EXT_IO *pfnExtIO;
     BB_IO_INIT *pfnIOInit;
     BB_IO_DEINIT *pfnIODeInit;
     BB_ROW_CONTROL *pfnRowControl;
@@ -188,10 +210,14 @@ class FASTEPD
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
+    int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
     int getStringBox(const char *text, BBEPRECT *pRect);
     int setMode(int iMode); // set graphics mode
+    void ioPinMode(uint8_t u8Pin, uint8_t iMode);
+    void ioWrite(uint8_t u8Pin, uint8_t iValue);
+    uint8_t ioRead(uint8_t u8Pin);
     int getMode(void) {return _state.mode;}
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}

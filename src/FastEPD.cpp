@@ -110,6 +110,27 @@ int FASTEPD::setMode(int iMode)
     return bbepSetMode(&_state, iMode);
   /* setMode() */
 }
+void FASTEPD::ioPinMode(uint8_t u8Pin, uint8_t iMode)
+{
+    if (_state.pfnExtIO) {
+        (*_state.pfnExtIO)(BB_EXTIO_SET_MODE, u8Pin, iMode);
+    }
+}
+void FASTEPD::ioWrite(uint8_t u8Pin, uint8_t iValue)
+{
+    if (_state.pfnExtIO) {
+        (*_state.pfnExtIO)(BB_EXTIO_WRITE, u8Pin, iValue);
+    }
+}
+uint8_t FASTEPD::ioRead(uint8_t u8Pin)
+{
+    uint8_t val = 0;
+    if (_state.pfnExtIO) {
+        val = (*_state.pfnExtIO)(BB_EXTIO_READ, u8Pin, 0);
+    }
+    return val;
+}
+
 void FASTEPD::setFont(int iFont)
 {
     _state.iFont = iFont;
@@ -124,6 +145,11 @@ void FASTEPD::setFont(const void *pFont, bool bAntiAlias)
     if (_state.mode != BB_MODE_4BPP) bAntiAlias = false; // only works in grayscale mode
     _state.anti_alias = (uint8_t)bAntiAlias;
 } /* setFont() */
+
+void FASTEPD::setTextWrap(bool bWrap)
+{
+    bbepSetTextWrap(&_state, (int)bWrap); 
+} /* setTextWrap() */
 
 void FASTEPD::setTextColor(int iFG, int iBG)
 {
@@ -196,7 +222,12 @@ int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
     _state.pfnIOInit = pProcs->pfnIOInit;
     _state.pfnRowControl = pProcs->pfnRowControl;
     return (*(_state.pfnIOInit))(&_state);
-} /* setPanelType() */
+} /* initCustomPanel() */
+
+int FASTEPD::setPanelSize(int iPanel)
+{
+    return bbepSetDefinedPanel(&_state, iPanel);
+}
 
 int FASTEPD::setPanelSize(int width, int height, int flags) {
     return bbepSetPanelSize(&_state, width, height, flags);

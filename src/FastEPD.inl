@@ -47,48 +47,126 @@ const uint8_t u8GrayMatrix[] = {
 /* 14 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	2,  0,
 /* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
 };
-
-const uint8_t u8SixInchMatrix[] = {
-/* 0 */	    0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,
-/* 1 */	    2,	2,	2,	2,	2,	2,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,  0,
-/* 2 */		0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,  0,
-/* 3 */		0,	2,	2,	2,	2,	2,	2,	2,	0,	0,	0,	0,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
-/* 4 */		0,	0,	0,	0,	2,	2,	2,	2,	2,	0,	0,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,  0,
-/* 5 */		0,	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,	0,  0,
-/* 6 */		0,	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	0,	0,	0,	1,	1,	0,	0,	0,	0,  0,
-/* 7 */		0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	0,	0,	0,  0,
-/* 8 */		0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	1,	2,	1,	2,  0,
-/* 9 */ 	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	2,	1,	2,	0,	0,	0,  0,
-/* 10 */	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	2,	2,	2,	0,	1,	0,	0,	0,	0,  0,
-/* 11 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	0,	0,	0,	0,  0,
-/* 12 */	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	1,	2,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,  0,
-/* 13 */	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	2,  0,
-/* 14 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	1,	1,	1,	2,	2,	2,	0,	0,	0,  0,
-/* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
+// For 5.2" 1280x720 display
+const uint8_t u8FivePointTwoMatrix[] = {
+/* 0 */  0, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+/* 1 */  0, 0, 0, 1, 1, 2, 1, 1, 1, 0,
+/* 2 */  0, 0, 0, 1, 1, 1, 1, 2, 1, 0,
+/* 3 */  0, 0, 0, 0, 0, 1, 2, 1, 1, 0,
+/* 4 */  0, 1, 1, 1, 2, 2, 2, 1, 1, 0,
+/* 5 */  0, 0, 0, 1, 1, 1, 1, 1, 2, 0,
+/* 6 */  0, 0, 0, 0, 1, 1, 1, 1, 2, 0,
+/* 7 */  0, 0, 0, 1, 1, 1, 2, 2, 1, 0,
+/* 8 */  0, 1, 1, 1, 1, 1, 2, 1, 2, 0,
+/* 9 */  0, 0, 0, 1, 1, 1, 2, 1, 2, 0,
+/* 10 */  0, 0, 0, 0, 1, 1, 2, 1, 2, 0,
+/* 11 */  0, 0, 1, 1, 1, 1, 1, 2, 2, 0,
+/* 12 */  0, 0, 0, 0, 0, 1, 2, 1, 2, 0,
+/* 13 */  0, 0, 1, 1, 1, 2, 1, 2, 2, 0,
+/* 14 */  0, 0, 0, 0, 1, 1, 2, 2, 2, 0,
+/* 15 */  2, 2, 2, 2, 2, 2, 2, 2, 2, 0
 };
+// For (Inkplate 5V2) 5.2" 1280x720 display
+const uint8_t u8Ink5V2Matrix[] = {
+/* 0 */  0, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+/* 1 */  0, 0, 0, 1, 1, 2, 1, 1, 1, 0,
+/* 2 */  0, 0, 0, 1, 1, 1, 1, 2, 1, 0,
+/* 3 */  0, 0, 0, 0, 0, 1, 2, 1, 1, 0,
+/* 4 */  0, 1, 1, 1, 2, 2, 2, 1, 1, 0,
+/* 5 */  0, 0, 0, 1, 1, 1, 1, 1, 2, 0,
+/* 6 */  0, 0, 0, 0, 1, 1, 1, 1, 2, 0,
+/* 7 */  0, 0, 0, 1, 1, 1, 2, 2, 1, 0,
+/* 8 */  0, 1, 1, 1, 1, 1, 2, 1, 2, 0,
+/* 9 */  0, 0, 0, 1, 1, 1, 2, 1, 2, 0,
+/* 10 */  0, 0, 0, 0, 1, 1, 2, 1, 2, 0,
+/* 11 */  0, 0, 1, 1, 1, 1, 1, 2, 2, 0,
+/* 12 */  0, 0, 0, 0, 0, 1, 2, 1, 2, 0,
+/* 13 */  0, 0, 1, 1, 1, 2, 1, 2, 2, 0,
+/* 14 */  0, 0, 0, 0, 1, 1, 2, 2, 2, 0,
+/* 15 */  2, 2, 2, 2, 2, 2, 2, 2, 2, 0
+};
+// For 10.3" 1872x1404 display
+const uint8_t u8TenPointThreeMatrix[] = {
+/* 0 */  0, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+/* 1 */  0, 0, 0, 0, 0, 2, 1, 1, 1, 0,
+/* 2 */  1, 1, 1, 0, 1, 1, 1, 2, 1, 0,
+/* 3 */  0, 0, 0, 0, 1, 1, 1, 2, 1, 0,
+/* 4 */  0, 0, 0, 0, 0, 1, 1, 2, 1, 0,
+/* 5 */  0, 0, 1, 1, 1, 1, 2, 2, 1, 0,
+/* 6 */  0, 0, 0, 0, 1, 1, 2, 2, 1, 0,
+/* 7 */  0, 0, 0, 1, 1, 1, 1, 1, 2, 0,
+/* 8 */  1, 1, 1, 1, 1, 2, 1, 1, 2, 0,
+/* 9 */  0, 0, 0, 1, 1, 2, 1, 1, 2, 0,
+/* 10 */  0, 0, 1, 1, 1, 1, 2, 1, 2, 0,
+/* 11 */  0, 0, 0, 0, 1, 1, 2, 1, 2, 0,
+/* 12 */  0, 0, 0, 0, 0, 0, 2, 1, 2, 0,
+/* 13 */  0, 0, 0, 2, 2, 2, 1, 2, 2, 0,
+/* 14 */  0, 0, 0, 1, 2, 1, 2, 2, 2, 0,
+/* 15 */  0, 0, 0, 0, 0, 0, 0, 0, 2, 0
+};
+
+// For 9.7" 1200x825 panels
+const uint8_t u8NineInchMatrix[] = {
+/* 0 */  0, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+/* 1 */  0, 0, 0, 0, 1, 2, 1, 1, 1, 0,
+/* 2 */  0, 0, 0, 1, 1, 1, 1, 2, 1, 0,
+/* 3 */  1, 1, 1, 1, 1, 2, 1, 2, 1, 0,
+/* 4 */  0, 0, 0, 0, 0, 1, 1, 2, 1, 0,
+/* 5 */  0, 0, 1, 1, 1, 1, 2, 2, 1, 0,
+/* 6 */  0, 1, 1, 1, 1, 1, 1, 1, 2, 0,
+/* 7 */  0, 0, 0, 0, 1, 1, 2, 2, 1, 0,
+/* 8 */  0, 0, 0, 0, 0, 1, 2, 2, 1, 0,
+/* 9 */  0, 0, 1, 1, 1, 1, 2, 1, 2, 0,
+/* 10 */  0, 0, 0, 0, 1, 1, 2, 1, 2, 0,
+/* 11 */  0, 0, 0, 0, 0, 1, 2, 1, 2, 0,
+/* 12 */  0, 0, 0, 0, 0, 0, 2, 1, 2, 0,
+/* 13 */  0, 1, 1, 1, 2, 2, 1, 2, 2, 0,
+/* 14 */  0, 0, 0, 0, 1, 1, 2, 2, 2, 0,
+/* 15 */  2, 2, 2, 2, 2, 2, 2, 2, 2, 0
+};
+// For 6.0" 1024x758 panels
+const uint8_t u8SixInchMatrix[] = {
+    /* 0 */  1, 1, 1, 1, 1, 1, 1, 1, 0,
+    /* 1 */  0, 0, 0, 1, 2, 1, 1, 1, 0,
+    /* 2 */  0, 0, 0, 1, 1, 1, 2, 1, 0,
+    /* 3 */  0, 0, 0, 0, 1, 1, 2, 1, 0,
+    /* 4 */  0, 0, 0, 1, 2, 1, 2, 1, 0,
+    /* 5 */  0, 0, 0, 0, 2, 1, 2, 1, 0,
+    /* 6 */  1, 1, 1, 1, 2, 1, 1, 2, 0,
+    /* 7 */  0, 0, 1, 1, 2, 1, 1, 2, 0,
+    /* 8 */  0, 0, 0, 1, 2, 1, 1, 2, 0,
+    /* 9 */  0, 0, 1, 1, 1, 2, 1, 2, 0,
+    /* 10 */ 0, 0, 0, 1, 1, 2, 1, 2, 0,
+    /* 11 */ 0, 1, 1, 2, 1, 2, 1, 2, 0,
+    /* 12 */ 0, 0, 0, 2, 1, 2, 1, 2, 0,
+    /* 13 */ 1, 1, 1, 1, 2, 1, 2, 2, 0,
+    /* 14 */ 1, 1, 1, 2, 2, 1, 2, 2, 0,
+    /* 15 */ 0, 0, 0, 0, 2, 2, 2, 2, 0
+    };
 
 const uint8_t u8M5Matrix[] = {
-/* 0 */	    0,  0,  0,  2,  2,  2,  2,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  0,
-/* 1 */	    2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,  0,
-/* 2 */		0,	0,	2,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
-/* 3 */		0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,	0,  0,
-/* 4 */		0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	0,	0,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
-/* 5 */		0,	0,	0,	0,	0,	0,	0,	1,	1,	2,	2,	2,	2,	1,	1,	1,	1,	1,	0,	0,	0,	0,	0,	0,  0,
-/* 6 */		0,	0,	0,	0,	0,	0,	1,	1,	1,	2,	2,	2,	2,	2,	2,	0,	0,	0,	1,	1,	1,	1,	0,	0,  0,
-/* 7 */		0,	0,	0,	0,	1,	1,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	1,	1,	1,	1,	0,	0,  0,
-/* 8 */		0,	0,	0,	0,	0,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	1,	1,	1,	0,	0,  0,
-/* 9 */		0,	0,	1,	1,	1,	1,	1,	1,	1,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	1,	1,	0,	0,  0,
-/* 10 */	0,	0,	0,	0,	0,	0,	0,	1,	1,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,	1,	1,  0,
-/* 11 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	1,	1,	2,	2,	2,	1,	0,	0,  0,
-/* 12 */	0,	0,	0,	1,	1,	1,	1,	1,	1,	2,	2,	2,	1,	1,	2,	2,	2,	2,	2,	2,	2,	1,	0,	0,  0,
-/* 13 */	0,	0,	0,	0,	0,	0,	0,	0,	0,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	0,  0,
-/* 14 */	0,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	1,	2,  0,
-/* 15 */	1,	1,	1,	1,	1,	1,	1,	1,	1,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	2,	0,  0
-};
+    /* 0 */  1, 1, 1, 1, 1, 1, 1, 1, 0,
+    /* 1 */  0, 0, 1, 1, 2, 1, 1, 1, 0,
+    /* 2 */  0, 0, 1, 1, 1, 1, 2, 1, 0,
+    /* 3 */  0, 0, 1, 1, 2, 2, 1, 1, 0,
+    /* 4 */  0, 0, 0, 0, 1, 1, 2, 1, 0,
+    /* 5 */  0, 0, 1, 1, 1, 2, 2, 1, 0,
+    /* 6 */  0, 0, 1, 1, 2, 1, 1, 2, 0,
+    /* 7 */  0, 0, 0, 1, 2, 1, 1, 2, 0,
+    /* 8 */  0, 0, 2, 2, 2, 1, 2, 1, 0,
+    /* 9 */  1, 1, 1, 1, 1, 1, 2, 2, 0,
+    /* 10 */  0, 0, 1, 1, 1, 1, 2, 2, 0,
+    /* 11 */  1, 1, 1, 1, 2, 1, 2, 2, 0,
+    /* 12 */  0, 0, 1, 1, 2, 1, 2, 2, 0,
+    /* 13 */  0, 1, 1, 2, 2, 1, 2, 2, 0,
+    /* 14 */  0, 0, 1, 2, 2, 1, 2, 2, 0,
+    /* 15 */  0, 0, 0, 0, 2, 2, 2, 2, 0
+    };
 // Forward references
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
-
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags);
+int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t matrix_size);
 //
 // Pre-defined panels for popular products and boards
 //
@@ -106,7 +184,7 @@ const BBPANELDEF panelDefs[] = {
       0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_INKPLATE6PLUS
 
     {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
-      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_INKPLATE5V2
+      0, 7, 21, 22, 3, 5, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 16}, // BB_PANEL_INKPLATE5V2
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_EPDIY_V7_16
@@ -140,17 +218,20 @@ void Inkplate6PlusRowControl(void *pBBEP, int iMode);
 int Inkplate5V2EinkPower(void *pBBEP, int bOn);
 int Inkplate5V2IOInit(void *pBBEP);
 void Inkplate5V2RowControl(void *pBBEP, int iMode);
+uint8_t EPDiyV7ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
+uint8_t Inkplate5V2ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
+
 // List of predefined callback functions for the panels supported by bb_epdiy
 // BB_EINK_POWER, BB_IO_INIT, BB_ROW_CONTROL
 const BBPANELPROCS panelProcs[] = {
     {0}, // BB_PANEL_NONE
-    {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl, NULL}, // BB_PANEL_M5PAPERS3
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_EPDIY_V7
-    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl, NULL}, // BB_PANEL_INKPLATE6PLUS
-    {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL}, // Inkplate5V2
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_EPDIY_V7_16
-    {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL}, // BB_PANEL_V7_RAW
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit}, // BB_PANEL_V7_103
+    {PaperS3EinkPower, PaperS3IOInit, PaperS3RowControl, NULL, NULL}, // BB_PANEL_M5PAPERS3
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7
+    {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl, NULL, NULL}, // BB_PANEL_INKPLATE6PLUS
+    {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL, Inkplate5V2ExtIO}, // Inkplate5V2
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
+    {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -283,34 +364,49 @@ uint8_t bbepMCPDigitalRead(uint8_t pin)
     return (ioRegs[MCP23017_GPIOA + port + 1] & (1 << pin)) ? HIGH : LOW;
 } /* bbepMCPDigitalRead() */
 //
-// Read port 0 or 1 data
+// Set a specific pin's mode
 //
-uint8_t bbepPCA9535Read(uint8_t port)
+void bbepPCA9535PinMode(uint8_t pin, uint8_t mode)
 {
-uint8_t uc;
+    uint8_t ucTemp[4];
+    const uint8_t port = pin / 8;
+    
+    pin &= 7;
+    if (mode == INPUT) {
+        ioRegs[6 + port] |= (1 << pin);
+    } else {
+        ioRegs[6 + port] &= ~(1 << pin);
+    }
+    ucTemp[0] = 6 + port;
+    ucTemp[1] = ioRegs[6 + port];
+    bbepI2CWrite(0x20, ucTemp, 2); // update pin config
+} /* bbepPCA9535PinMode() */
+
+void bbepPCA9535DigitalWrite(uint8_t pin, uint8_t value)
+{
+    uint8_t ucTemp[4];
+    const uint8_t port = pin / 8;
+    
+    pin &= 7;
+    if (value) {
+        ioRegs[2 + port] |= (1 << pin);
+    } else {
+        ioRegs[2 + port] &= ~(1 << pin);
+    }
+    ucTemp[0] = 2 + port;
+    ucTemp[1] = ioRegs[2 + port];
+    bbepI2CWrite(0x20, ucTemp, 2); // update pin state
+} /* bbepPCA9535DigitalWrite() */
+
+uint8_t bbepPCA9535DigitalRead(uint8_t pin)
+{
+    uint8_t uc, port = pin / 8;
+    
+    pin &= 7;
     bbepI2CReadRegister(0x20, port, &uc, 1);
-    return uc;
-} /* bbepPCA9535Read() */
-//
-// Read port 0 or 1 data
-//
-void bbepPCA9535Write(uint8_t port, uint8_t data)
-{
-uint8_t ucTemp[4];
-    ucTemp[0] = 2+port; // output port
-    ucTemp[1] = data;
-    bbepI2CWrite(0x20,ucTemp, 2);
-} /* bbepPCA9535Write() */
-//
-// Set the direction bits for the 16 I/O pins of the PCA9535
-//
-void bbepPCA9535SetConfig(uint8_t config)
-{
-uint8_t ucTemp[4];
-    ucTemp[0] = 7; // configuration register for PORT1
-    ucTemp[1] = config;
-    bbepI2CWrite(0x20, ucTemp, 2);
-} /* bbepPCA9535SetConfig() */
+    uc >>= (pin);
+    return (uc & 1);
+} /* bbepPCA9535DigitalRead() */
 
 void bbepTPS65186Init(FASTEPDSTATE *pState)
 {
@@ -395,6 +491,49 @@ uint8_t bbepPCALDigitalRead(uint8_t pin)
     return ((ioRegs[PCAL6416A_INPORT0_ARRAY + port] >> pin) & 1);
 } /* bbepPCALDigitalRead() */
 //
+// Access to the IO extender
+//
+uint8_t EPDiyV7ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal)
+{
+    uint8_t val = 0;
+    if (iPin < 16) { // IO extenders only have 16 pins
+        switch (iOp) {
+            case BB_EXTIO_SET_MODE:
+                bbepPCA9535PinMode(iPin, iVal);
+                break;
+            case BB_EXTIO_WRITE:
+                bbepPCA9535DigitalWrite(iPin, iVal);
+                break;
+            case BB_EXTIO_READ:
+                val = bbepPCA9535DigitalRead(iPin);
+                break;
+        }
+    }
+    return val;
+} /* EPDiyV7ExtIO() */
+//
+// Access to the IO extender
+//
+uint8_t Inkplate5V2ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal)
+{
+    uint8_t val = 0;
+    if (iPin < 16) { // IO extenders only have 16 pins
+        switch (iOp) {
+            case BB_EXTIO_SET_MODE:
+                bbepPCALPinMode(iPin, iVal);
+                break;
+            case BB_EXTIO_WRITE:
+                bbepPCALDigitalWrite(iPin, iVal);
+                break;
+            case BB_EXTIO_READ:
+                val = bbepPCALDigitalRead(iPin);
+                break;
+        }
+    }
+    return val;
+} /* Inkplate5V2ExtIO() */
+
+//
 // Write 8 bits (_state.shift_data) to the shift register
 //
 void bbepSendShiftData(FASTEPDSTATE *pState)
@@ -464,16 +603,13 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
         //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
-        u8Value |= 1; // OE on
-        u8Value |= 2; // GMOD on
-        u8Value |= 0x20; // WAKEUP on
-        bbepPCA9535Write(1, u8Value);
-        u8Value |= 8; // PWRUP on
-        bbepPCA9535Write(1, u8Value);
-        u8Value |= 0x10; // VCOM CTRL on
-        bbepPCA9535Write(1, u8Value);
+        bbepPCA9535DigitalWrite(8, 1); // OE on
+        bbepPCA9535DigitalWrite(9, 1); // GMOD on
+        bbepPCA9535DigitalWrite(13, 1); // WAKEUP on
+        bbepPCA9535DigitalWrite(11, 1); // PWRUP on
+        bbepPCA9535DigitalWrite(12, 1); // VCOM CTRL on
         vTaskDelay(1); // allow time to power up
-        while (!(bbepPCA9535Read(1) & 0x40 /*CFG_PIN_PWRGOOD*/)) { }
+        while (!(bbepPCA9535DigitalRead(14))) { } // CFG_PIN_PWRGOOD
         ucTemp[0] = TPS_REG_ENABLE;
         ucTemp[1] = 0x3f; // enable output
         bbepI2CWrite(0x68, ucTemp, 2);
@@ -498,9 +634,12 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
         }
         pState->pwr_on = 1;
     } else { // power off
-        bbepPCA9535Write(1, 0x20); // only leave WAKEUP on
+        bbepPCA9535DigitalWrite(8, 0); // OE off
+        bbepPCA9535DigitalWrite(9, 0); // GMOD off
+        bbepPCA9535DigitalWrite(11, 0); // PWRUP off
+        bbepPCA9535DigitalWrite(12, 0); // VCOM CTRL off
         vTaskDelay(1);
-        bbepPCA9535Write(1, 0); // now turn everything off
+        bbepPCA9535DigitalWrite(13, 0); // WAKEUP off
         pState->pwr_on = 0;
     }
     return BBEP_SUCCESS;
@@ -681,7 +820,7 @@ void EPDiyV7IODeInit(void *pBBEP)
 //    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
     bbepPinMode(pState->panelDef.ioLE, INPUT);
     bbepPinMode(pState->panelDef.ioCL, INPUT);
-    bbepPCA9535Write(1, 0); // turn TPS65185 WAKEUP off
+    bbepPCA9535DigitalWrite(13, 1); // turn TPS65185 WAKEUP off
 } /* EPDiyV7IODeInit() */
 //
 // Initialize the IO for the EPDiy V7 PCB
@@ -697,7 +836,12 @@ int EPDiyV7IOInit(void *pBBEP)
     bbepPinMode(pState->panelDef.ioLE, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
     bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
-    bbepPCA9535SetConfig(0xc0); // set lower 6 bits as outputs and 6 (PWRGOOD) and 7 (INTR) as inputs
+    memset(ioRegs, 0, sizeof(ioRegs)); // copy of IO expander registers
+    for (int i=8; i<14; i++) { // set lower 6 bits as outputs
+        bbepPCA9535PinMode(i, OUTPUT);
+    }
+    bbepPCA9535PinMode(14, INPUT); // TPS_PWR_GOOD
+    bbepPCA9535PinMode(15, INPUT); // TPS_nINT
     return BBEP_SUCCESS;
 } /* EPDiyV7IOInit() */
 //
@@ -718,8 +862,6 @@ int EPDiyV7RAWIOInit(void *pBBEP)
     bbepPinMode(12, OUTPUT); // TPS_VCOM_CTRL
     bbepPinMode(14, OUTPUT); // TPS_WAKEUP
     bbepPinMode(47, INPUT); // TPS_POWER_GOOD
-    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
-//    bbepPCA9535SetConfig(0xc0); // set lower 6 bits as outputs and 6 (PWRGOOD) and 7 (INTR) as inputs
     return BBEP_SUCCESS;
 } /* EPDiyV7RAWIOInit() */
 
@@ -1004,6 +1146,33 @@ int bbepIOInit(FASTEPDSTATE *pState)
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 //
+// For displays with pre-defined configurations (size, speed, flags, gray matrix)
+//
+int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
+{
+    if (!pState) return BBEP_ERROR_BAD_PARAMETER;
+    if (iPanel < 0 || iPanel >= BBEP_DISPLAY_COUNT) return BBEP_ERROR_BAD_PARAMETER;
+    switch (iPanel) {
+        case BBEP_DISPLAY_EC060TC1:
+            bbepSetPanelSize(pState, 1024, 758, BB_PANEL_FLAG_NONE);
+            bbepSetCustomMatrix(pState, u8SixInchMatrix, sizeof(u8SixInchMatrix));
+            break;
+        case BBEP_DISPLAY_ED0970TC1:
+            bbepSetPanelSize(pState, 1280, 825, BB_PANEL_FLAG_NONE);
+            bbepSetCustomMatrix(pState, u8NineInchMatrix, sizeof(u8NineInchMatrix));
+            break;
+        case BBEP_DISPLAY_ED103TC2:
+            bbepSetPanelSize(pState, 1872, 1414, BB_PANEL_FLAG_MIRROR_X);
+            bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
+            break;
+        case BBEP_DISPLAY_ED052TC4:
+            bbepSetPanelSize(pState, 1280, 720, BB_PANEL_FLAG_MIRROR_X);
+            bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
+            break;
+    } // switch on panel
+    return BBEP_SUCCESS;
+} /* bbepSetDefinedPanel() */
+//
 // For board definitions without an associated display (e.g. EPDiy V7 PCB)
 // Set the display size and flags
 //
@@ -1095,6 +1264,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel)
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
         pState->pfnIODeInit = panelProcs[iPanel].pfnIODeInit;
         pState->pfnRowControl = panelProcs[iPanel].pfnRowControl;
+        pState->pfnExtIO = panelProcs[iPanel].pfnExtIO;
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         rc = bbepIOInit(pState);
