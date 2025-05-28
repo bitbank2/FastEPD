@@ -74,9 +74,11 @@ static void G5ENCFlushBits(G5_BUFFERED_BITS *bb)
         bb->ulBits <<= 8;
         bb->ulBitOff -= 8;
     }
-   *bb->pBuf++ = (unsigned char) (bb->ulBits >> (REGISTER_WIDTH - 8));
-   bb->ulBitOff = 0;
-   bb->ulBits = 0;
+    if (bb->ulBitOff) { // partial byte?
+        *bb->pBuf++ = (unsigned char) (bb->ulBits >> (REGISTER_WIDTH - 8));
+    }
+    bb->ulBitOff = 0;
+    bb->ulBits = 0;
 } /* G5ENCFlushBits() */
 //
 // Initialize the compressor
@@ -289,7 +291,7 @@ G5_BUFFERED_BITS bb;
     if (pImage->y == pImage->iHeight-1) { // last line of image
         G5ENCFlushBits(&bb); // output the final buffered bits
         // wrap up final output
-        pImage->iDataSize = (int)(bb.pBuf-pImage->pOutBuf);
+        pImage->iDataSize = 1 + (int)(bb.pBuf-pImage->pOutBuf);
         iErr = G5_ENCODE_COMPLETE;
     }
     pImage->pCur = RefFlips; // swap current and reference lines

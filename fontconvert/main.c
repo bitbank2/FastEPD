@@ -22,7 +22,7 @@
 #include FT_GLYPH_H
 #include FT_MODULE_H
 #include FT_TRUETYPE_DRIVER_H
-#include "../src/g5enc.inl" // Group5 image compression library
+#include "../../../src/g5enc.inl" // Group5 image compression library
 G5ENCIMAGE g5enc; // Group5 encoder state
 
 #define DPI 141 // Approximate resolution of common displays
@@ -93,14 +93,20 @@ int RotateBitmap(int iAngle, uint8_t *pSrc, int iWidth, int iHeight, int iSrcPit
 //
 void StartHexFile(FILE *f, int iLen, const char *fname)
 {
-    int i;
+    int i, j;
     char szTemp[256];
     fprintf(f, "//\n// Created with fontconvert, written by Larry Bank\n");
     fprintf(f, "// compressed font data size = %d bytes\n//\n", iLen);
     strcpy(szTemp, fname);
     i = strlen(szTemp);
     if (szTemp[i-2] == '.') szTemp[i-2] = 0; // get the leaf name for the data
-    fprintf(f, "const uint8_t %s[] = {\n", szTemp);
+    j = i;
+    // go backwards to get rid trim off just the leaf name
+    while (j > 0 && szTemp[j] != '/') {
+        j--;
+    }
+    if (szTemp[j] == '/') j++;
+    fprintf(f, "const uint8_t %s[] = {\n", &szTemp[j]);
 } /* StartHexFile() */
 //
 // Add N bytes of hex data to the output
@@ -121,6 +127,26 @@ void AddHexBytes(FILE *f, void *pData, int iLen, int bLast)
         fprintf(f, "};\n");
     }
 } /* AddHexBytes() */
+
+const uint16_t uc1252Table[256] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 0-15 not used (some can be mapped to printable characters if needed)
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 16-31 not used
+    32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,
+    48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,
+    64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+    80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,
+    96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,
+    112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,
+    // Now starts the remapped Unicode characters
+    0x20ac, 32, 0x201a, 0x192, 0x201e, 0x2026, 0x2020, 0x2021, 0x2c6, 0x2030,0x160,0x2039,0x152,32,0x17d,32, // 0x80-0x8f
+    32, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x2dc, 0x2122, 0x161, 0x2031, 0x153, 32, 0x17e, 0x178, // 0x90-0x9f
+    0xa0,0xa1,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7,0xa8,0xa9,0xaa,0xab,0xac,0xad,0xae,0xaf,
+    0xb0,0xb1,0xb2,0xb3,0xb4,0xb5,0xb6,0xb7,0xb8,0xb9,0xba,0xbb,0xbc,0xbd,0xbe,0xbf,
+    0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,0xc8,0xc9,0xca,0xcb,0xcc,0xcd,0xce,0xcf,
+    0xd0,0xd1,0xd2,0xd3,0xd4,0xd5,0xd6,0xd7,0xd8,0xd9,0xda,0xdb,0xdc,0xdd,0xde,0xdf,
+    0xe0,0xe1,0xe2,0xe3,0xe4,0xe5,0xe6,0xe7,0xe8,0xe9,0xea,0xeb,0xec,0xed,0xee,0xef,
+    0xf0,0xf1,0xf2,0xf3,0xf4,0xf5,0xf6,0xf7,0xf8,0xf9,0xfa,0xfb,0xfc,0xfd,0xfe,0xff
+};
 
 int main(int argc, char *argv[])
 {
@@ -194,7 +220,7 @@ int main(int argc, char *argv[])
                     &interpreter_version);
     
     if ((err = FT_New_Face(library, argv[1], 0, &face))) {
-        printf("Font load error: %d", err);
+        printf("Font load error: %d\n", err);
         FT_Done_FreeType(library);
         return err;
     }
@@ -206,26 +232,27 @@ int main(int argc, char *argv[])
     // Fonts may contain WAY more glyphs than that, but this code
     // will need to handle encoding stuff to deal with extracting
     // the right symbols, and that's not done yet.
-    
     // Process glyphs and output huge bitmap data array
     for (i = first; i <= last; i++) {
-        int index = i - first;
+        int iChar, index = i - first;
         uint8_t *s;
         int iPitch;
+        
+        iChar = uc1252Table[i]; // adjust for Codepade 1252 support
         // MONO renderer provides clean image with perfect crop
         // (no wasted pixels) via bitmap struct.
-        if ((err = FT_Load_Char(face, i, FT_LOAD_TARGET_MONO))) {
-            printf("Error %d loading char '%c'\n", err, i);
+        if ((err = FT_Load_Char(face, iChar, FT_LOAD_TARGET_MONO))) {
+            printf("Error %d loading char '%c'\n", err, iChar);
             continue;
         }
         
         if ((err = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_MONO))) {
-            printf("Error %d rendering char '%c'\n", err, i);
+            printf("Error %d rendering char '%c'\n", err, iChar);
             continue;
         }
         
         if ((err = FT_Get_Glyph(face->glyph, &glyph))) {
-            printf("Error %d getting glyph '%c'\n", err, i);
+            printf("Error %d getting glyph '%c'\n", err, iChar);
             continue;
         }
         

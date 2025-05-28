@@ -724,6 +724,130 @@ static void Scale2Gray(uint8_t *source, int width, int iPitch)
 } /* Scale2Gray() */
 
 //
+// Convert a single Unicode character into codepage 1252 (extended ASCII)
+//
+uint8_t bbepUnicodeTo1252(uint16_t u16CP)
+{
+            // convert supported Unicode values to codepage 1252
+            switch(u16CP) { // they're all over the place, so check each
+                case 0x20ac:
+                    u16CP = 0x80; // euro sign
+                    break;
+                case 0x201a: // single low quote
+                    u16CP = 0x82;
+                    break;
+                case 0x192: // small F with hook
+                    u16CP = 0x83;
+                    break;
+                case 0x201e: // double low quote
+                    u16CP = 0x84;
+                    break;
+                case 0x2026: // hor ellipsis
+                    u16CP = 0x85;
+                    break;
+                case 0x2020: // dagger
+                    u16CP = 0x86;
+                    break;
+                case 0x2021: // double dagger
+                    u16CP = 0x87;
+                    break;
+                case 0x2c6: // circumflex
+                    u16CP = 0x88;
+                    break;
+                case 0x2030: // per mille
+                    u16CP = 0x89;
+                    break;
+                case 0x160: // capital S with caron
+                    u16CP = 0x8a;
+                    break;
+                case 0x2039: // single left pointing quote
+                    u16CP = 0x8b;
+                    break;
+                case 0x152: // capital ligature OE
+                    u16CP = 0x8c;
+                    break;
+                case 0x17d: // captial Z with caron
+                    u16CP = 0x8e;
+                    break;
+                case 0x2018: // left single quote
+                    u16CP = 0x91;
+                    break;
+                case 0x2019: // right single quote
+                    u16CP = 0x92;
+                    break;
+                case 0x201c: // left double quote
+                    u16CP = 0x93;
+                    break;
+                case 0x201d: // right double quote
+                    u16CP = 0x94;
+                    break;
+                case 0x2022: // bullet
+                    u16CP = 0x95;
+                    break;
+                case 0x2013: // en dash
+                    u16CP = 0x96;
+                    break;
+                case 0x2014: // em dash
+                    u16CP = 0x97;
+                    break;
+                case 0x2dc: // small tilde
+                    u16CP = 0x98;
+                    break;
+                case 0x2122: // trademark
+                    u16CP = 0x99;
+                    break;
+                case 0x161: // small s with caron
+                    u16CP = 0x9a;
+                    break;
+                case 0x203a: // single right quote
+                    u16CP = 0x9b;
+                    break;
+                case 0x153: // small ligature oe
+                    u16CP = 0x9c;
+                    break;
+                case 0x17e: // small z with caron
+                    u16CP = 0x9e;
+                    break;
+                case 0x178: // capital Y with diaeresis
+                    u16CP = 0x9f;
+                    break;
+                default:
+                    if (u16CP > 0xff) u16CP = 32; // something went wrong
+                    break;
+            } // switch on character
+    return (uint8_t)u16CP;
+} /* bbepUnicodeTo1252() */
+//
+// Convert a Unicode string into our extended ASCII set (codepage 1252)
+//
+void bbepUnicodeString(const char *szMsg, uint8_t *szExtMsg)
+{
+int i, j;
+uint8_t c;
+uint16_t u16CP; // 16-bit codepoint encoded by the multi-byte sequence
+
+    i = j = 0;
+    while (szMsg[i]) {
+        c = szMsg[i++];
+        if (c < 0x80) { // normal 7-bit ASCII
+             u16CP = c;
+        } else { // multibyte
+             if (c < 0xe0) { // first 0x800 characters
+                  u16CP = (c & 0x3f) << 6;
+                  u16CP += (szMsg[i++] & 0x3f);
+             } else if (c < 0xf0) { // 0x800 to 0x10000
+                  u16CP = (c & 0x3f) << 12;
+                  u16CP += ((szMsg[i++] & 0x3f)<<6);
+                  u16CP += (szMsg[i++] & 0x3f);
+             } else { // 0x10001 to 0x20000
+                  u16CP = 32; // convert to spaces (nothing supported here)
+             }
+        } // multibyte
+        szExtMsg[j++] = bbepUnicodeTo1252(u16CP);
+    } // while szMsg[i]
+    szExtMsg[j++] = 0; // zero terminate it
+} /* bbepUnicodeString() */
+//
 // Draw a string of BB_FONT characters directly into the EPD framebuffer
 //
 int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
@@ -733,6 +857,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
     int width, height;
     BB_GLYPH *pGlyph;
     uint8_t *pBits, u8EndMask;
+    uint8_t szExtMsg[256]; // translated extended ASCII message text
     uint8_t c, first, last;
     
     if (pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
@@ -746,6 +871,11 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
         width *= 2;
         height *= 2;
     }
+    if (szMsg[1] == 0 && (szMsg[0] & 0x80)) { // single byte means we're coming from the Arduino write() method with pre-converted extended ASCII
+        szExtMsg[0] = szMsg[0]; szExtMsg[1] = 0;
+    } else {
+        bbepUnicodeString(szMsg, szExtMsg); // convert to extended ASCII
+    }
     iBG = pBBEP->iBG;
     if (iBG == -1) iBG = BBEP_TRANSPARENT; // -1 = don't care
     if (x == -1)
@@ -756,8 +886,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
     last = pgm_read_byte(&pFont->last);
     if (x == CENTER_X) { // center the string on the e-paper
         dx = i = 0;
-        while (szMsg[i]) {
-            c = szMsg[i++];
+        while (szExtMsg[i]) {
+            c = szExtMsg[i++];
             if (c < first || c > last) // undefined character
                 continue; // skip it
             c -= first; // first char of font defined
@@ -772,8 +902,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
     pBits += sizeof(BB_FONT);
     pBits += (last - first + 1) * sizeof(BB_GLYPH);
     i = 0;
-    while (szMsg[i] && x < width && y < height) {
-        c = szMsg[i++];
+    while (szExtMsg[i] && x < width && y < height) {
+        c = szExtMsg[i++];
         if (c < first || c > last) // undefined character
             continue; // skip it
         c -= first; // first char of font defined
