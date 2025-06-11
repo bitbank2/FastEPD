@@ -229,6 +229,7 @@ class FASTEPD
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
     void backupPlane(void);
+    void invertRect(int x, int y, int w, int h);
     void drawRoundRect(int x, int y, int w, int h, int r, uint8_t color);
     void fillRoundRect(int x, int y, int w, int h, int r, uint8_t color);
     void fillScreen(uint8_t iColor);

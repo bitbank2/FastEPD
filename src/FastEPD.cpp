@@ -95,6 +95,11 @@ void FASTEPD::drawRect(int x, int y, int w, int h, uint8_t color)
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 0);
 }
 
+void FASTEPD::invertRect(int x, int y, int w, int h)
+{
+    bbepInvertRect(&_state, x, y, w, h);
+}
+
 void FASTEPD::fillRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 1);

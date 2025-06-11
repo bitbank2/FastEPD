@@ -1609,6 +1609,62 @@ void bbepEllipse(FASTEPDSTATE *pBBEP, int iCenterX, int iCenterY, int32_t iRadiu
         }
     }
 } /* bbepEllipse() */
+
+//
+// Invert a rectangle of pixels
+//
+void bbepInvertRect(FASTEPDSTATE *pBBEP, int x, int y, int w, int h)
+{
+int tx, ty;
+uint8_t u8, u8Mask, *s;
+int iPitch;
+
+    if (pBBEP == NULL) return;
+    if (x < 0 || y < 0 || w < 0 || h < 0 ||
+        x >= pBBEP->width || y >= pBBEP->height || (x+w) > pBBEP->width || (y+h) > pBBEP->height) {
+        pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
+        return; // invalid coordinates
+    }
+
+    if (pBBEP->mode == BB_MODE_1BPP) {
+        iPitch = pBBEP->width / 8;
+        for (ty=y; ty<y+h; ty++) {
+            s = pBBEP->pCurrent;
+            s += (ty * iPitch) + (x >> 3);
+            u8Mask = 0x80 >> (x & 7);
+            u8 = s[0]; // read current pixels
+            for (tx=0; tx<w; tx++) {
+                u8 ^= u8Mask;
+                u8Mask >>= 1;
+                if (u8Mask == 0) { // next byte
+                    *s++ = u8;
+                    u8 = s[0];
+                    u8Mask = 0x80;
+                }
+            } // for tx
+            if (u8Mask != 0x80) { // write final partial byte
+                s[0] = u8;
+            }
+        } // for ty
+    } else {  // 4-bpp
+        iPitch = pBBEP->width / 2;
+        for (ty = y; ty < y+h; ty++) {
+            s = pBBEP->pCurrent;
+            s += (ty * iPitch) + (x >> 1);
+            u8Mask = 0xf0 >> ((x & 1)*4);
+            u8 = s[0];
+            for (tx=0; tx<w; tx++) {
+                u8 ^= u8Mask;
+                u8Mask = ~u8Mask;
+                if (u8Mask == 0xf0) { // next byte
+                   *s++ = u8;
+                   u8 = s[0];
+                }
+            } // for tx
+        } // for ty 
+    }
+} /* bbepInvertRect() */
+
 //
 // Draw an outline or filled rectangle
 //
