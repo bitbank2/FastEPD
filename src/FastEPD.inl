@@ -1122,6 +1122,8 @@ int bbepIOInit(FASTEPDSTATE *pState)
     #endif
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
+    pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
+    pState->iFullPasses = 5; // the default number of passes for smooth and full updates
     // Initialize the ESP32 LCD API to drive parallel data at high speed
     // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
     s3_bus_config.dc_gpio_num = (gpio_num_t)pState->panelDef.ioDCDummy;
@@ -1244,6 +1246,32 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
     } // for i
 return BBEP_SUCCESS;
 } /* setPanelSize() */
+
+//
+// Set the individual brightness of the 1 or 2 front lights
+//
+void bbepSetBrightness(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
+{
+    ledcWrite(pState->u8LED1, led1); // PWM (0-255)
+    if (pState->u8LED2 != 0xff) {
+        ledcWrite(pState->u8LED2, led2);
+    }
+} /* bbepSetBrightness() */
+
+//
+// Initialize the front light(s) if present
+//
+void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
+{
+    pState->u8LED1 = led1;
+    pState->u8LED2 = led2;
+    ledcAttach(led1, 5000, 8); // attach pin to channel 0
+    ledcWrite(led1, 0); // set to off to start
+    if (led2 != 0xff) {
+        ledcAttach(led2, 5000, 8);
+        ledcWrite(led2, 0); // set to off
+    }
+} /* bbepInitLights() */
 
 //
 // Initialize the panel based on the constant name
@@ -1468,8 +1496,8 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
                 }
             }
         } // for i
-        // Write 5 passes of the black data to the whole display
-        for (pass = 0; pass < 5; pass++) {
+        // Write N passes of the black data to the whole display
+        for (pass = 0; pass < pState->iFullPasses; pass++) {
             bbepRowControl(pState, ROW_START);
             for (i = 0; i < pState->native_height; i++) {
                 s = &pState->pTemp[i * (pState->native_width / 4)];
@@ -1607,8 +1635,8 @@ int bbepFullUpdate(FASTEPDSTATE *pState, bool bFast, bool bKeepOn, BBEPRECT *pRe
             }
             //vTaskDelay(0);
         } // for i
-        // Write 5 passes of the black data to the whole display
-        for (pass = 0; pass < 5; pass++) {
+        // Write N passes of the black data to the whole display
+        for (pass = 0; pass < pState->iFullPasses; pass++) {
             bbepRowControl(pState, ROW_START);
             for (i = 0; i < pState->native_height; i++) {
                 s = &pState->pTemp[i * (pState->native_width / 4)];
@@ -1741,7 +1769,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
         iStartLine = iEndLine;
         iEndLine = i;
     }
-    for (pass = 0; pass < 4; pass++) { // each pass is about 32ms
+    for (pass = 0; pass < pState->iPartialPasses; pass++) { // each pass is about 32ms
         uint8_t *dp = pState->pTemp;
         int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;

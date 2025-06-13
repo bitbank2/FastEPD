@@ -178,9 +178,11 @@ typedef struct tag_fastepdstate
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode;
     uint8_t shift_data, anti_alias;
+    uint8_t u8LED1, u8LED2;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
     int rotation;
+    int iPartialPasses, iFullPasses;
     int iScreenOffset, iOrientation;
     int iFG, iBG; //current color
     int iFont, iFlags;
@@ -209,6 +211,8 @@ class FASTEPD
   public:
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType);
+    void initLights(uint8_t led1, uint8_t led2 = 0xff);
+    void setBrightness(uint8_t led1, uint8_t led2 = 0);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
     int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
@@ -226,6 +230,7 @@ class FASTEPD
     int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
+    void setPasses(uint8_t iPartialPasses, uint8_t iFullPasses = 5);
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
     void backupPlane(void);

@@ -58,6 +58,16 @@ int FASTEPD::loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, flo
     return bbepLoadG5(&_state, pG5, x, y, iFG, iBG, fScale);
 }
 
+void FASTEPD::setPasses(uint8_t iPartialPasses, uint8_t iFullPasses)
+{
+    if (iPartialPasses > 0 && iPartialPasses < 15) { // reasonable numbers
+        _state.iPartialPasses = iPartialPasses;
+    }
+    if (iFullPasses > 0 && iFullPasses < 15) { // reasonable numbers
+        _state.iFullPasses = iFullPasses;
+    }
+} /* setPasses() */
+
 int FASTEPD::setRotation(int iAngle)
 {
     return bbepSetRotation(&_state, iAngle);
@@ -246,6 +256,15 @@ static uint8_t u8Unicode0, u8Unicode1;
   }
   return 1;
 } /* write() */
+
+void FASTEPD::setBrightness(uint8_t led1, uint8_t led2)
+{
+    bbepSetBrightness(&_state, led1, led2);
+}
+void FASTEPD::initLights(uint8_t led1, uint8_t led2)
+{
+    bbepInitLights(&_state, led1, led2);
+} /* initLights() */
 
 int FASTEPD::initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs)
 {
