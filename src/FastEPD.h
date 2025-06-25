@@ -34,6 +34,14 @@
 #define BB_NOT_USED 0xff
 #define BBEP_TRANSPARENT 255
 
+// 5 possible clearing options before an update
+enum {
+   CLEAR_NONE = 0, // don't clear
+   CLEAR_FAST, // 8 passes black/white
+   CLEAR_SLOW, // 10 passes black/white/black/white
+   CLEAR_WHITE, // 5 passes to white (may not be sufficient to clear old pixels)
+   CLEAR_BLACK, // 5 passes to black (not recommended unless you know what you're doing)
+};
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
 enum {
    FONT_6x8 = 0,
@@ -210,7 +218,7 @@ class FASTEPD
 {
   public:
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
-    int initPanel(int iPanelType);
+    int initPanel(int iPanelType, uint32_t u32Speed = 0);
     void initLights(uint8_t led1, uint8_t led2 = 0xff);
     void setBrightness(uint8_t led1, uint8_t led2 = 0);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
@@ -227,7 +235,7 @@ class FASTEPD
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
     void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
-    int fullUpdate(bool bFast = false, bool bKeepOn = false, BBEPRECT *pRect = NULL);
+    int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BBEPRECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
     void setPasses(uint8_t iPartialPasses, uint8_t iFullPasses = 5);

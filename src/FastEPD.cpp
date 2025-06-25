@@ -285,9 +285,9 @@ int FASTEPD::setPanelSize(int width, int height, int flags) {
     return bbepSetPanelSize(&_state, width, height, flags);
 } /* setPanelSize() */
 
-int FASTEPD::initPanel(int iPanel)
+int FASTEPD::initPanel(int iPanel, uint32_t u32Speed)
 {
-    return bbepInitPanel(&_state, iPanel);
+    return bbepInitPanel(&_state, iPanel, u32Speed);
 } /* initIO() */
 
 int FASTEPD::einkPower(int bOn)
@@ -326,9 +326,9 @@ void FASTEPD::fillScreen(uint8_t u8Color)
     bbepFillScreen(&_state, u8Color);
 } /* fillScreen() */
 
-int FASTEPD::fullUpdate(bool bFast, bool bKeepOn, BBEPRECT *pRect)
+int FASTEPD::fullUpdate(int iClearMode, bool bKeepOn, BBEPRECT *pRect)
 {
-    return bbepFullUpdate(&_state, bFast, bKeepOn, pRect);
+    return bbepFullUpdate(&_state, iClearMode, bKeepOn, pRect);
 } /* fullUpdate() */
 
 int FASTEPD::partialUpdate(bool bKeepOn, int iStartLine, int iEndLine)
