@@ -150,8 +150,8 @@ typedef struct g5_enc_image_tag
 // Font info per character (glyph)
 typedef struct {
   uint16_t bitmapOffset; // Offset to compressed bitmap data for this glyph (starting from the end of the BB_GLYPH[] array)
-  uint8_t width;         // bitmap width in pixels
-  uint8_t xAdvance;      // total width in pixels (bitmap + padding)
+  uint16_t width;         // bitmap width in pixels
+  uint16_t xAdvance;      // total width in pixels (bitmap + padding)
   uint16_t height;        // bitmap height in pixels
   int16_t xOffset;        // left padding to upper left corner
   int16_t yOffset;        // padding from baseline to upper left corner (usually negative)

@@ -22,7 +22,7 @@
 #include FT_GLYPH_H
 #include FT_MODULE_H
 #include FT_TRUETYPE_DRIVER_H
-#include "../../../src/g5enc.inl" // Group5 image compression library
+#include "../src/g5enc.inl" // Group5 image compression library
 G5ENCIMAGE g5enc; // Group5 encoder state
 
 #define DPI 141 // Approximate resolution of common displays
@@ -259,21 +259,6 @@ int main(int argc, char *argv[])
         bitmap = &face->glyph->bitmap;
         g = (FT_BitmapGlyphRec *)glyph;
         
-        // Minimal font and per-glyph information is stored to
-        // reduce flash space requirements.  Glyph bitmaps are
-        // fully bit-packed; no per-scanline pad, though end of
-        // each character may be padded to next byte boundary
-        // when needed.  16-bit offset means 64K max for bitmaps,
-        // code currently doesn't check for overflow.  (Doesn't
-        // check that size & offsets are within bounds either for
-        // that matter...please convert fonts responsibly.)
-	
-	// Check that the requested font size fits within the limits
-        // of the 8-bit member variables
-        if (bitmap->width > 255 || (face->glyph->advance.x>>6) > 255) {
-            printf("The requested size is too large to fit in the BB_GLYPH member vars\nEither request a smaller size or change the member variables to be 16-bits\n");
-            return -1;
-        }
         pGlyphs[index].bitmapOffset = iOffset;
         pGlyphs[index].width = bitmap->width;
         pGlyphs[index].height = bitmap->rows;

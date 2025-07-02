@@ -246,10 +246,10 @@ static uint8_t bSlowSPH = 0;
 
 static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {           
-    dma_is_done = true;
     if (bSlowSPH) {
         gpio_set_level(u8SPH, 1); // CS deactivate
     }
+    dma_is_done = true;
     return false;
 }           
 
@@ -1088,7 +1088,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
     }
     if (bSlowSPH) {
         gpio_set_level(u8SPH, 0); // SPH/CS active
-        gpio_set_level(u8CKV, 1); // CKV on
+//        gpio_set_level(u8CKV, 1); // CKV on
     }
     dma_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
@@ -1155,6 +1155,10 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
     switch (iPanel) {
         case BBEP_DISPLAY_EC060TC1:
             bbepSetPanelSize(pState, 1024, 758, BB_PANEL_FLAG_NONE);
+            bbepSetCustomMatrix(pState, u8SixInchMatrix, sizeof(u8SixInchMatrix));
+            break;
+        case BBEP_DISPLAY_EC060KD1:
+            bbepSetPanelSize(pState, 1448, 1072, BB_PANEL_FLAG_NONE);
             bbepSetCustomMatrix(pState, u8SixInchMatrix, sizeof(u8SixInchMatrix));
             break;
         case BBEP_DISPLAY_ED0970TC1:
@@ -1250,10 +1254,17 @@ return BBEP_SUCCESS;
 //
 void bbepSetBrightness(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 {
+#if (ESP_IDF_VERSION_MAJOR > 4)
     ledcWrite(pState->u8LED1, led1); // PWM (0-255)
     if (pState->u8LED2 != 0xff) {
         ledcWrite(pState->u8LED2, led2);
     }
+#else // old API
+    ledcWrite(0, led1);
+    if (pState->u8LED2 != 0xff) {
+        ledcWrite(1, led2);
+    }   
+#endif
 } /* bbepSetBrightness() */
 
 //
@@ -1263,12 +1274,23 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 {
     pState->u8LED1 = led1;
     pState->u8LED2 = led2;
+#if (ESP_IDF_VERSION_MAJOR > 4)
     ledcAttach(led1, 5000, 8); // attach pin to channel 0
     ledcWrite(led1, 0); // set to off to start
     if (led2 != 0xff) {
         ledcAttach(led2, 5000, 8);
         ledcWrite(led2, 0); // set to off
     }
+#else // old API
+    ledcSetup(0, 5000, 8);
+    ledcAttachPin(led1, 0);
+    ledcWrite(0, 0);
+    if (led2 != 0xff) {
+        ledcSetup(1, 5000, 8);
+        ledcAttachPin(led2, 1);
+        ledcWrite(1, 0);
+    }
+#endif
 } /* bbepInitLights() */
 
 //
@@ -1565,26 +1587,26 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BBEPRECT 
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     switch (iClearMode) {
         case CLEAR_SLOW:
-            bbepClear(pState, BB_CLEAR_DARKEN, 10, pRect);
-            bbepClear(pState, BB_CLEAR_LIGHTEN, 10, pRect);
-            bbepClear(pState, BB_CLEAR_DARKEN, 10, pRect);
-            bbepClear(pState, BB_CLEAR_LIGHTEN, 10, pRect);
+            bbepClear(pState, BB_CLEAR_DARKEN, 4, pRect);
+            bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
+            bbepClear(pState, BB_CLEAR_DARKEN, 4, pRect);
+            bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
         case CLEAR_FAST:
-            bbepClear(pState, BB_CLEAR_DARKEN, 8, pRect);
+            bbepClear(pState, BB_CLEAR_DARKEN, 2, pRect);
             bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
         case CLEAR_WHITE:
-            bbepClear(pState, BB_CLEAR_LIGHTEN, 5, pRect);
+            bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
         case CLEAR_BLACK: // probably a mistake
-            bbepClear(pState, BB_CLEAR_DARKEN, 5, pRect);
+            bbepClear(pState, BB_CLEAR_DARKEN, 8, pRect);
             break;
         case CLEAR_NONE: // nothing to do
         default:
             break;
     }
-
+    bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
 #ifdef SHOW_TIME
     l = millis() - l;
     Serial.printf("clear time = %dms\n", (int)l);

@@ -892,7 +892,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 continue; // skip it
             c -= first; // first char of font defined
             pGlyph = &pFont->glyphs[c]; // glyph info for this character
-            dx += pgm_read_byte(&pGlyph->xAdvance);
+            dx += pgm_read_word(&pGlyph->xAdvance);
         }
         x = (pBBEP->width - dx)/2;
         if (x < 0) x = 0;
@@ -908,17 +908,17 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
             continue; // skip it
         c -= first; // first char of font defined
         pGlyph = &pFont->glyphs[c]; // glyph info for this character
-        if (pgm_read_byte(&pGlyph->width) > 1) { // skip this if drawing a space
+        if (pgm_read_word(&pGlyph->width) > 1) { // skip this if drawing a space
             x_off = pGlyph->xOffset;
             s = pBits + pgm_read_word(&pGlyph->bitmapOffset); // start of compressed bitmap data
             if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
                 h = pgm_read_word(&pGlyph->height);
-                w = pgm_read_byte(&pGlyph->width);
+                w = pgm_read_word(&pGlyph->width);
                 dx = x + (int16_t)pgm_read_word(&pGlyph->xOffset); // offset from character UL to start drawing
                 dy = y + (int16_t)pgm_read_word(&pGlyph->yOffset);
             } else { // rotated
                 w = pgm_read_word(&pGlyph->height);
-                h = pgm_read_byte(&pGlyph->width);
+                h = pgm_read_word(&pGlyph->width);
                 n = (int16_t)pgm_read_word(&pGlyph->yOffset); // offset from character UL to start drawing
                 dx = x;
                 if (-n < w) dx -= (w+n); // since we draw from the baseline
@@ -993,9 +993,9 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
             } // non-antialased
         } // if not drawing a space
         if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
-            x += pgm_read_byte(&pGlyph->xAdvance); // width of this character
+            x += pgm_read_word(&pGlyph->xAdvance); // width of this character
         } else {
-            y += pgm_read_byte(&pGlyph->xAdvance);
+            y += pgm_read_word(&pGlyph->xAdvance);
         }
     } // while drawing characters
     pBBEP->iCursorX = x;
