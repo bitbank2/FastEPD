@@ -1607,7 +1607,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BBEPRECT 
             break;
     }
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
-#ifdef SHOW_TIME
+#if defined( SHOW_TIME ) && defined( ARDUINO )
     l = millis() - l;
     Serial.printf("clear time = %dms\n", (int)l);
     l = millis();
@@ -1834,17 +1834,11 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
                 bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
                 iSkipped = 0;
             } else {
-                if (iSkipped >= 2) {
-                    gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV_SET;
-                    delayMicroseconds(35);
-                    bbepRowControl(pState, ROW_STEP);
-                } else {
-                    // write 2 floating rows
-                    if (iSkipped == 0) { // skip
-                       memset((void *)d, 0, pState->native_width/4);
-                    }
-                    bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
-                  }
+               // write a neutral row
+                if (iSkipped == 0) { // new skipped section
+                    memset((void *)d, 0, pState->native_width/4);
+                }
+                bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
                 iSkipped++;
             }
             dp += iDelta;
@@ -1853,10 +1847,9 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
       //  delayMicroseconds(230);
     } // for each pass
 
-    if (bKeepOn) {
-//        bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
-    } else {
-        bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
+// This clear to neutral step is necessary; do not remove
+    bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
+    if (!bKeepOn) {
         bbepEinkPower(pState, 0);
     }
     int offset = iStartLine * (pState->native_width/8);
