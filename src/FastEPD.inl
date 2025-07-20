@@ -1254,6 +1254,7 @@ return BBEP_SUCCESS;
 //
 void bbepSetBrightness(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 {
+#ifdef ARDUINO
 #if (ESP_IDF_VERSION_MAJOR > 4)
     ledcWrite(pState->u8LED1, led1); // PWM (0-255)
     if (pState->u8LED2 != 0xff) {
@@ -1265,6 +1266,9 @@ void bbepSetBrightness(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
         ledcWrite(1, led2);
     }   
 #endif
+#else // not available on esp-idf
+    (void)pState; (void)led1; (void)led2;
+#endif
 } /* bbepSetBrightness() */
 
 //
@@ -1274,6 +1278,7 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 {
     pState->u8LED1 = led1;
     pState->u8LED2 = led2;
+#ifdef ARDUINO
 #if (ESP_IDF_VERSION_MAJOR > 4)
     ledcAttach(led1, 5000, 8); // attach pin to channel 0
     ledcWrite(led1, 0); // set to off to start
@@ -1291,6 +1296,7 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
         ledcWrite(1, 0);
     }
 #endif
+#endif // ARDUINO
 } /* bbepInitLights() */
 
 //
