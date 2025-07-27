@@ -113,7 +113,7 @@ typedef struct bbepr {
     int y;
     int w;
     int h;
-} BBEPRECT;
+} BB_RECT;
 
 // To access external IO through a single function pointer
 // This enum defines the operation
@@ -226,7 +226,10 @@ class FASTEPD
     int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
-    int getStringBox(const char *text, BBEPRECT *pRect);
+    int getStringBox(const char *text, BB_RECT *pRect);
+#ifdef ARDUINO
+    void getStringBox(const String &str, BB_RECT *pRect);
+#endif
     int setMode(int iMode); // set graphics mode
     void ioPinMode(uint8_t u8Pin, uint8_t iMode);
     void ioWrite(uint8_t u8Pin, uint8_t iValue);
@@ -236,7 +239,7 @@ class FASTEPD
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);
     void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
-    int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BBEPRECT *pRect = NULL);
+    int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
     void setPasses(uint8_t iPartialPasses, uint8_t iFullPasses = 5);
@@ -253,7 +256,7 @@ class FASTEPD
     void fillRect(int x, int y, int w, int h, uint8_t color);
     void setTextWrap(bool bWrap);
     void setTextColor(int iFG, int iBG = BBEP_TRANSPARENT);
-    void setCursor(int x, int y) {_state.iCursorX = x; _state.iCursorY = y;}
+    void setCursor(int x, int y);
     int loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG);
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale = 1.0f);
     void setFont(int iFont);

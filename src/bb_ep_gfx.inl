@@ -850,12 +850,15 @@ uint16_t u16CP; // 16-bit codepoint encoded by the multi-byte sequence
 //
 // Draw a string of BB_FONT characters directly into the EPD framebuffer
 //
-int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, char *szMsg, int iColor)
+int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, void *pFont, int x, int y, char *szMsg, int iColor)
 {
     int16_t n, rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
     uint8_t *s;
-    int width, height;
+    int width, height, angle;
+    BB_FONT *pBBF;
+    BB_FONT_SMALL *pBBFS;
     BB_GLYPH *pGlyph;
+    BB_GLYPH_SMALL *pGlyphSmall;
     uint8_t *pBits, u8EndMask;
     uint8_t szExtMsg[256]; // translated extended ASCII message text
     uint8_t c, first, last;
@@ -882,8 +885,25 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
         x = pBBEP->iCursorX;
     if (y == -1)
         y = pBBEP->iCursorY;
-    first = pgm_read_byte(&pFont->first);
-    last = pgm_read_byte(&pFont->last);
+    if (*(uint16_t *)pFont == BB_FONT_MARKER) {
+        pBBF = (BB_FONT *)pFont; pBBFS = NULL;
+        first = pBBF->first;
+        last = pBBF->last;
+        angle = pBBF->rotation;
+        // Point to the start of the compressed data
+        pBits = (uint8_t *)pFont;
+        pBits += sizeof(BB_FONT);
+        pBits += (last - first + 1) * sizeof(BB_GLYPH);
+    } else {
+        pBBFS = (BB_FONT_SMALL *)pFont; pBBF = NULL;
+        first = pBBFS->first;
+        last = pBBFS->last;
+        angle = pBBFS->rotation;
+        // Point to the start of the compressed data
+        pBits = (uint8_t *)pFont;
+        pBits += sizeof(BB_FONT_SMALL);
+        pBits += (last - first + 1) * sizeof(BB_GLYPH_SMALL);
+    }
     if (x == CENTER_X) { // center the string on the e-paper
         dx = i = 0;
         while (szExtMsg[i]) {
@@ -891,38 +911,65 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
             if (c < first || c > last) // undefined character
                 continue; // skip it
             c -= first; // first char of font defined
-            pGlyph = &pFont->glyphs[c]; // glyph info for this character
-            dx += pgm_read_word(&pGlyph->xAdvance);
+            if (pBBF) {
+                pGlyph = &pBBF->glyphs[c]; // glyph info for this character
+                dx += pGlyph->xAdvance;
+            } else {
+                pGlyphSmall = &pBBFS->glyphs[c]; // glyph info for this character
+                dx += pGlyphSmall->xAdvance;
+            }
         }
         x = (pBBEP->width - dx)/2;
         if (x < 0) x = 0;
     }
-    // Point to the start of the compressed data
-    pBits = (uint8_t *)pFont;
-    pBits += sizeof(BB_FONT);
-    pBits += (last - first + 1) * sizeof(BB_GLYPH);
     i = 0;
     while (szExtMsg[i] && x < width && y < height) {
+        int char_width, x_off, bitmap_offset;
         c = szExtMsg[i++];
         if (c < first || c > last) // undefined character
             continue; // skip it
         c -= first; // first char of font defined
-        pGlyph = &pFont->glyphs[c]; // glyph info for this character
-        if (pgm_read_word(&pGlyph->width) > 1) { // skip this if drawing a space
+        if (pBBF) {
+            pGlyph = &pBBF->glyphs[c]; // glyph info for this character
+            char_width = pGlyph->width;
             x_off = pGlyph->xOffset;
-            s = pBits + pgm_read_word(&pGlyph->bitmapOffset); // start of compressed bitmap data
-            if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
-                h = pgm_read_word(&pGlyph->height);
-                w = pgm_read_word(&pGlyph->width);
-                dx = x + (int16_t)pgm_read_word(&pGlyph->xOffset); // offset from character UL to start drawing
-                dy = y + (int16_t)pgm_read_word(&pGlyph->yOffset);
+            bitmap_offset = pGlyph->bitmapOffset;
+        } else {
+            pGlyphSmall = &pBBFS->glyphs[c]; // glyph info for this character
+            char_width = pGlyphSmall->width;
+            x_off = pGlyphSmall->xOffset;
+            bitmap_offset = pGlyphSmall->bitmapOffset;
+        }
+        if (char_width > 1) { // skip this if drawing a space
+            s = pBits + bitmap_offset; // start of compressed bitmap data
+            if (angle == 0 || angle == 180) {
+                if (pBBF) {
+                    h = pGlyph->height;
+                    w = pGlyph->width;
+                    dx = x + pGlyph->xOffset; // offset from character UL to start drawing
+                    dy = y + pGlyph->yOffset;
+                } else {
+                    h = pGlyphSmall->height;
+                    w = pGlyphSmall->width;
+                    dx = x + pGlyphSmall->xOffset; // offset from character UL to start drawing
+                    dy = y + pGlyphSmall->yOffset;
+                }
             } else { // rotated
-                w = pgm_read_word(&pGlyph->height);
-                h = pgm_read_word(&pGlyph->width);
-                n = (int16_t)pgm_read_word(&pGlyph->yOffset); // offset from character UL to start drawing
-                dx = x;
-                if (-n < w) dx -= (w+n); // since we draw from the baseline
-                dy = y + (int16_t)pgm_read_word(&pGlyph->xOffset);
+                if (pBBF) {
+                    w = pGlyph->height;
+                    h = pGlyph->width;
+                    n = pGlyph->yOffset; // offset from character UL to start drawing
+                    dx = x;
+                    if (-n < w) dx -= (w+n); // since we draw from the baseline
+                    dy = y + pGlyph->xOffset;
+                } else {
+                    w = pGlyphSmall->height;
+                    h = pGlyphSmall->width;
+                    n = pGlyphSmall->yOffset; // offset from character UL to start drawing
+                    dx = x;
+                    if (-n < w) dx -= (w+n); // since we draw from the baseline
+                    dy = y + pGlyphSmall->xOffset;
+                }
             }
             if ((dy + h) > height) { // trim it
                 h = height - dy;
@@ -932,7 +979,11 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 u8EndMask <<= (8-(w & 7));
             }
             end_y = dy + h;
-            ty = (pgm_read_word(&pGlyph[1].bitmapOffset) - (intptr_t)(s - pBits)); // compressed size
+            if (pBBF) {
+                ty = (pGlyph[1].bitmapOffset - (intptr_t)(s - pBits)); // compressed size
+            } else {
+                ty = (pGlyphSmall[1].bitmapOffset - (intptr_t)(s - pBits)); // compressed size
+            }
             if (ty < 0 || ty > 4096) ty = 4096; // DEBUG
             rc = g5_decode_init(&g5dec, w, h, s, ty);
             if (rc != G5_SUCCESS) {
@@ -992,10 +1043,16 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, BB_FONT *pFont, int x, int y, cha
                 }
             } // non-antialased
         } // if not drawing a space
-        if (pgm_read_dword(&pFont->rotation) == 0 || pgm_read_dword(&pFont->rotation) == 180) {
-            x += pgm_read_word(&pGlyph->xAdvance); // width of this character
+        if (angle == 0 || angle == 180) {
+            if (pBBF)
+                x += pGlyph->xAdvance; // width of this character
+            else
+                x += pGlyphSmall->xAdvance;
         } else {
-            y += pgm_read_word(&pGlyph->xAdvance);
+            if (pBBF)
+                y += pGlyph->xAdvance;
+            else
+                y += pGlyphSmall->xAdvance;
         }
     } // while drawing characters
     pBBEP->iCursorX = x;
@@ -1376,7 +1433,7 @@ int bbepWriteString(FASTEPDSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
 // Get the bounding rectangle of text
 // The position of the rectangle is based on the current cursor position and font
 //
-int bbepGetStringBox(FASTEPDSTATE *pBBEP, const char *szMsg, BBEPRECT *pRect)
+int bbepGetStringBox(FASTEPDSTATE *pBBEP, const char *szMsg, BB_RECT *pRect)
 {
     int cx = 0;
     unsigned int c, i = 0;

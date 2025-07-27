@@ -31,9 +31,24 @@
 // Display how much time each operation takes on the serial monitor
 #define SHOW_TIME
 
-int FASTEPD::getStringBox(const char *text, BBEPRECT *pRect)
+int FASTEPD::getStringBox(const char *text, BB_RECT *pRect)
 {
     return bbepGetStringBox(&_state, text, pRect);
+}
+#ifdef ARDUINO
+void FASTEPD::getStringBox(const String &str, BB_RECT *pRect)
+{
+    bbepGetStringBox(&_state, str.c_str(), pRect);
+}
+#endif
+void FASTEPD::setCursor(int x, int y)
+{
+    if (x >= 0) {
+        _state.iCursorX = x;
+    }
+    if (y >= 0) {
+        _state.iCursorY = y;
+    }
 }
 //
 // Copy the current pixels to the previous for partial updates after powerup
@@ -234,22 +249,42 @@ static uint8_t u8Unicode0, u8Unicode1;
         bbepWriteString(&_state, -1, -1, szTemp, _state.iFont, _state.iFG);
     }
   } else { // Custom font
-      BB_FONT *pBBF = (BB_FONT *)_state.pFont;
+      BB_FONT *pBBF;
+      BB_FONT_SMALL *pBBFS;
+      BB_GLYPH *pGlyph;
+      BB_GLYPH_SMALL *pGlyphSmall;
+      int first, last;
+
+      if (*(uint16_t *)_state.pFont == BB_FONT_MARKER) {
+        pBBF = (BB_FONT *)_state.pFont; pBBFS = NULL;
+        first = pBBF->first;
+        last = pBBF->last;
+        pGlyph = &pBBF->glyphs[c - first];
+      } else {
+        pBBFS = (BB_FONT_SMALL *)_state.pFont; pBBF = NULL;
+        first = pBBFS->first;
+        last = pBBFS->last;
+        pGlyphSmall = &pBBFS->glyphs[c - first];
+      }
     if (c == '\n') {
       _state.iCursorX = 0;
-      _state.iCursorY += pBBF->height;
+      _state.iCursorY += (pBBF) ? pBBF->height : pBBFS->height;
     } else if (c != '\r') {
-      if (c >= pBBF->first && c <= pBBF->last) {
-          BB_GLYPH *pBBG = &pBBF->glyphs[c - pBBF->first];
-        w = pBBG->width;
-        h = pBBG->height;
+      if (c >= first && c <= last) {
+        if (pBBF) {
+            w = pGlyph->width;
+            h = pGlyph->height;
+        } else {
+            w = pGlyphSmall->width;
+            h = pGlyphSmall->height;
+        }
         if (w > 0 && h > 0) { // Is there an associated bitmap?
-          w += pBBG->xOffset;
+          w += (pBBF) ? pGlyph->xOffset : pGlyphSmall->xOffset;
           if (_state.wrap && (_state.iCursorX + w) > _state.width) {
             _state.iCursorX = 0;
             _state.iCursorY += h;
           }
-          bbepWriteStringCustom(&_state, (BB_FONT *)_state.pFont, -1, -1, szTemp, _state.iFG);
+          bbepWriteStringCustom(&_state, _state.pFont, -1, -1, szTemp, _state.iFG);
         }
       }
     }
@@ -326,7 +361,7 @@ void FASTEPD::fillScreen(uint8_t u8Color)
     bbepFillScreen(&_state, u8Color);
 } /* fillScreen() */
 
-int FASTEPD::fullUpdate(int iClearMode, bool bKeepOn, BBEPRECT *pRect)
+int FASTEPD::fullUpdate(int iClearMode, bool bKeepOn, BB_RECT *pRect)
 {
     return bbepFullUpdate(&_state, iClearMode, bKeepOn, pRect);
 } /* fullUpdate() */

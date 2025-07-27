@@ -1266,7 +1266,7 @@ void bbepSetBrightness(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
         ledcWrite(1, led2);
     }   
 #endif
-#else // not available on esp-idf
+#else // disabled on esp-idf
     (void)pState; (void)led1; (void)led2;
 #endif
 } /* bbepSetBrightness() */
@@ -1278,7 +1278,7 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 {
     pState->u8LED1 = led1;
     pState->u8LED2 = led2;
-#ifdef ARDUINO
+#ifdef ARDUINO // Arduino-only for now
 #if (ESP_IDF_VERSION_MAJOR > 4)
     ledcAttach(led1, 5000, 8); // attach pin to channel 0
     ledcWrite(led1, 0); // set to off to start
@@ -1386,7 +1386,7 @@ int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 // Fix a rectangle's coordinates for the current rotation and mirroring flags
 // returns FALSE (0) if okay, TRUE (1) if invalid
 //
-int bbepFixRect(FASTEPDSTATE *pState, BBEPRECT *pRect, int *iStartCol, int *iEndCol, int *iStartRow, int *iEndRow)
+int bbepFixRect(FASTEPDSTATE *pState, BB_RECT *pRect, int *iStartCol, int *iEndCol, int *iStartRow, int *iEndRow)
 {
     int i;
         *iStartCol = pRect->x;
@@ -1431,7 +1431,7 @@ int bbepFixRect(FASTEPDSTATE *pState, BBEPRECT *pRect, int *iStartCol, int *iEnd
 //
 // Clear the display with the given code for the given number of repetitions
 //
-void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BBEPRECT *pRect)
+void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
 {
     uint8_t u8;
     int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
@@ -1581,7 +1581,7 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
 // The time to perform the update can vary greatly depending on the pixel mode
 // and selected options
 //
-int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BBEPRECT *pRect)
+int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *pRect)
 {
     int i, n, pass, iDMAOff = 0;
     int iStartCol, iStartRow, iEndCol, iEndRow;
