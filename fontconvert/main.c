@@ -199,6 +199,10 @@ int main(int argc, char *argv[])
         printf("Something went wrong - the starting character comes after the ending character. Try again...\n");
         return 1;
     }
+    if (first < 32 || first > 255 || last < 33 || last > 255) {
+        printf("The character range must be between 32 and 255\n");
+        return 1;
+    }
     if (bSmallFont) {
         pSmallGlyphs = (BB_GLYPH_SMALL *)malloc((last - first + 1) * sizeof(BB_GLYPH_SMALL));
         if (!pSmallGlyphs) {

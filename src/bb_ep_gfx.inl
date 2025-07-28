@@ -1435,28 +1435,19 @@ int bbepWriteString(FASTEPDSTATE *pBBEP, int x, int y, char *szMsg, int iSize, i
 //
 int bbepGetStringBox(FASTEPDSTATE *pBBEP, const char *szMsg, BB_RECT *pRect)
 {
-    int cx = 0;
-    unsigned int c, i = 0;
-    BB_GLYPH *pBBG;
-    BB_FONT *pFont;
-    int miny, maxy = 0;
-    
-    if (!pBBEP || !szMsg || !pRect) return BBEP_ERROR_BAD_PARAMETER;
-    
-    pFont = (BB_FONT *)pBBEP->pFont;
-    if (pBBEP->iFont == -1 && pFont) { // custom font
-        miny = 1000; maxy = 0;
-        while (szMsg[i]) {
-            c = szMsg[i++];
-            if (c < pFont->first || c > pFont->last) // undefined character
-                continue; // skip it
-            c -= pFont->first; // first char of font defined
-            pBBG = &pFont->glyphs[c];
-            cx += pBBG->xAdvance;
-            if (pBBG->yOffset < miny) miny = pBBG->yOffset;
-            if (pBBG->height+pBBG->yOffset > maxy) maxy = pBBG->height+pBBG->yOffset;
-        }
-    } else { // fixed fonts
+int cx = 0;
+unsigned int c, i = 0;
+BB_FONT *pBBF;
+BB_FONT_SMALL *pBBFS;
+BB_GLYPH *pGlyph;
+BB_GLYPH_SMALL *pSmallGlyph;
+int miny, maxy;
+uint8_t szExtMsg[80];
+
+   miny = 4000; maxy = 0;
+   if (pBBEP == NULL || pRect == NULL || szMsg == NULL) return BBEP_ERROR_BAD_PARAMETER; // bad pointers
+
+   if (pBBEP->pFont == NULL) { // built-in font
         miny = 0;
         switch (pBBEP->iFont) {
             case FONT_6x8:
@@ -1477,12 +1468,39 @@ int bbepGetStringBox(FASTEPDSTATE *pBBEP, const char *szMsg, BB_RECT *pRect)
                 break;
         }
         cx *= strlen(szMsg);
-    }
-    pRect->x = pBBEP->iCursorX;
-    pRect->y = pBBEP->iCursorY + miny;
-    pRect->w = cx;
-    pRect->h = maxy - miny;
-    return BBEP_SUCCESS;
+   } else { // proportional fonts
+       bbepUnicodeString(szMsg, szExtMsg); // convert to extended ASCII
+       if (pgm_read_word(pBBEP->pFont) == BB_FONT_MARKER) {
+           pBBF = (BB_FONT *)pBBEP->pFont; pBBFS = NULL;
+       } else { // small font
+           pBBFS = (BB_FONT_SMALL *)pBBEP->pFont; pBBF = NULL;
+       }
+       while (szExtMsg[i]) {
+           c = szExtMsg[i++];
+           if (pBBF) { // big font
+               if (c < pgm_read_byte(&pBBF->first) || c > pgm_read_byte(&pBBF->last)) // undefined character
+                   continue; // skip it
+               c -= pgm_read_byte(&pBBF->first); // first char of font defined
+               pGlyph = &pBBF->glyphs[c];
+               cx += pgm_read_word(&pGlyph->xAdvance);
+               if ((int16_t)pgm_read_word(&pGlyph->yOffset) < miny) miny = pgm_read_word(&pGlyph->yOffset);
+               if (pgm_read_word(&pGlyph->height)+(int16_t)pgm_read_word(&pGlyph->yOffset) > maxy) maxy = pgm_read_word(&pGlyph->height)+(int16_t)pgm_read_word(&pGlyph->yOffset);
+           } else {  // small font
+               if (c < pgm_read_byte(&pBBFS->first) || c > pgm_read_byte(&pBBFS->last)) // undefined character
+                   continue; // skip it
+               c -= pgm_read_byte(&pBBFS->first); // first char of font defined
+               pSmallGlyph = &pBBFS->glyphs[c];
+               cx += pgm_read_byte(&pSmallGlyph->xAdvance);
+               if ((int8_t)pgm_read_byte(&pSmallGlyph->yOffset) < miny) miny = (int8_t)pgm_read_byte(&pSmallGlyph->yOffset);
+               if (pgm_read_byte(&pSmallGlyph->height)+(int8_t)pgm_read_byte(&pSmallGlyph->yOffset) > maxy) maxy = pgm_read_byte(&pSmallGlyph->height)+(int8_t)pgm_read_byte(&pSmallGlyph->yOffset);
+           } // small
+       }
+   } // prop fonts
+   pRect->w = cx;
+   pRect->x = pBBEP->iCursorX;
+   pRect->y = pBBEP->iCursorY + miny;
+   pRect->h = maxy - miny + 1;
+   return BBEP_SUCCESS;
 } /* bbepGetStringBox() */
 //
 // Draw a line from x1,y1 to x2,y2 in the given color
