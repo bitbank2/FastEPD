@@ -45,17 +45,6 @@ Do not forget to update your WiFi credentials and point it to a proper URL that 
 
 Note that as default an random image taken from loremflickr.com is used. You can use any URL that points to a valid Image, take care to use the right JPG format, or you can also use the image-service [cale.es](https://cale.es) to create your own gallery.
 
-Using HTTPS
-===========
-
-Using SSL requires a bit more effort if you need to verify the certificate. For example, getting the SSL cert from loremflickr.com needs to be extracted using this command:
-
-    openssl s_client -showcerts -connect www.loremflickr.com:443 </dev/null
-
-The CA root cert is the last cert given in the chain of certs.
-To embed it in the app binary, the PEM file is named in the component.mk COMPONENT_EMBED_TXTFILES variable. This is already done for this random picture as an example. 
-Note that in order to validate an SSL certificate the MCU needs to be aware of time for the handshake. This means that you need to start doing an NTP sync to get time and this wastes between 1 and 2 seconds, unless you keep the time in an external RTC.
-
 **Important note about secure https**
 Https is proved to work on stable ESP-IDF v4.2 branch. Please Note that for IDF versions >= 4.3 it needs to have VALIDATE_SSL_CERTIFICATE set to true. 
 In case you want to allow insecure requests please follow this:
