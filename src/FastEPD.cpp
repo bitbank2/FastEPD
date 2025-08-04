@@ -259,12 +259,12 @@ static uint8_t u8Unicode0, u8Unicode1;
         pBBF = (BB_FONT *)_state.pFont; pBBFS = NULL;
         first = pBBF->first;
         last = pBBF->last;
-        pGlyph = &pBBF->glyphs[c - first];
+        pGlyph = &pBBF->glyphs[c - first]; pGlyphSmall = NULL;
       } else {
         pBBFS = (BB_FONT_SMALL *)_state.pFont; pBBF = NULL;
         first = pBBFS->first;
         last = pBBFS->last;
-        pGlyphSmall = &pBBFS->glyphs[c - first];
+        pGlyphSmall = &pBBFS->glyphs[c - first]; pGlyph = NULL;
       }
     if (c == '\n') {
       _state.iCursorX = 0;
