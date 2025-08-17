@@ -15,11 +15,13 @@
 //===========================================================================
 //
 #include "FastEPD.h"
+#ifdef ESP_PLATFORM
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_log.h>
 #if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT)
 #error "Please enable PSRAM support"
+#endif
 #endif
 
 #ifndef __BB_EP__
@@ -244,6 +246,7 @@ static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, nee
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
+#ifdef ESP_PLATFORM
 static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {           
     if (bSlowSPH) {
@@ -290,6 +293,7 @@ static esp_lcd_panel_io_i80_config_t s3_io_config = {
 
 static esp_lcd_i80_bus_handle_t i80_bus = NULL;
 static esp_lcd_panel_io_handle_t io_handle = NULL;
+#endif
 #define PWR_GOOD_OK            0xfa
 int bbepReadPowerGood(void)
 {
@@ -1078,6 +1082,7 @@ void bbepRowControl(FASTEPDSTATE *pState, int iType)
 // will allocate (and leak) an internal buffer each time
 void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 {
+   #ifdef ESP_PLATFORM
     esp_err_t err;
 
     while (!dma_is_done) {
@@ -1100,6 +1105,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 //        delayMicroseconds(1);
 //        vTaskDelay(0);
 //    }
+#endif
 } /* bbepWriteRow() */
 
 uint8_t TPS65185PowerGood(void)
@@ -1115,6 +1121,7 @@ uint8_t ucTemp[4];
 //
 int bbepIOInit(FASTEPDSTATE *pState)
 {
+    #ifdef ESP_PLATFORM
     #ifndef ARDUINO
         esp_log_level_set("gpio", ESP_LOG_NONE);
     #endif
@@ -1143,6 +1150,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
     dma_is_done = true;
     //Serial.println("IO init done");
+    #endif
     return BBEP_SUCCESS;
 } /* bbepIOInit() */
 //
@@ -1374,7 +1382,7 @@ int iPasses;
         }
     }
     return BBEP_SUCCESS;
-} /* bbepSetCustomMatrix() */
+} /* () */
 //
 // Turn the DC/DC boost circuit on or off
 //
