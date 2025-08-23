@@ -1191,6 +1191,9 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
     pState->iFlags = flags;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
+    if (pState->iPanelType == BB_PANEL_VIRTUAL) {
+        return BBEP_SUCCESS; // for graphics only
+    }
     pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
     if (!pState->pTemp) {
@@ -1309,24 +1312,30 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
     int rc;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
         pState->iPanelType = iPanel;
+        pState->mode = BB_MODE_1BPP; // start in 1-bit mode
+        pState->iFG = BBEP_BLACK;
+        pState->iBG = BBEP_TRANSPARENT;
+        pState->pfnSetPixel = bbepSetPixel2Clr;
+        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        pState->pCurrent = NULL; // make sure the memory is allocated
+        if (iPanel == BB_PANEL_VIRTUAL) {
+            pState->pfnExtIO = NULL;
+            pState->pfnEinkPower = NULL;
+            pState->pfnRowControl = NULL;
+            return BBEP_SUCCESS; 
+        }
         pState->width = pState->native_width = panelDefs[iPanel].width;
         pState->height = pState->native_height = panelDefs[iPanel].height;
         memcpy(&pState->panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
         if (u32Speed) pState->panelDef.bus_speed = u32Speed; // custom speed
         pState->iFlags = pState->panelDef.flags; // copy flags to main class structure
-        // get the 3 callback functions
+        // Get the 5 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
         pState->pfnIODeInit = panelProcs[iPanel].pfnIODeInit;
         pState->pfnRowControl = panelProcs[iPanel].pfnRowControl;
         pState->pfnExtIO = panelProcs[iPanel].pfnExtIO;
-        pState->pfnSetPixel = bbepSetPixel2Clr;
-        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         rc = bbepIOInit(pState);
-        pState->pCurrent = NULL; // make sure the memory is allocated
-        pState->mode = BB_MODE_1BPP; // start in 1-bit mode
-        pState->iFG = BBEP_BLACK;
-        pState->iBG = BBEP_TRANSPARENT;
         if (rc == BBEP_SUCCESS) {
             // allocate memory for the buffers if the paneldef contains the size
             if (pState->width) { // if size is defined
@@ -1380,6 +1389,8 @@ int iPasses;
 //
 int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
+    if (!pState->pfnEinkPower) return BBEP_ERROR_BAD_PARAMETER;
+
     return (*(pState->pfnEinkPower))(pState, bOn);
 } /* bbepEinkPower() */
 //
@@ -1489,6 +1500,8 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
 {
     int i, n, dy, pass;
     
+    if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
+
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     bbepClear(pState, (u8Color == BBEP_WHITE) ? BB_CLEAR_LIGHTEN : BB_CLEAR_DARKEN, 5, NULL);
     // The other update methods transition everything from white. In this case, we
@@ -1590,6 +1603,8 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
 #ifdef SHOW_TIME
     long l = millis();
 #endif
+    if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
+
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     switch (iClearMode) {
         case CLEAR_SLOW:
@@ -1767,6 +1782,8 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
 #ifdef SHOW_TIME
     long l = millis();
 #endif
+    if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
+
 // Only supported in 1-bit mode (for now)
     if (pState->mode != BB_MODE_1BPP) return BBEP_ERROR_BAD_PARAMETER;
 
@@ -1878,6 +1895,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
 void bbepBackupPlane(FASTEPDSTATE *pState)
 {
     int iSize = (pState->native_width/2) * pState->native_height;
+    if (!pState->pPrevious || !pState->pCurrent) return;
     memcpy(pState->pPrevious, pState->pCurrent, iSize);
 }
 #endif // __BB_EP__

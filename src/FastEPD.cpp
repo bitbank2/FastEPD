@@ -115,6 +115,29 @@ void FASTEPD::fillRoundRect(int x, int y, int w, int h,
     bbepRoundRect(&_state, x, y, w, h, r, color, 1);
 }
 
+void FASTEPD::freeSprite(void)
+{
+    if (_state.pCurrent) {
+        free(_state.pCurrent);
+    }
+    memset(&_state, 0, sizeof(FASTEPD));
+} /* freeSprite() */
+
+int FASTEPD::initSprite(int iWidth, int iHeight)
+{
+int rc;
+    rc = bbepInitPanel(&_state, BB_PANEL_VIRTUAL, 0);
+    if (rc == BBEP_SUCCESS) {
+        rc = bbepSetPanelSize(&_state, iWidth, iHeight, 0);
+    }
+    return rc;
+} /* initSprite() */
+
+int FASTEPD::drawSprite(FASTEPD *pSprite, int x, int y, int iTransparent)
+{
+    return bbepDrawSprite(&pSprite->_state, &_state, x, y, iTransparent);
+} /* drawSprite() */
+
 void FASTEPD::drawRect(int x, int y, int w, int h, uint8_t color)
 {
     bbepRectangle(&_state, x, y, x+w-1, y+h-1, color, 0);

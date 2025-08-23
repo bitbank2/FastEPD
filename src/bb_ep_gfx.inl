@@ -216,26 +216,31 @@ void bbepFillScreen(FASTEPDSTATE *pState, uint8_t u8Color)
 // Draw a sprite of any size in any position
 // If it goes beyond the left/right or top/bottom edges
 // it's trimmed to show the valid parts
-// This function requires a back buffer to be defined
-// The priority color (0 or 1) determines which color is painted
-// when a 1 is encountered in the source image.
+// The transparent color is used if not set to -1
 //
-void bbepDrawSprite(FASTEPDSTATE *pBBEP, const uint8_t *pSprite, int cx, int cy, int iPitch, int x, int y, uint8_t iColor)
+int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int iTransparent)
 {
-    int tx, ty, dx, dy, iStartX;
-    uint8_t *s, pix, ucSrcMask;
-    
-    if (pBBEP == NULL) return;
-    if (x+cx < 0 || y+cy < 0 || x >= pBBEP->native_width || y >= pBBEP->native_height) {
+    int iShift, cx, cy, col, row, dx, dy, iColor, iPitch, iStartX;
+    uint8_t *s, pix, ucSrcMask, iColor0, iColor1;
+
+    if (pSprite == NULL || pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
+
+    if (x+pSprite->native_width < 0 || y+pSprite->native_height < 0 || x >= pBBEP->native_width || y >= pBBEP->native_height) {
         pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
-        return; // out of bounds
+        return pBBEP->last_error; // out of bounds
     }
+// We can draw 1-bpp content on 4-bpp surfaces, but not the reverse
+    if (pSprite->mode == BB_MODE_4BPP && pBBEP->mode == BB_MODE_1BPP) {
+        pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
+        return pBBEP->last_error;
+    }
+    cx = pSprite->native_width; // starting size for content to draw
+    cy = pSprite->native_height;
     dy = y; // destination y
     if (y < 0) // skip the invisible parts
     {
         cy += y;
         y = -y;
-        pSprite += (y * iPitch);
         dy = 0;
     }
     if ((dy + cy) > pBBEP->native_height) {
@@ -252,23 +257,50 @@ void bbepDrawSprite(FASTEPDSTATE *pBBEP, const uint8_t *pSprite, int cx, int cy,
     }
     if ((x + cx) > pBBEP->native_width)
         cx = pBBEP->native_width - x;
-    for (ty=0; ty<cy; ty++)
-    {
-        s = (uint8_t *)&pSprite[(iStartX >> 3)];
-        ucSrcMask = 0x80 >> (iStartX & 7);
-        pix = *s++;
-        for (tx=0; tx<cx; tx++) {
-            if (pix & ucSrcMask) { // set pixel in source, set it in dest
-                (*pBBEP->pfnSetPixelFast)(pBBEP, dx+tx, dy+ty, iColor);
-            }
-            ucSrcMask >>= 1;
-            if (ucSrcMask == 0) { // read next byte
-                ucSrcMask = 0x80;
-                pix = *s++;
-            }
-        } // for tx
-        pSprite += iPitch;
-    } // for ty
+    if (pSprite->mode == BB_MODE_1BPP) {
+        iPitch = (pSprite->native_width + 7)/8;
+        iColor1 = BBEP_WHITE;
+        iColor0 = BBEP_BLACK;
+    } else { // 4-bpp
+        iPitch = (pSprite->native_width + 1)/2;
+        iColor1 = 0xf; // white
+        iColor0 = 0x0; // black
+    }
+    for (row=0; row<cy; row++) {
+        if (pSprite->mode == BB_MODE_1BPP) {
+            s = (uint8_t *)pSprite->pCurrent;
+            s += (row * iPitch) + (iStartX/8);
+            ucSrcMask = 0x80 >> (iStartX & 7);
+            pix = *s++;
+            for (col=0; col<cx; col++) {
+                iColor = (pix & ucSrcMask) ? iColor1 : iColor0;
+                (*pBBEP->pfnSetPixelFast)(pBBEP, dx+col, dy+row, iColor);
+                ucSrcMask >>= 1;
+                if (ucSrcMask == 0) { // read next byte
+                    ucSrcMask = 0x80;
+                    pix = *s++;
+                }
+            } // for col
+        } else { // 4-bpp
+            s = (uint8_t *)pSprite->pCurrent;
+            s += (row * iPitch) + (iStartX/2);
+            ucSrcMask = 0xf0 >> ((iStartX & 1) * 4);
+            iShift = (ucSrcMask == 0xf0) ? 4 : 0;
+            pix = *s++;
+            for (col=0; col<cx; col++) {
+                iColor = (pix & ucSrcMask);
+                iColor >>= iShift;
+                (*pBBEP->pfnSetPixelFast)(pBBEP, dx+col, dy+row, iColor);
+                ucSrcMask >>= 4;
+                iShift ^= 4;
+                if (ucSrcMask == 0) { // read next byte
+                    ucSrcMask = 0xf0;
+                    pix = *s++;
+                }
+            } // for col
+        } // 4-bpp
+    } // for row
+    return BBEP_SUCCESS;
 } /* bbepDrawSprite() */
 
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)

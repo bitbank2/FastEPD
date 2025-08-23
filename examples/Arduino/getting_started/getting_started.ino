@@ -49,7 +49,7 @@ void setup()
 
 void loop()
 {
-  BBEPRECT rect;
+  BB_RECT rect;
   int i, j;
   // initialize the I/O and memory
 //  epaper.initPanel(BB_PANEL_T5EPAPERS3);

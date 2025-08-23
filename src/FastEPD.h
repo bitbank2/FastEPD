@@ -69,6 +69,7 @@ enum {
     BB_PANEL_V7_RAW,
     BB_PANEL_V7_103,
     BB_PANEL_CUSTOM,
+    BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
 };
 
@@ -223,6 +224,9 @@ class FASTEPD
     void initLights(uint8_t led1, uint8_t led2 = 0xff);
     void setBrightness(uint8_t led1, uint8_t led2 = 0);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
+    int initSprite(int iWidth, int iHeight);
+    int drawSprite(FASTEPD *pSprite, int x, int y, int iTransparent = -1);
+    void freeSprite(void);
     int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
