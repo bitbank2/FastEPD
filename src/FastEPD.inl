@@ -194,10 +194,16 @@ const BBPANELDEF panelDefs[] = {
     //                                             D8                 15 D0                  D7          STV,CKV,XSTL,OE,XLE
     {1872, 1404, 20000000, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 41, 42, 45, 8, 48,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_V7_103
+    {960, 540, 20000000, BB_PANEL_FLAG_SLOW_SPH, {11,12,13,14,21,47,45,38}, 8, BB_NOT_USED, BB_NOT_USED, 39, 9, 0, 0,
+      10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_LILYGO_T5PRO 
 };
 //
 // Forward references for panel callback functions
 //
+// LilyGo T5S3-Pro
+int LilyGoEinkPower(void *pBBEP, int bOn);
+int LilyGoIOInit(void *pBBEP);
+void LilyGoRowControl(void *pBBEP, int iMode);
 // M5Stack PaperS3
 int PaperS3EinkPower(void *pBBEP, int bOn);
 int PaperS3IOInit(void *pBBEP);
@@ -232,6 +238,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
+    {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -539,7 +546,7 @@ uint8_t Inkplate5V2ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal)
 void bbepSendShiftData(FASTEPDSTATE *pState)
 {
     uint8_t uc = pState->shift_data;
-    //Serial.printf("Sending shift data: 0x%02x\n", uc);
+//    Serial.printf("Sending shift data: 0x%02x\n", uc);
     // Clear STR (store) to allow updating the value
     gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
     for (int i=0; i<8; i++) { // bits get pushed in reverse order (bit 7 first)
@@ -550,24 +557,108 @@ void bbepSendShiftData(FASTEPDSTATE *pState)
             gpio_set_level((gpio_num_t)pState->panelDef.ioSDA, 0);
         uc <<= 1;
         gpio_set_level((gpio_num_t)pState->panelDef.ioSCL, 1);
-        delayMicroseconds(1);
     }
     // set STR to write the new data to the output to pins
     gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 1);
 } /* bbepSendShiftData() */
 //
-// change the state of a bit in the shift register mask, and update the outputs
+// LilyGo T5S3 Pro control functions
 //
-void bbepSetShiftBit(FASTEPDSTATE *pBBEP, uint8_t u8Bit, uint8_t u8State)
+int LilyGoEinkPower(void *pBBEP, int bOn)
 {
-    if (u8State) { // set it
-        pBBEP->shift_data |= (1 << u8Bit);
-    } else {
-        pBBEP->shift_data &= ~(1 << u8Bit);
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS; // already on
+    if (bOn) {
+        pState->shift_data |= 0x80; // OE on
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data &= ~0x02; // !power_disable
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data |= 0x08; // neg_power_enable
+        bbepSendShiftData(pState);
+        delayMicroseconds(500);
+        pState->shift_data |= 0x04; // pos_power_enable
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data |= 0x10; // stv = true
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1);
+        pState->pwr_on = 1;
+    } else { // off
+        pState->shift_data &= ~0x04; // pos_power_enable = false
+        bbepSendShiftData(pState);
+        delayMicroseconds(10);
+        pState->shift_data &= ~0x08; // neg_power_enable = false
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data |= 0x02; // power_disable = true
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data &= ~0x80; // OE off
+        bbepSendShiftData(pState);
+        delayMicroseconds(100);
+        pState->shift_data &= ~0x10; // stv = false
+        bbepSendShiftData(pState);
+        pState->pwr_on = 0;
     }
-    bbepSendShiftData(pBBEP);
-}
-//
+    return BBEP_SUCCESS;
+} /* LilyGoEinkPower() */
+
+int LilyGoIOInit(void *pBBEP)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP; 
+    bbepPinMode(pState->panelDef.ioSDA, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSCL, OUTPUT);
+    gpio_set_level((gpio_num_t)pState->panelDef.ioSCL, 0);
+    bbepPinMode(pState->panelDef.ioShiftSTR, OUTPUT);
+    gpio_set_level((gpio_num_t)pState->panelDef.ioShiftSTR, 0);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    pState->shift_data = 0x2; // power disable
+    pState->shift_data |= 0x20; // ep_scan_direction
+    pState->shift_data |= 0x10; // ep_stv
+    bbepSendShiftData(pState);
+    return BBEP_SUCCESS;
+
+} /* LilyGoIOInit() */
+
+void LilyGoRowControl(void *pBBEP, int iMode)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    if (iMode == ROW_START) {
+        pState->shift_data |= 0x40; // ep_mode = true
+        bbepSendShiftData(pState);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
+        delayMicroseconds(7);
+        pState->shift_data &= ~0x10; // spv = off
+        bbepSendShiftData(pState);
+        delayMicroseconds(10);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
+        delayMicroseconds(8);
+        pState->shift_data |= 0x10; // spv = on
+        bbepSendShiftData(pState); 
+        delayMicroseconds(10);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
+        delayMicroseconds(18);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on        
+    } else if (iMode == ROW_STEP) {
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        pState->shift_data |= 0x01; // latch_enable = true
+        bbepSendShiftData(pState);
+        pState->shift_data &= ~0x01; // latch_enable = false
+        bbepSendShiftData(pState);
+    }
+} /* LilyGoRowControl() */
+
 // Control the DC/DC power circuit of the M5Stack PaperS3
 //
 int PaperS3EinkPower(void *pBBEP, int bOn)
