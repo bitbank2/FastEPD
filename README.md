@@ -10,7 +10,7 @@ I'm fascinated by displays of all types, especially eink. I already wrote a libr
 Since writing several display libraries (OneBitDisplay, bb_spi_lcd, bb_epaper), I've used all of my experience with graphics and C++ APIs to create a clean design from the start. Libraries often grow in random ways over time as new features are bolted on and design problems are covered up with hacks. In this case, FastEPD has a better design from the begining and will be easier to maintain and understand. Some of the unique features are compressed fonts and graphics, more flexibility in display updates and a simple API which includes pre-configured setups for popular hardware.
 
 <b> What devices are currently supported?</b><br>
-At the moment, FastEPD supports the EPDiy V7 PCB, M5Stack PaperS3, Inkplate6PLUS and the Inkplate5V2. With the EPDiy V7 PCB, various panels have been tested working: (list of panels)<br>
+At the moment, FastEPD supports the EPDiy V7 PCB, M5Stack PaperS3, LilyGo T5 S3 4.7 Pro, Inkplate 6PLUS and the Inkplate 5 gen 2. With the EPDiy V7 PCB, various 8 and 16-bit panels have been tested.<br>
 <br>
 Please read the Wiki for API details.
 
