@@ -196,8 +196,6 @@ const BBPANELDEF panelDefs[] = {
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_V7_103
     {960, 540, 20000000, BB_PANEL_FLAG_SLOW_SPH, {11,12,13,14,21,47,45,38}, 8, BB_NOT_USED, BB_NOT_USED, 39, 9, 0, 0,
       10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_LILYGO_T5PRO 
-    {960, 540, 20000000, BB_PANEL_FLAG_SLOW_SPH, {8,1,2,3,4,5,6,7}, 8, BB_NOT_USED, BB_NOT_USED, 38, 40, 0, 0,
-      41, 0, 13, 12, 0, 0, 47, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_LILYGO_T5V24
 };
 //
 // Forward references for panel callback functions
@@ -206,8 +204,6 @@ const BBPANELDEF panelDefs[] = {
 int LilyGoEinkPower(void *pBBEP, int bOn);
 int LilyGoIOInit(void *pBBEP);
 void LilyGoRowControl(void *pBBEP, int iMode);
-// LilyGo T5S3-Pro
-int LilyGoV24EinkPower(void *pBBEP, int bOn);
 // M5Stack PaperS3
 int PaperS3EinkPower(void *pBBEP, int bOn);
 int PaperS3IOInit(void *pBBEP);
@@ -243,7 +239,6 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
-    {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5V24
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
