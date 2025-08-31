@@ -905,6 +905,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     if (pBBEP->anti_alias) {
         width *= 2;
         height *= 2;
+        x *= 2;
+        y *= 2;
     }
     if (szMsg[1] == 0 && (szMsg[0] & 0x80)) { // single byte means we're coming from the Arduino write() method with pre-converted extended ASCII
         szExtMsg[0] = szMsg[0]; szExtMsg[1] = 0;
