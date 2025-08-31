@@ -9,4 +9,4 @@ fontconvert: main.c
 	strip fontconvert
 
 clean:
-	rm -f fontconvert
+	rm -f *.o fontconvert

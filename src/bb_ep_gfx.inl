@@ -882,9 +882,9 @@ uint16_t u16CP; // 16-bit codepoint encoded by the multi-byte sequence
 //
 // Draw a string of BB_FONT characters directly into the EPD framebuffer
 //
-int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, void *pFont, int x, int y, char *szMsg, int iColor)
+int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, char *szMsg, int iColor)
 {
-    int16_t n, rc, i, h, w, x_off, end_y, dx, dy, tx, ty, tw, iBG;
+    int16_t n, rc, i, h, w, end_y, dx, dy, tx, ty, tw, iBG;
     uint8_t *s;
     int width, height, angle;
     BB_FONT *pBBF;

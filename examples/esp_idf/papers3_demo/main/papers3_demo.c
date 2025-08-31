@@ -7,19 +7,22 @@
 #include "freertos/task.h"
 
 #include "../../../../src/FastEPD.h"
-#include "Roboto_Black_100.h"
+#include "../../../../Fonts/Roboto_Black_80.h"
+#include "../../../../Fonts/Roboto_Black_40.h"
 
-BBEPDIYSTATE bbep;
+FASTEPDSTATE bbep;
  
 void app_main(void)
 {
 int rc;
-    rc = bbepInitPanel(&bbep, BB_PANEL_EPDIY_V7); //BB_PANEL_M5PAPERS3);
+    rc = bbepInitPanel(&bbep, BB_PANEL_LILYGO_T5PRO, 20000000);
     if (rc == BBEP_SUCCESS) {
-      bbepSetPanelSize(&bbep, 1280, 720);
+      //bbepSetPanelSize(&bbep, 1280, 720, BB_PANEL_FLAG_NONE);
       bbepFillScreen(&bbep, BBEP_WHITE);
-      bbepFullUpdate(&bbep, 0, 1, NULL);
-      bbepWriteStringCustom(&bbep, (BB_FONT *)Roboto_Black_100, 0, 200, "Hello", BBEP_BLACK);
+      bbepFullUpdate(&bbep, CLEAR_SLOW, 0, NULL);
+      bbepWriteStringCustom(&bbep, Roboto_Black_80, 0, 200, "Hello World!", BBEP_BLACK);
+      bbepPartialUpdate(&bbep, 0, 0, 1000);
+      bbepWriteStringCustom(&bbep, Roboto_Black_40, 0, 400, "Aló mundo de FastEPD!", BBEP_BLACK);
       bbepPartialUpdate(&bbep, 0, 0, 1000);
     }
 }

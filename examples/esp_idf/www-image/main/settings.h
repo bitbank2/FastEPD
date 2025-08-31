@@ -14,8 +14,8 @@ double gamma_value = 0.9;
 // Image URL and jpg settings. Make sure to update WIDTH/HEIGHT if using loremflickr
 
 // DISPLAY AND IMAGE CONFIG
-#define EPD_WIDTH 1200
-#define EPD_HEIGHT 825
+#define EPD_WIDTH 1024
+#define EPD_HEIGHT 758
 #define IMG_URL "https://loremflickr.com/" STR(EPD_WIDTH) "/" STR(EPD_HEIGHT)
 
 // Additionally you can try CALE.es to create a custom JPG gallery

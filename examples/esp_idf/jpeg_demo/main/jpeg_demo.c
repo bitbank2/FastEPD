@@ -33,17 +33,17 @@ void app_main(void)
 {
 int rc;
 
-    rc = bbepInitPanel(&epaper, BB_PANEL_EPDIY_V7);
+    rc = bbepInitPanel(&epaper, BB_PANEL_LILYGO_T5PRO, 20000000);
     if (rc == BBEP_SUCCESS) {
         printf("Panel init success!\n");
-        bbepSetPanelSize(&epaper, 1024, 758, BB_PANEL_FLAG_NONE);
+        //bbepSetPanelSize(&epaper, 1024, 758, BB_PANEL_FLAG_NONE);
         pBuffer = epaper.pCurrent;
         epaper.mode = BB_MODE_4BPP;
         bbepFillScreen(&epaper, 0xf);
         if (JPEG_openRAM(&jpeg, (uint8_t *)it_cartoon, sizeof(it_cartoon), JPEGDraw)) {
             jpeg.ucPixelType = EIGHT_BIT_GRAYSCALE;
             JPEG_decode(&jpeg, 0, 0, 0);
-            bbepFullUpdate(&epaper, 1, 0, NULL);
+            bbepFullUpdate(&epaper, CLEAR_SLOW, 0, NULL);
         }
     }
     while (1) {
