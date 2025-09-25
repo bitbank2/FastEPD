@@ -1,0 +1,4 @@
+description: An optimized JPEG decoder suitable for MCUs and PCs
+license: Apache-2.0
+url: https://github.com/bitbank2/JPEGDEC
+version: 1.6.2

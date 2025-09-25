@@ -85,9 +85,10 @@ void setup()
   int iFrame;
   Serial.begin(115200);
   Serial.println("Starting...");
-//    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
+    epaper.initPanel(BB_PANEL_LILYGO_T5P4, 60000000);
+//    epaper.setPanelSize(1024, 758);
 //    epaper.setPanelSize(2760, 2070, 0);
-  epaper.initPanel(BB_PANEL_LILYGO_T5PRO, 28000000); // defaults to 1-bpp mode
+//  epaper.initPanel(BB_PANEL_LILYGO_T5PRO, 28000000); // defaults to 1-bpp mode
   epaper.setPasses(3);
 //  epaper.setPanelSize(1024, 758, BB_PANEL_FLAG_NONE); // only set panel size if it's not part of the panel definition
 //  epaper.initPanel(BB_PANEL_EPDIY_V7_16); // defaults to 1-bpp mode
