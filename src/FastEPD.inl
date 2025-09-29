@@ -165,7 +165,7 @@ const uint8_t u8M5Matrix[] = {
 // Forward references
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
-int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags);
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int iVCOM);
 int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t matrix_size);
 //
 // Pre-defined panels for popular products and boards
@@ -693,6 +693,7 @@ int EPDiyV7EinkPower(void *pBBEP, int bOn)
 FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 uint8_t u8Value = 0; // I/O bits for the PCA9535
+int vcom;
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
@@ -707,12 +708,11 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
         ucTemp[0] = TPS_REG_ENABLE;
         ucTemp[1] = 0x3f; // enable output
         bbepI2CWrite(0x68, ucTemp, 2);
-        // set VCOM to 1.6v (1600)
+        // set VCOM (usually -1.6V = -1600mV = 160 value used in registers
+        vcom = pState->iVCOM / -10; // convert to TPS format
         ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
-        ucTemp[1] = (uint8_t)(160);
-        ucTemp[2] = (uint8_t)(160 >> 8);
-//        ucTemp[1] = (uint8_t)(160);
-//        ucTemp[2] = (uint8_t)(160 >> 8);
+        ucTemp[1] = (uint8_t)vcom;
+        ucTemp[2] = (uint8_t)(vcom >> 8);
         bbepI2CWrite(0x68, ucTemp, 3);
 
         int iTimeout = 0;
@@ -1248,23 +1248,27 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
     if (iPanel < 0 || iPanel >= BBEP_DISPLAY_COUNT) return BBEP_ERROR_BAD_PARAMETER;
     switch (iPanel) {
         case BBEP_DISPLAY_EC060TC1:
-            bbepSetPanelSize(pState, 1024, 758, BB_PANEL_FLAG_NONE);
+            bbepSetPanelSize(pState, 1024, 758, BB_PANEL_FLAG_NONE, -1600);
             bbepSetCustomMatrix(pState, u8SixInchMatrix, sizeof(u8SixInchMatrix));
             break;
         case BBEP_DISPLAY_EC060KD1:
-            bbepSetPanelSize(pState, 1448, 1072, BB_PANEL_FLAG_NONE);
+            bbepSetPanelSize(pState, 1448, 1072, BB_PANEL_FLAG_NONE, -1600);
             bbepSetCustomMatrix(pState, u8SixInchMatrix, sizeof(u8SixInchMatrix));
             break;
         case BBEP_DISPLAY_ED0970TC1:
-            bbepSetPanelSize(pState, 1280, 825, BB_PANEL_FLAG_NONE);
+            bbepSetPanelSize(pState, 1280, 825, BB_PANEL_FLAG_NONE, -1600);
             bbepSetCustomMatrix(pState, u8NineInchMatrix, sizeof(u8NineInchMatrix));
             break;
         case BBEP_DISPLAY_ED103TC2:
-            bbepSetPanelSize(pState, 1872, 1414, BB_PANEL_FLAG_MIRROR_X);
+            bbepSetPanelSize(pState, 1872, 1414, BB_PANEL_FLAG_MIRROR_X, -1600);
             bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
             break;
         case BBEP_DISPLAY_ED052TC4:
-            bbepSetPanelSize(pState, 1280, 720, BB_PANEL_FLAG_MIRROR_X);
+            bbepSetPanelSize(pState, 1280, 720, BB_PANEL_FLAG_MIRROR_X, -1600);
+            bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
+            break;
+        case BBEP_DISPLAY_ED1150C1:
+            bbepSetPanelSize(pState, 2760, 2070, BB_PANEL_FLAG_NONE, -1000);
             bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
             break;
     } // switch on panel
@@ -1274,7 +1278,7 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
 // For board definitions without an associated display (e.g. EPDiy V7 PCB)
 // Set the display size and flags
 //
-int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
+int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int iVCOM) {
     int iPasses;
     uint8_t *pMatrix;
 
@@ -1283,6 +1287,7 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags) {
     pState->width = pState->native_width = width;
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
+    pState->iVCOM = iVCOM;
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     if (pState->iPanelType == BB_PANEL_VIRTUAL) {
@@ -1409,6 +1414,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         pState->mode = BB_MODE_1BPP; // start in 1-bit mode
         pState->iFG = BBEP_BLACK;
         pState->iBG = BBEP_TRANSPARENT;
+        pState->iVCOM = -1600; // assume VCOM is -1.6V (typical)
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         pState->pCurrent = NULL; // make sure the memory is allocated
@@ -1433,7 +1439,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         if (rc == BBEP_SUCCESS) {
             // allocate memory for the buffers if the paneldef contains the size
             if (pState->width) { // if size is defined
-                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags);
+                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags, pState->iVCOM);
                 if (rc != BBEP_SUCCESS) return rc; // no memory? stop
             }
         }

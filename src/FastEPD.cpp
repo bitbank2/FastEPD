@@ -128,7 +128,7 @@ int FASTEPD::initSprite(int iWidth, int iHeight)
 int rc;
     rc = bbepInitPanel(&_state, BB_PANEL_VIRTUAL, 0);
     if (rc == BBEP_SUCCESS) {
-        rc = bbepSetPanelSize(&_state, iWidth, iHeight, 0);
+        rc = bbepSetPanelSize(&_state, iWidth, iHeight, 0, 0);
     }
     return rc;
 } /* initSprite() */
@@ -339,8 +339,8 @@ int FASTEPD::setPanelSize(int iPanel)
     return bbepSetDefinedPanel(&_state, iPanel);
 }
 
-int FASTEPD::setPanelSize(int width, int height, int flags) {
-    return bbepSetPanelSize(&_state, width, height, flags);
+int FASTEPD::setPanelSize(int width, int height, int flags, int iVCOM) {
+    return bbepSetPanelSize(&_state, width, height, flags, iVCOM);
 } /* setPanelSize() */
 
 int FASTEPD::initPanel(int iPanel, uint32_t u32Speed)

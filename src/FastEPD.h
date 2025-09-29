@@ -82,6 +82,7 @@ enum {
     BBEP_DISPLAY_ED0970TC1,
     BBEP_DISPLAY_ED103TC2,
     BBEP_DISPLAY_ED052TC4,
+    BBEP_DISPLAY_ED1150C1,
     BBEP_DISPLAY_COUNT
 };
 
@@ -197,7 +198,7 @@ typedef struct tag_fastepdstate
     int iPartialPasses, iFullPasses;
     int iScreenOffset, iOrientation;
     int iFG, iBG; //current color
-    int iFont, iFlags;
+    int iFont, iFlags, iVCOM;
     void *pFont;
     uint8_t *dma_buf;
     uint8_t *pCurrent; // current pixels
@@ -231,7 +232,7 @@ class FASTEPD
     void freeSprite(void);
     int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
-    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE);
+    int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE, int iVCOM = -1600);
     int getStringBox(const char *text, BB_RECT *pRect);
 #ifdef ARDUINO
     void getStringBox(const String &str, BB_RECT *pRect);
