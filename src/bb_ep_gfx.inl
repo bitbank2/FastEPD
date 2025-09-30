@@ -889,8 +889,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     int width, height, angle;
     BB_FONT *pBBF;
     BB_FONT_SMALL *pBBFS;
-    BB_GLYPH *pGlyph;
-    BB_GLYPH_SMALL *pGlyphSmall;
+    BB_GLYPH *pGlyph = NULL;
+    BB_GLYPH_SMALL *pGlyphSmall = NULL;
     uint8_t *pBits, u8EndMask;
     uint8_t szExtMsg[256]; // translated extended ASCII message text
     uint8_t c, first, last;
