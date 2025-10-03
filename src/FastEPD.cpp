@@ -22,8 +22,10 @@
 #ifdef ARDUINO
 #include <Wire.h>
 #endif
+#ifdef HEADLESS
+#include  "headless.h"
+#endif
 #include "FastEPD.h"
-#include "arduino_io.inl"
 #include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 
