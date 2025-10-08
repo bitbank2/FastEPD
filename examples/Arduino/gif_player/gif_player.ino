@@ -2,6 +2,7 @@
 #include <AnimatedGIF.h>
 #include "Roboto_Black_50.h"
 #include "1bitsmallcity.h"
+#include "spiral_1bit.h"
 AnimatedGIF gif;
 FASTEPD epaper;
 uint8_t *pFramebuffer;
@@ -75,7 +76,7 @@ void GIFDraw(GIFDRAW *pDraw)
     }
     if (pDraw->y == pDraw->iHeight-1) // last line, render it to the display
     // Tell FastEPD to keep the power on and only update the lines which changed (start_y, end_y)
-       epaper.partialUpdate(true, center_y, center_y + gif.getCanvasHeight());
+   epaper.partialUpdate(true, center_y, center_y + gif.getCanvasHeight());
 } /* GIFDraw() */
 
 void setup()
@@ -85,11 +86,13 @@ void setup()
   int iFrame;
   Serial.begin(115200);
   Serial.println("Starting...");
-    epaper.initPanel(BB_PANEL_LILYGO_T5P4, 60000000);
+//  epaper.initPanel(BB_PANEL_M5PAPERS3, 26666666);
+    epaper.initPanel(BB_PANEL_V7_RAW);
+    epaper.setPanelSize(BBEP_DISPLAY_ED052TC4);
 //    epaper.setPanelSize(1024, 758);
-//    epaper.setPanelSize(2760, 2070, 0);
+//    epaper.setPanelSize(BBEP_DISPLAY_EC060KD1);
 //  epaper.initPanel(BB_PANEL_LILYGO_T5PRO, 28000000); // defaults to 1-bpp mode
-  epaper.setPasses(3);
+//  epaper.setPasses(3);
 //  epaper.setPanelSize(1024, 758, BB_PANEL_FLAG_NONE); // only set panel size if it's not part of the panel definition
 //  epaper.initPanel(BB_PANEL_EPDIY_V7_16); // defaults to 1-bpp mode
 //  epaper.setPanelSize(1024, 758, BB_PANEL_FLAG_MIRROR_Y); // only set panel size if it's not part of the panel definition
@@ -102,9 +105,10 @@ void setup()
   epaper.setCursor((epaper.width() - rect.w)/2, 90); // center horizontally
   epaper.print("FastEPD GIF Demo");
   epaper.fullUpdate(true, true); // start with a full update and leave the power ON
-
+  epaper.setPasses(3, 5);
   l = millis();
   iFrame = 0;
+//  if (gif.open((uint8_t *)spiral_1bit, sizeof(spiral_1bit), GIFDraw)) {
   if (gif.open((uint8_t *)_1bitsmallcity, sizeof(_1bitsmallcity), GIFDraw)) {
     center_x = (epaper.width() - gif.getCanvasWidth())/2;
     center_y = (epaper.height() - gif.getCanvasHeight())/2;
@@ -117,8 +121,10 @@ void setup()
   l = millis() - l;
   Serial.printf("Played %d frames in %d ms\n", iFrame, (int)l);
   delay(3000); // wait a few seconds before erasing the display
-  epaper.fillScreen(BBEP_WHITE);
-  epaper.fullUpdate(); // Do a full refresh, then turn off the eink power
+  epaper.clearBlack(true);
+  epaper.clearWhite(true);
+  epaper.einkPower(false);
+  epaper.deInit();
   while (1) {}; // we're done, sit here forever
 } /* setup () */
 
