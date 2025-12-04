@@ -67,9 +67,9 @@ enum {
     BB_PANEL_INKPLATE5V2,
     BB_PANEL_EPDIY_V7_16,
     BB_PANEL_V7_RAW,
-    BB_PANEL_V7_103,
     BB_PANEL_LILYGO_T5PRO,
     BB_PANEL_LILYGO_T5P4,
+    BB_PANEL_TRMNL_X,
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
@@ -110,6 +110,7 @@ typedef struct _paneldef {
     const uint8_t *pGrayMatrix; // pointer to matrix of values (waveform) for 16 gray levels
     int iMatrixSize; // size of matrix in bytes
     int iLinePadding; // extra bytes needed for each transmission
+    int iVCOM; // VCOM in millivolts (e.g. -1600 = -1.6V)
 } BBPANELDEF;
 
 typedef struct bbepr {
