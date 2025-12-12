@@ -30,10 +30,10 @@ void setup() {
 // For EPDiy v7 PCB, you need to specify the panel size explicitly
 //    epaper.initPanel(BB_PANEL_EPDIY_V7_16);
 //    epaper.setPanelSize(2760, 2070, 0);
-  epaper.initPanel(BB_PANEL_EPDIY_V7);
-  epaper.setPanelSize(1024, 758);
+//  epaper.initPanel(BB_PANEL_EPDIY_V7);
+//  epaper.setPanelSize(1024, 758);
 //  epaper.setPanelSize(1280, 720, BB_PANEL_FLAG_MIRROR_X);
-//  epaper.initPanel(BB_PANEL_M5PAPERS3);
+  epaper.initPanel(BB_PANEL_M5PAPERS3);
 //  epaper.initPanel(BB_PANEL_INKPLATE5V2);
   epaper.setMode(BB_MODE_4BPP);
   epaper.fillScreen(0xf);

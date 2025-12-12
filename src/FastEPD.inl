@@ -250,7 +250,7 @@ static uint16_t LUTW_16[256];
 static uint16_t LUTB_16[256];
 static uint16_t LUTBW_16[256];
 // Lookup tables for grayscale mode
-static uint32_t *pGrayLower = NULL, *pGrayUpper = NULL;
+static uint8_t *pGrayLower = NULL, *pGrayUpper = NULL;
 volatile bool dma_is_done = true;
 static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, needs to handle up to 4096 pixels wide
 static gpio_num_t u8CKV, u8SPH;
@@ -1304,9 +1304,9 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
     // Allocate memory for each line to transmit
     pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 2) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
     iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-    pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    pGrayLower = (uint8_t *)malloc(256 * iPasses);
     if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
-    pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    pGrayUpper = (uint8_t *)malloc(256 * iPasses);
     if (!pGrayUpper) {
         free(pGrayLower);
         return BBEP_ERROR_NO_MEMORY;
@@ -1473,9 +1473,9 @@ int iPasses;
     iPasses = (int)matrix_size / 16; // number of passes
     pState->panelDef.pGrayMatrix = (uint8_t *)pMatrix;
     pState->panelDef.iMatrixSize = matrix_size;
-    pGrayLower = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    pGrayLower = (uint8_t *)malloc(256 * iPasses);
     if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
-    pGrayUpper = (uint32_t *)malloc(256 * iPasses * sizeof(uint32_t));
+    pGrayUpper = (uint8_t *)malloc(256 * iPasses);
         if (!pGrayUpper) {
             free(pGrayLower);
             return BBEP_ERROR_NO_MEMORY;
@@ -1662,7 +1662,7 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
         uint8_t u8Invert = (u8Color = BBEP_WHITE) ? 0x00 : 0xff;
         for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
-            uint32_t *pGrayU, *pGrayL;
+            uint8_t *pGrayU, *pGrayL;
             pGrayU = pGrayUpper + (pass * 256);
             pGrayL = pGrayLower + (pass * 256);
             bbepRowControl(pState, ROW_START);
@@ -1824,7 +1824,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
         int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
         for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d;
-            uint32_t *pGrayU, *pGrayL;
+            uint8_t *pGrayU, *pGrayL;
             pGrayU = pGrayUpper + (pass * 256);
             pGrayL = pGrayLower + (pass * 256);
             bbepRowControl(pState, ROW_START);
