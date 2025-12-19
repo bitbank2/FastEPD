@@ -198,6 +198,8 @@ const BBPANELDEF panelDefs[] = {
       24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_LILYGO_T5P4 
     {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1350}, // BB_PANEL_TRMNL_X
+    {1872, 1404, 20000000, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 41, 42, 45, 8, 48,
+      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 0}, // BB_PANEL_V7_103
 };
 //
 // Forward references for panel callback functions
@@ -239,10 +241,10 @@ const BBPANELPROCS panelProcs[] = {
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL, Inkplate5V2ExtIO}, // Inkplate5V2
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_LILYGO_T5P4  
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
+    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -703,6 +705,15 @@ int vcom;
         bbepPCA9535DigitalWrite(8, 1); // OE on
         bbepPCA9535DigitalWrite(9, 1); // GMOD on
         bbepPCA9535DigitalWrite(13, 1); // WAKEUP on
+        // Allow time to fully wake-up
+        vTaskDelay(4);
+        ucTemp[0] = 0x09; // UPSEQ0
+        ucTemp[1] = 0xE1;
+        bbepI2CWrite(0x68, ucTemp, 2);
+        ucTemp[0] = 0x0A; // UPSEQ1
+        ucTemp[1] = 0xAA;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
         bbepPCA9535DigitalWrite(11, 1); // PWRUP on
         bbepPCA9535DigitalWrite(12, 1); // VCOM CTRL on
         vTaskDelay(1); // allow time to power up
@@ -1214,6 +1225,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     #ifndef ARDUINO
         esp_log_level_set("gpio", ESP_LOG_NONE);
     #endif
+    
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
