@@ -225,7 +225,7 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
 
     if (pSprite == NULL || pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
 
-    if (x+pSprite->native_width < 0 || y+pSprite->native_height < 0 || x >= pBBEP->native_width || y >= pBBEP->native_height) {
+    if (x+pSprite->native_width < 0 || y+pSprite->native_height < 0 || x >= pBBEP->width || y >= pBBEP->height) {
         pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
         return pBBEP->last_error; // out of bounds
     }
@@ -243,8 +243,8 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
         y = -y;
         dy = 0;
     }
-    if ((dy + cy) > pBBEP->native_height) {
-        cy = pBBEP->native_height - y;
+    if ((dy + cy) > pBBEP->height) {
+        cy = pBBEP->height - dy;
     }
     iStartX = 0;
     dx = x;
@@ -255,8 +255,8 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
         iStartX = x;
         dx = 0;
     }
-    if ((x + cx) > pBBEP->native_width)
-        cx = pBBEP->native_width - x;
+    if ((dx + cx) > pBBEP->width)
+        cx = pBBEP->width - dx;
     if (pSprite->mode == BB_MODE_1BPP) {
         iPitch = (pSprite->native_width + 7)/8;
         iColor1 = BBEP_WHITE;
