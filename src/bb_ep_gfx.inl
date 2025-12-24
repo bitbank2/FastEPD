@@ -225,7 +225,7 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
 
     if (pSprite == NULL || pBBEP == NULL) return BBEP_ERROR_BAD_PARAMETER;
 
-    if (x+pSprite->native_width < 0 || y+pSprite->native_height < 0 || x >= pBBEP->native_width || y >= pBBEP->native_height) {
+    if (x+pSprite->width < 0 || y+pSprite->height < 0 || x >= pBBEP->width || y >= pBBEP->height) {
         pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
         return pBBEP->last_error; // out of bounds
     }
@@ -234,8 +234,8 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
         pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
         return pBBEP->last_error;
     }
-    cx = pSprite->native_width; // starting size for content to draw
-    cy = pSprite->native_height;
+    cx = pSprite->width; // starting size for content to draw
+    cy = pSprite->height;
     dy = y; // destination y
     if (y < 0) // skip the invisible parts
     {
@@ -243,8 +243,8 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
         y = -y;
         dy = 0;
     }
-    if ((dy + cy) > pBBEP->native_height) {
-        cy = pBBEP->native_height - y;
+    if ((dy + cy) > pBBEP->height) {
+        cy = pBBEP->height - y;
     }
     iStartX = 0;
     dx = x;
@@ -255,14 +255,14 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
         iStartX = x;
         dx = 0;
     }
-    if ((x + cx) > pBBEP->native_width)
-        cx = pBBEP->native_width - x;
+    if ((x + cx) > pBBEP->width)
+        cx = pBBEP->width - x;
     if (pSprite->mode == BB_MODE_1BPP) {
-        iPitch = (pSprite->native_width + 7)/8;
+        iPitch = (pSprite->width + 7)/8;
         iColor1 = BBEP_WHITE;
         iColor0 = BBEP_BLACK;
     } else { // 4-bpp
-        iPitch = (pSprite->native_width + 1)/2;
+        iPitch = (pSprite->width + 1)/2;
         iColor1 = 0xf; // white
         iColor0 = 0x0; // black
     }

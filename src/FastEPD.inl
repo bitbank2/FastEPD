@@ -239,7 +239,6 @@ const BBPANELPROCS panelProcs[] = {
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL, Inkplate5V2ExtIO}, // Inkplate5V2
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
-    {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_V7_103
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_LILYGO_T5P4  
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
