@@ -1,5 +1,14 @@
 ![FastEPD raw epaper component](https://github.com/user-attachments/assets/9c59164f-326c-46bf-b210-54b0e4d35c57)
 
+## Install required components
+
+This example needs two components that are being added as submodules in this repository. In order to install them please run first:
+
+    git submodule update --init --recursive
+
+It should then add both requirements in the components folder:
+jpgegdec and esp-dsp
+
 Download and render image example
 =================================
 
