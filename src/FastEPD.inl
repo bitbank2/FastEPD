@@ -198,6 +198,8 @@ const BBPANELDEF panelDefs[] = {
       24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_LILYGO_T5P4 
     {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1350}, // BB_PANEL_TRMNL_X
+{0, 0, 26666666, BB_PANEL_FLAG_NONE, {2,3,4,5,6,7,8,9}, 8, 26, 45, 51, 46, 47, 48,
+      50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4
 };
 //
 // Forward references for panel callback functions
@@ -218,6 +220,9 @@ void EPDiyV7IODeInit(void *pBBEP);
 // EPDiy V7 RAW
 int EPDiyV7RAWEinkPower(void *pBBEP, int bOn);
 int EPDiyV7RAWIOInit(void *pBBEP);
+// epdInky
+int epdInkyEinkPower(void *pBBEP, int bOn);
+int epdInkyIOInit(void *pBBEP);
 // Inkplate6PLUS
 int Inkplate6PlusEinkPower(void *pBBEP, int bOn);
 int Inkplate6PlusIOInit(void *pBBEP);
@@ -242,6 +247,7 @@ const BBPANELPROCS panelProcs[] = {
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_LILYGO_T5P4  
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
+    {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -783,12 +789,58 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
         gpio_set_level((gpio_num_t)12, 0); // VCOM CTRL off
         gpio_set_level((gpio_num_t)11, 0); // PWRUP off
         gpio_set_level((gpio_num_t)14, 0); // WAKEUP off
-        vTaskDelay(1); // only leave WAKEUP on
-        gpio_set_level((gpio_num_t)14, 0);// now turn everything off
         pState->pwr_on = 0;
     }
     return BBEP_SUCCESS;
 } /* EPDiyV7RAWEinkPower() */
+
+int epdInkyEinkPower(void *pBBEP, int bOn)
+{
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+uint8_t ucTemp[4];
+uint8_t u8Value = 0; // I/O bits for the PCA9535
+
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS;
+    if (bOn) {
+        //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
+        gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 1); // OE on
+        gpio_set_level((gpio_num_t)52, 1); // EP_MODE/GMOD on
+        gpio_set_level((gpio_num_t)37, 1); // WAKEUP on
+        gpio_set_level((gpio_num_t)26, 1); // PWRUP on
+        gpio_set_level((gpio_num_t)49, 1); // VCOM CTRL on
+        vTaskDelay(1); // allow time to power up
+      //  while (!gpio_get_level((gpio_num_t)47)) { }
+        ucTemp[0] = TPS_REG_ENABLE;
+        ucTemp[1] = 0x3f; // enable output
+        bbepI2CWrite(0x68, ucTemp, 2);
+        // set VCOM to 1.6v (1600)
+        ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
+        ucTemp[1] = (uint8_t)(160);
+        ucTemp[2] = (uint8_t)(160 >> 8);
+        bbepI2CWrite(0x68, ucTemp, 3);
+
+        int iTimeout = 0;
+        u8Value = 0;
+        while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
+            bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
+            iTimeout++;
+            vTaskDelay(1);
+        }
+        if (iTimeout >= 400) {
+            // Serial.println("The power_good signal never arrived!");
+            return BBEP_IO_ERROR;
+        }
+        pState->pwr_on = 1;
+    } else { // power off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 0); // OE off
+        gpio_set_level((gpio_num_t)52, 0); // EP_MODE/GMOD off
+        gpio_set_level((gpio_num_t)49, 0); // VCOM CTRL off
+        gpio_set_level((gpio_num_t)26, 0); // PWRUP off
+        gpio_set_level((gpio_num_t)37, 0); // WAKEUP off
+        pState->pwr_on = 0;
+    }
+    return BBEP_SUCCESS;
+} /* epdInkyEinkPower() */
 
 int Inkplate6PlusEinkPower(void *pBBEP, int bOn)
 {
@@ -959,6 +1011,28 @@ int EPDiyV7RAWIOInit(void *pBBEP)
     bbepPinMode(47, INPUT); // TPS_POWER_GOOD
     return BBEP_SUCCESS;
 } /* EPDiyV7RAWIOInit() */
+
+//
+// Initialize the IO for the epdInky P4 PCB
+//  
+int epdInkyIOInit(void *pBBEP)
+{       
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+    bbepPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    bbepPinMode(52, OUTPUT); // EP_MODE
+    bbepPinMode(26, OUTPUT); // TPS_PWRUP
+    bbepPinMode(49, OUTPUT); // TPS_VCOM_CTRL
+    bbepPinMode(37, OUTPUT); // TPS_WAKEUP
+    bbepPinMode(27, INPUT); // TPS_POWER_GOOD
+    return BBEP_SUCCESS;
+} /* epdInkyIOInit() */
 
 //
 // Initialize the IO for the Inkplate6PLUS

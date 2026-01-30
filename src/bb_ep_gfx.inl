@@ -887,6 +887,8 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     int16_t n, rc, i, h, w, end_y, dx, dy, tx, ty, tw, iBG;
     uint8_t *s;
     int width, height, angle;
+    uint32_t u32Acc, u32Frac=0;
+    int iSkew, yOffset;
     BB_FONT *pBBF;
     BB_FONT_SMALL *pBBFS;
     BB_GLYPH *pGlyph = NULL;
@@ -902,6 +904,10 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     }
     width = pBBEP->width;
     height = pBBEP->height;
+// Convert character skew (italicisation) to integer fraction for speed
+    if (pBBEP->italic) {
+        u32Frac = 16384; // 0.25f
+    }
     if (pBBEP->anti_alias) {
         width *= 2;
         height *= 2;
@@ -981,25 +987,27 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                     h = pGlyph->height;
                     w = pGlyph->width;
                     dx = x + pGlyph->xOffset; // offset from character UL to start drawing
-                    dy = y + pGlyph->yOffset;
+                    yOffset = pGlyph->yOffset;
+                    dy = y + yOffset;
                 } else {
                     h = pGlyphSmall->height;
                     w = pGlyphSmall->width;
                     dx = x + pGlyphSmall->xOffset; // offset from character UL to start drawing
-                    dy = y + pGlyphSmall->yOffset;
+                    yOffset = pGlyphSmall->yOffset;
+                    dy = y + yOffset;
                 }
             } else { // rotated
                 if (pBBF) {
                     w = pGlyph->height;
                     h = pGlyph->width;
-                    n = pGlyph->yOffset; // offset from character UL to start drawing
+                    n = yOffset = pGlyph->yOffset; // offset from character UL to start drawing
                     dx = x;
                     if (-n < w) dx -= (w+n); // since we draw from the baseline
                     dy = y + pGlyph->xOffset;
                 } else {
                     w = pGlyphSmall->height;
                     h = pGlyphSmall->width;
-                    n = pGlyphSmall->yOffset; // offset from character UL to start drawing
+                    n = yOffset = pGlyphSmall->yOffset; // offset from character UL to start drawing
                     dx = x;
                     if (-n < w) dx -= (w+n); // since we draw from the baseline
                     dy = y + pGlyphSmall->xOffset;
@@ -1051,8 +1059,22 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                 } // for ty
             } else {
                 if (x+tw+x_off > width) tw = width - (x+x_off); // clip to right edge
+                if (yOffset < 0) {
+                    u32Acc = -yOffset * u32Frac;
+                    iSkew = (u32Acc >> 16);
+                } else {
+                    u32Acc = yOffset * u32Frac;
+                    iSkew = 0 - (u32Acc >> 16);
+                }
+                u32Acc &= 65535;
                 for (ty=dy; ty<end_y && ty < height; ty++) {
                     uint8_t u8, u8Count;
+                    u32Acc += u32Frac;
+                    // handle skew (italicisation)
+                    if (u32Acc >= 65536) { // crossed 1?
+                        u32Acc -= 65536;
+                        iSkew--;
+                    }
                     g5_decode_line(&g5dec, u8Cache);
                     s = u8Cache;
                     u8 = *s++;
@@ -1061,10 +1083,10 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                         for (tx=x; tx<x+tw; tx++) {
                             if (u8 & 0x80) {
                                 if (iColor != BBEP_TRANSPARENT) {
-                                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off, ty, iColor);
+                                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off+iSkew, ty, iColor);
                                 }
                             } else if (iBG != BBEP_TRANSPARENT) {
-                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off, ty, iBG);
+                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx+x_off+iSkew, ty, iBG);
                             }
                             u8 <<= 1;
                             u8Count--;

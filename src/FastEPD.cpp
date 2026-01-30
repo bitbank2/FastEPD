@@ -184,6 +184,11 @@ uint8_t FASTEPD::ioRead(uint8_t u8Pin)
     return val;
 }
 
+void FASTEPD::setItalic(bool bItalic)
+{
+   _state.italic = (uint8_t)bItalic;
+} /* setItalic() */
+
 void FASTEPD::setFont(int iFont)
 {
     _state.iFont = iFont;
