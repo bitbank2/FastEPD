@@ -192,7 +192,7 @@ typedef struct tag_fastepdstate
 {
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode;
-    uint8_t shift_data, anti_alias, italic;
+    uint8_t shift_data, anti_alias, italic, bit_bang;
     uint8_t u8LED1, u8LED2;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
@@ -270,6 +270,7 @@ class FASTEPD
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale = 1.0f);
     void setFont(int iFont);
     void setItalic(bool bItalic);
+    void setBitBang(bool bBitBang);
     void setFont(const void *pFont, bool bAntiAliased = false);
     void drawLine(int x1, int y1, int x2, int y2, int iColor);
     void drawPixel(int x, int y, uint8_t color);

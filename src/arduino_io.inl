@@ -22,12 +22,10 @@
 #define __BB_EP_IO__
 
 // Since the Espressif I2C driver seems to corrupt memory with it's frequent allocs and frees, use bit banging
-#define BIT_BANG
 
-#ifdef BIT_BANG
 static uint8_t u8SDA_Pin, u8SCL_Pin;
+static uint8_t bBitBang;
 static int iDelay = 0; //1;
-#endif
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "rom/ets_sys.h"
@@ -91,7 +89,6 @@ void bbepPinMode(int iPin, int iMode)
     gpio_config(&io_conf); //configure GPIO with the given settings
 } /* bbepPinMode() */
 
-#ifdef BIT_BANG
 uint8_t SDA_READ(void)
 {
     return gpio_get_level((gpio_num_t)u8SDA_Pin);
@@ -257,24 +254,24 @@ uint8_t b = 0;
         i2cEnd();
      return response;
      } /* I2CTest() */
-#endif // BIT_BANG                       
 //
 // Initialize the Wire library on the given SDA/SCL GPIOs
 //
-int bbepI2CInit(uint8_t sda, uint8_t scl)
+int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
 {
-#ifdef BIT_BANG
-    u8SDA_Pin = sda;
-    u8SCL_Pin = scl;
+    bBitBang = bb;
+    if (bBitBang) {
+        u8SDA_Pin = sda;
+        u8SCL_Pin = scl;
 //    if (iSpeed >= 400000) iDelay = 1;
 //    else if (iSpeed >= 100000) iDelay = 10;
 //    else iDelay = 20;
-#else
+    } else {
 #ifdef ARDUINO
-    Wire.end();
-    Wire.begin(sda, scl);
-    Wire.setClock(400000);
-    Wire.setTimeout(100);
+        Wire.end();
+        Wire.begin(sda, scl);
+        Wire.setClock(400000);
+        Wire.setTimeout(100);
 #else
     i2c_config_t conf;
     ESP_ERROR_CHECK(i2c_driver_delete());
@@ -287,17 +284,17 @@ int bbepI2CInit(uint8_t sda, uint8_t scl)
     conf.clk_flags = 0; 
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
-#endif
-#endif // BIT_BANG
+#endif // ARDUINO
+    } // !BitBang
     return BBEP_SUCCESS;
 } /* bbepI2CInit() */
 
 int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
 {
-#ifdef BIT_BANG
-    I2CWrite(iAddr, pData, iLen);
-    return 1;
-#else
+    if (bBitBang) {
+        I2CWrite(iAddr, pData, iLen);
+        return 1;
+    } else {
 #ifdef ARDUINO
     int rc = 0;
     Wire.beginTransmission(iAddr);
@@ -316,16 +313,16 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
     return (ret == ESP_OK);
-#endif
-#endif // BIT_BANG
+#endif // ARDUINO
+    } // !BitBang
 }
 
 int bbepI2CRead(unsigned char iAddr, unsigned char *pData, int iLen)
 {
 int i = 0;
-#ifdef BIT_BANG
+    if (bBitBang) {
     i = I2CRead(iAddr, pData, iLen);
-#else
+    } else {
 #ifdef ARDUINO
     Wire.requestFrom(iAddr, (unsigned char)iLen);
     while (i < iLen && Wire.available()) {
@@ -350,8 +347,8 @@ int i = 0;
         i = iLen;
     }
     i2c_cmd_link_delete(cmd);
-#endif
-#endif // BIT_BANG
+#endif // ARDUINO
+    } // !BitBang
     return i;
 }
 int bbepI2CReadRegister(unsigned char iAddr, unsigned char u8Register, unsigned char *pData, int iLen)

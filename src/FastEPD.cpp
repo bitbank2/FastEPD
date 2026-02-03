@@ -184,6 +184,11 @@ uint8_t FASTEPD::ioRead(uint8_t u8Pin)
     return val;
 }
 
+void FASTEPD::setBitBang(bool bBitBang)
+{
+    _state.bit_bang = (uint8_t)bBitBang;
+} /* setBitBang() */
+
 void FASTEPD::setItalic(bool bItalic)
 {
    _state.italic = (uint8_t)bItalic;

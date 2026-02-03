@@ -982,7 +982,7 @@ int EPDiyV7IOInit(void *pBBEP)
 //    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
     bbepPinMode(pState->panelDef.ioLE, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
-    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     memset(ioRegs, 0, sizeof(ioRegs)); // copy of IO expander registers
     for (int i=8; i<14; i++) { // set lower 6 bits as outputs
         bbepPCA9535PinMode(i, OUTPUT);
@@ -1018,7 +1018,7 @@ int EPDiyV7RAWIOInit(void *pBBEP)
 int epdInkyIOInit(void *pBBEP)
 {       
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
     bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
@@ -1044,7 +1044,7 @@ int Inkplate6PlusIOInit(void *pBBEP)
     bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     bbepPinMode(pState->panelDef.ioLE, OUTPUT);
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
-    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     bbepMCP23017Init();
     bbepMCPPinMode(pState->panelDef.ioShiftMask, OUTPUT); // VCOM
     bbepMCPPinMode(pState->panelDef.ioPWR, OUTPUT); // PWRUP
@@ -1065,7 +1065,7 @@ int Inkplate6PlusIOInit(void *pBBEP)
 int Inkplate5V2IOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
-    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     bbepPCAL6416Init();
     bbepPCALDigitalWrite(9, LOW);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
