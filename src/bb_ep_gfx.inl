@@ -206,6 +206,10 @@ void bbepFillScreen(FASTEPDSTATE *pState, uint8_t u8Color)
     if (pState->mode == BB_MODE_1BPP) {
         if (u8Color == BBEP_WHITE) u8Color = 0xff;
         iPitch = (pState->width + 7) / 8;
+    } else if (pState->mode == BB_MODE_2BPP) {
+        iPitch = (pState->width + 3) / 4;
+        u8Color |= (u8Color << 2);
+        u8Color |= (u8Color << 4);
     } else {
         iPitch = (pState->width + 1) / 2;
         u8Color |= (u8Color << 4);
@@ -555,6 +559,109 @@ void bbepSetPixelFast16Clr_270(void *pb, int x, int y, unsigned char ucColor)
     pBBEP->pCurrent[i] = u8;
 } /* bbepSetPixelFast16Clr_270() */
 
+int bbepSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
+{
+    int i = 0;
+    int iPitch;
+    uint8_t u8, u8Mask = 0xc0;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
+    
+    // only available for local buffer operations
+    if (!pBBEP) return BBEP_ERROR_BAD_PARAMETER;
+    
+    iPitch = pBBEP->native_width >> 2; // 4 pixels per byte
+    
+    if (x < 0 || x >= pBBEP->width || y < 0 || y >= pBBEP->height) { // off the screen
+        pBBEP->last_error = BBEP_ERROR_BAD_PARAMETER;
+        return BBEP_ERROR_BAD_PARAMETER;
+    }
+    switch (pBBEP->rotation) {
+        case 0:
+            i = (x >> 2) + (y * iPitch);
+            u8Mask >>= ((x & 3) * 2);
+            ucColor <<= ((3-(x & 3)) * 2);
+            break;
+        case 90:
+            i = (y >> 2) + ((pBBEP->width - 1 - x) * iPitch);
+            u8Mask >>= ((y & 3) * 2);
+            ucColor <<= ((y & 3) * 2);
+            break;
+        case 180:
+            i = ((pBBEP->width - 1 - x) >> 2) + ((pBBEP->height - 1 - y) * iPitch);
+            u8Mask >>= ((3 - (x & 3)) * 2);
+            ucColor <<= ((3 - (x & 3)) * 2);
+            break;
+        case 270:
+            i = ((pBBEP->height - 1 - y) >> 2) + (x * iPitch);
+            u8Mask >>= ((3 - (y & 3)) * 2);
+            ucColor <<= ((3 - (y & 3)) * 2);
+            break;
+    }
+    u8 = pBBEP->pCurrent[i];
+    u8 = (u8 & u8Mask) | ucColor;
+    pBBEP->pCurrent[i] = u8;
+    return BBEP_SUCCESS;
+} /* bbepSetPixel4Clr() */
+
+void bbepSetPixelFast4Clr(void *pb, int x, int y, unsigned char ucColor)
+{
+    int i;
+    int iPitch;
+    uint8_t u8;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
+    
+    iPitch = pBBEP->native_width >> 2;
+    i = (x >> 2) + (y * iPitch);
+    u8 = pBBEP->pCurrent[i];
+    u8 &= ~(0xc0 >> ((x & 3)*2));
+    u8 |= (ucColor << ((3-(x & 3)) * 2));
+    pBBEP->pCurrent[i] = u8;
+} /* bbepSetPixelFast4Clr() */
+
+void bbepSetPixelFast4Clr_90(void *pb, int x, int y, unsigned char ucColor)
+{
+    int i;
+    int iPitch;
+    uint8_t u8;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
+    
+    iPitch = pBBEP->native_width >> 2;
+    i = (y >> 2) + ((pBBEP->width-1-x) * iPitch);
+    u8 = pBBEP->pCurrent[i];
+    u8 &= ~(0xc0 >> ((y & 3) * 2));
+    u8 |= (ucColor << ((3-(y & 3)) * 2));
+    pBBEP->pCurrent[i] = u8;
+} /* bbepSetPixelFast4Clr_90() */
+
+void bbepSetPixelFast4Clr_180(void *pb, int x, int y, unsigned char ucColor)
+{
+    int i;
+    int iPitch;
+    uint8_t u8;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
+    
+    iPitch = pBBEP->native_width >> 2;
+    i = ((pBBEP->width-1-x) >> 2) + ((pBBEP->height-1-y) * iPitch);
+    u8 = pBBEP->pCurrent[i];
+    u8 &= ~(0xc0 >> ((3-(x & 3)) * 2));
+    u8 |= (ucColor << ((x & 3) * 2));
+    pBBEP->pCurrent[i] = u8;
+} /* bbepSetPixelFast4Clr_180() */
+
+void bbepSetPixelFast4Clr_270(void *pb, int x, int y, unsigned char ucColor)
+{
+    int i;
+    int iPitch;
+    uint8_t u8;
+    FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pb;
+    
+    iPitch = pBBEP->native_width >> 2;
+    i = ((pBBEP->height-1-y) >> 2) + (x * iPitch);
+    u8 = pBBEP->pCurrent[i];
+    u8 &= ~(0xc0 >> ((3-(y & 3)) * 2));
+    u8 |= (ucColor << ((y & 3) * 2));
+    pBBEP->pCurrent[i] = u8;
+} /* bbepSetPixelFast4Clr_270() */
 //
 // Invert font data
 //
@@ -1889,6 +1996,9 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             if (pState->mode == BB_MODE_1BPP) {
                 pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+            } else if (pState->mode == BB_MODE_2BPP) {
+                pState->pfnSetPixel = bbepSetPixel4Clr;
+                pState->pfnSetPixelFast = bbepSetPixelFast4Clr;
             } else {
                 pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr;
@@ -1900,6 +2010,9 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             if (pState->mode == BB_MODE_1BPP) {
                 pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_90;
+            } else if (pState->mode == BB_MODE_2BPP) {
+                pState->pfnSetPixel = bbepSetPixel4Clr;
+                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_90;
             } else {
                 pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_90;
@@ -1911,6 +2024,9 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             if (pState->mode == BB_MODE_1BPP) {
                 pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_180;
+            } else if (pState->mode == BB_MODE_2BPP) {
+                pState->pfnSetPixel = bbepSetPixel4Clr;
+                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_180;
             } else {
                 pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_180;
@@ -1922,6 +2038,9 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             if (pState->mode == BB_MODE_1BPP) {
                 pState->pfnSetPixel = bbepSetPixel2Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast2Clr_270;
+            } else if (pState->mode == BB_MODE_2BPP) {
+                pState->pfnSetPixel = bbepSetPixel4Clr;
+                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_270;
             } else {
                 pState->pfnSetPixel = bbepSetPixel16Clr;
                 pState->pfnSetPixelFast = bbepSetPixelFast16Clr_270;
@@ -1932,11 +2051,11 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
 } /* bbepSetRotation() */
 
 //
-// Set the graphics mode (1-bit or 4-bits per pixel)
+// Set the graphics mode (1-bit, 2-bits or 4-bits per pixel)
 //
 int bbepSetMode(FASTEPDSTATE *pState, int iMode)
 {
-    if (iMode != BB_MODE_1BPP && iMode != BB_MODE_4BPP) return BBEP_ERROR_BAD_PARAMETER;
+    if (iMode != BB_MODE_1BPP && iMode != BB_MODE_2BPP && iMode != BB_MODE_4BPP) return BBEP_ERROR_BAD_PARAMETER;
     pState->mode = iMode;
     return bbepSetRotation(pState, pState->rotation); // set up correct pixel functions
 } /* setMode() */

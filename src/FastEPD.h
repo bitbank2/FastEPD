@@ -39,8 +39,8 @@ enum {
    CLEAR_NONE = 0, // don't clear
    CLEAR_FAST, // 8 passes black/white
    CLEAR_SLOW, // 10 passes black/white/black/white
-   CLEAR_WHITE, // 5 passes to white (may not be sufficient to clear old pixels)
-   CLEAR_BLACK, // 5 passes to black (not recommended unless you know what you're doing)
+   CLEAR_WHITE, // 8 passes to white
+   CLEAR_BLACK, // 8 passes to black
 };
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
 enum {
@@ -141,6 +141,7 @@ enum {
 enum {
     BB_MODE_NONE = 0,
     BB_MODE_1BPP, // 1 bit per pixel
+    BB_MODE_2BPP, // 2 bits per pixel
     BB_MODE_4BPP, // 4 bits per pixel
 };
 #define BBEP_BLACK 0
