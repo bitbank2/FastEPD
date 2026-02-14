@@ -174,7 +174,7 @@ int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t mat
 const BBPANELDEF panelDefs[] = {
     {0,0,0,0,{0},0,0,0,0,0,0,0,0,0,0,0,0,0,0,NULL,0,0,0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 8, 46, 17, 18, 13, 45, 15,
-      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_M5PAPERS3
+      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 4, -1600}, // BB_PANEL_M5PAPERS3
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 0, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0, 0}, // BB_PANEL_EPDIY_V7
