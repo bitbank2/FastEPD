@@ -683,8 +683,8 @@ void InvertBytes(uint8_t *pData, uint8_t bLen)
 //
 int bbepLoadG5(FASTEPDSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale)
 {
-    uint16_t rc, tx, ty, dx, dy, cx, cy, size;
-    uint16_t width, height;
+    int rc, tx, ty, dx, dy, cx, cy;
+    uint16_t width, height, size;
     BB_BITMAP *pbbb;
     uint32_t u32Frac, u32XAcc, u32YAcc; // integer fraction vars
 
@@ -718,10 +718,10 @@ int bbepLoadG5(FASTEPDSTATE *pBBEP, const uint8_t *pG5, int x, int y, int iFG, i
         for (tx=x; tx<x+dx && tx < width; tx++) {
             if (u8 & src_mask) {
                 if (iFG != BBEP_TRANSPARENT)
-                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iFG);
+                    (*pBBEP->pfnSetPixel)(pBBEP, tx, ty, (uint8_t)iFG);
             } else {
                 if (iBG != BBEP_TRANSPARENT)
-                    (*pBBEP->pfnSetPixelFast)(pBBEP, tx, ty, (uint8_t)iBG);
+                    (*pBBEP->pfnSetPixel)(pBBEP, tx, ty, (uint8_t)iBG);
             }
             u32XAcc += u32Frac;
             while (u32XAcc >= 65536) {

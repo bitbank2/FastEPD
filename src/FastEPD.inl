@@ -174,31 +174,33 @@ int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t mat
 const BBPANELDEF panelDefs[] = {
     {0,0,0,0,{0},0,0,0,0,0,0,0,0,0,0,0,0,0,0,NULL,0,0,0}, // BB_PANEL_NONE
     {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 8, 46, 17, 18, 13, 45, 15,
-      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_M5PAPERS3
+      16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_M5PAPERS3
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8SixInchMatrix, sizeof(u8SixInchMatrix), 0, 0}, // BB_PANEL_EPDIY_V7
+      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8SixInchMatrix, sizeof(u8SixInchMatrix), 16, -1600}, // BB_PANEL_EPDIY_V7
 
     {1024, 758, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
-      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 0, -1600}, // BB_PANEL_INKPLATE6PLUS
+      0, 7, 21, 22, 3, 5, 15, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_INKPLATE6PLUS
 
     {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 16, -1600}, // BB_PANEL_INKPLATE5V2
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16}, // BB_PANEL_EPDIY_V7_16
+      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDIY_V7_16
 
     {0, 0, 26666666, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 9, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 0}, // BB_PANEL_V7_RAW
+      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_V7_RAW
     //                                             D8                 15 D0                  D7          STV,CKV,XSTL,OE,XLE
     {960, 540, 20000000, BB_PANEL_FLAG_SLOW_SPH, {11,12,13,14,21,47,45,38}, 8, BB_NOT_USED, BB_NOT_USED, 39, 9, 0, 0,
-      10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_LILYGO_T5PRO 
+      10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5PRO 
     {1440, 720, 40000000, BB_PANEL_FLAG_MIRROR_X, {27,28,29,30,31,32,33,34}, 8, BB_NOT_USED, 36, 13, 25, 0, 26,
-      24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 0, -1600}, // BB_PANEL_LILYGO_T5P4 
+      24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5P4 
     {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1100}, // BB_PANEL_TRMNL_X
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {2,3,4,5,6,7,8,9}, 8, 26, 45, 51, 46, 47, 48,
-      50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4
+      50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
+{0, 0, 26666666, BB_PANEL_FLAG_NONE, {10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9}, 16, 26, 45, 51, 46, 47, 48,
+      50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4_16
 };
 //
 // Forward references for panel callback functions
@@ -247,6 +249,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_LILYGO_T5P4  
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4
+    {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4_16
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -693,7 +696,10 @@ int PaperS3EinkPower(void *pBBEP, int bOn)
     return BBEP_SUCCESS;
 } /* PaperS3EinkPower() */
 #define TPS_REG_ENABLE 0x01
-#define TPS_REG_PG 0x0F
+#define TPS_REG_UPSEQ0 0x9
+#define TPS_REG_UPSEQ1 0xa
+#define TPS_REG_PG     0x0F
+
 int EPDiyV7EinkPower(void *pBBEP, int bOn)
 {
 FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
@@ -709,8 +715,17 @@ int vcom;
         bbepPCA9535DigitalWrite(13, 1); // WAKEUP on
         bbepPCA9535DigitalWrite(11, 1); // PWRUP on
         bbepPCA9535DigitalWrite(12, 1); // VCOM CTRL on
-        vTaskDelay(1); // allow time to power up
+        vTaskDelay(3); // allow time to power up
         while (!(bbepPCA9535DigitalRead(14))) { } // CFG_PIN_PWRGOOD
+
+        ucTemp[0] = TPS_REG_UPSEQ0;
+        ucTemp[1] = 0xe1;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
+        ucTemp[0] = TPS_REG_UPSEQ1;
+        ucTemp[1] = 0xaa;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
         ucTemp[0] = TPS_REG_ENABLE;
         ucTemp[1] = 0x3f; // enable output
         bbepI2CWrite(0x68, ucTemp, 2);
@@ -800,6 +815,7 @@ int epdInkyEinkPower(void *pBBEP, int bOn)
 FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 uint8_t u8Value = 0; // I/O bits for the PCA9535
+int vcom;
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
@@ -809,15 +825,23 @@ uint8_t u8Value = 0; // I/O bits for the PCA9535
         gpio_set_level((gpio_num_t)37, 1); // WAKEUP on
         gpio_set_level((gpio_num_t)26, 1); // PWRUP on
         gpio_set_level((gpio_num_t)49, 1); // VCOM CTRL on
-        vTaskDelay(1); // allow time to power up
-      //  while (!gpio_get_level((gpio_num_t)47)) { }
+        vTaskDelay(3); // allow time to power up
+//        ucTemp[0] = TPS_REG_UPSEQ0;
+//        ucTemp[1] = 0xe1;
+//        bbepI2CWrite(0x68, ucTemp, 2);
+
+//        ucTemp[0] = TPS_REG_UPSEQ1;
+//        ucTemp[1] = 0xaa;
+//        bbepI2CWrite(0x68, ucTemp, 2);
+
         ucTemp[0] = TPS_REG_ENABLE;
         ucTemp[1] = 0x3f; // enable output
         bbepI2CWrite(0x68, ucTemp, 2);
-        // set VCOM to 1.6v (1600)
+        // set VCOM (usually -1.6v (-1600))
+        vcom = pState->iVCOM / -10; // convert to TPS format
         ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
-        ucTemp[1] = (uint8_t)(160);
-        ucTemp[2] = (uint8_t)(160 >> 8);
+        ucTemp[1] = (uint8_t)vcom;
+        ucTemp[2] = (uint8_t)(vcom >> 8);
         bbepI2CWrite(0x68, ucTemp, 3);
 
         int iTimeout = 0;
