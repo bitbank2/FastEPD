@@ -1146,7 +1146,9 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                 memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
                     uint8_t u8, u8Count, u8Color;
-                    g5_decode_line(&g5dec, &u8Cache[(ty & 1) * iLineSize]);
+                    uint8_t *lineBuf = &u8Cache[(ty & 1) * iLineSize];
+                    memset(lineBuf, 0, iLineSize);
+                    g5_decode_line(&g5dec, lineBuf);
                     if (w & 7) {
                         u8Cache[(ty & 1) * iLineSize + iLineSize - 1] &= u8EndMask;
                     }
