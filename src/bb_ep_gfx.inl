@@ -1156,7 +1156,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                         u8 = *s++; // grab first byte
                         u8Count = 4;
                         for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
-                            u8Color = grayColors[u8>>6];
+                            u8Color = grayColors[iBG == BBEP_BLACK ? 3 - (u8>>6) : u8>>6]; // invert the color if we're on a black background
                             (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
                             u8 <<= 2;
                             u8Count--;
