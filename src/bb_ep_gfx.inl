@@ -1147,6 +1147,9 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
                     uint8_t u8, u8Count, u8Color;
                     g5_decode_line(&g5dec, &u8Cache[(ty & 1) * iLineSize]);
+                    if (w & 7) {
+                        u8Cache[(ty & 1) * iLineSize + iLineSize - 1] &= u8EndMask;
+                    }
                     if (ty & 1 && ty/2 >= 0) {
                         Scale2Gray(u8Cache, iLineSize, iLineSize); // convert a pair of lines
                         s = u8Cache;
