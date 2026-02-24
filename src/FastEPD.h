@@ -40,6 +40,7 @@ enum {
    CLEAR_FAST, // 8 passes black/white
    CLEAR_SLOW, // 10 passes black/white/black/white
    CLEAR_WHITE, // 8 passes to white
+   CLEAR_EXTRA_WHITE, // 12 passes to white
    CLEAR_BLACK, // 8 passes to black
 };
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 

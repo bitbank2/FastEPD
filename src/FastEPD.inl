@@ -1828,6 +1828,9 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
         case CLEAR_WHITE:
             bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
+        case CLEAR_EXTRA_WHITE:
+            bbepClear(pState, BB_CLEAR_LIGHTEN, 12, pRect);
+            break;
         case CLEAR_BLACK: // probably a mistake
             bbepClear(pState, BB_CLEAR_DARKEN, 8, pRect);
             break;
