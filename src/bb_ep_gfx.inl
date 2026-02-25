@@ -1159,7 +1159,11 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                         u8Count = 4;
                         for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
                             u8Color = grayColors[iBG == BBEP_BLACK ? 3 - (u8>>6) : u8>>6]; // invert the color if we're on a black background
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            if (u8Color != iBG) {
+                                // draw the pixel if it's not transparent
+                                // avoid overlapping the previous character's pixels if the font is Italic for example
+                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            }
                             u8 <<= 2;
                             u8Count--;
                             if (u8Count == 0) {
