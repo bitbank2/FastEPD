@@ -1750,14 +1750,13 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
                 s = &pState->pTemp[i * (pState->native_width / 4)];
                 // Send the data for the row
                 memcpy(pState->dma_buf, s, pState->native_width/4);
-                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4), 0);
-                bbepRowControl(pState, ROW_STEP);
+                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4), (i != 0));
             }
             delayMicroseconds(230);
         } // for pass
     } else { // must be 4BPP mode
         int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-        uint8_t u8Invert = (u8Color = BBEP_WHITE) ? 0x00 : 0xff;
+        uint8_t u8Invert = (u8Color == BBEP_WHITE) ? 0x00 : 0xff;
         for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
             uint8_t *pGrayU, *pGrayL;
@@ -1786,8 +1785,7 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
                     } // for n
                     //  vTaskDelay(0);
                 }
-                bbepWriteRow(pState, pState->dma_buf, (pState->native_width / 4), 0);
-                bbepRowControl(pState, ROW_STEP);
+                bbepWriteRow(pState, pState->dma_buf, pState->native_width/4, (i != 0));
             } // for i
             delayMicroseconds(230);
         } // for pass
