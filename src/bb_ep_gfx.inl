@@ -1146,15 +1146,24 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                 memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
                     uint8_t u8, u8Count, u8Color;
-                    g5_decode_line(&g5dec, &u8Cache[(ty & 1) * iLineSize]);
+                    uint8_t *lineBuf = &u8Cache[(ty & 1) * iLineSize];
+                    memset(lineBuf, 0, iLineSize);
+                    g5_decode_line(&g5dec, lineBuf);
+                    if (w & 7) {
+                        u8Cache[(ty & 1) * iLineSize + iLineSize - 1] &= u8EndMask;
+                    }
                     if (ty & 1 && ty/2 >= 0) {
                         Scale2Gray(u8Cache, iLineSize, iLineSize); // convert a pair of lines
                         s = u8Cache;
                         u8 = *s++; // grab first byte
                         u8Count = 4;
                         for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
-                            u8Color = grayColors[u8>>6];
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            u8Color = grayColors[iBG == BBEP_BLACK ? 3 - (u8>>6) : u8>>6]; // invert the color if we're on a black background
+                            if (u8Color != iBG) {
+                                // draw the pixel if it's not transparent
+                                // avoid overlapping the previous character's pixels if the font is Italic for example
+                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            }
                             u8 <<= 2;
                             u8Count--;
                             if (u8Count == 0) {
