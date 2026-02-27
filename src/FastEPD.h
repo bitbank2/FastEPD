@@ -290,6 +290,9 @@ class FASTEPD
     using Print::write;
     virtual size_t write(uint8_t);
 #else
+    void print(const char *str) {
+        drawString(str,  _state.iCursorX, _state.iCursorY);
+    } /* print() */
     size_t write(uint8_t);
 #endif
 
@@ -306,9 +309,6 @@ extern "C" {
 };
 #else
 // Include all of the library code inline for C targets
-#include "esp_heap_caps.h"
-#include "esp_timer.h"
-#include "arduino_io.inl"
 #include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 #endif // __cplusplus
