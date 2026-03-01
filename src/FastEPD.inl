@@ -15,10 +15,14 @@
 //===========================================================================
 //
 #include "FastEPD.h"
+#ifdef ARDUINO_ESP32C5_DEV
+#include "driver/parlio_tx.h"
+#else
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
+#endif
 #include <esp_log.h>
-#if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT)
+#if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32C5_SPIRAM_SUPPORT)
 #error "Please enable PSRAM support"
 #endif
 
@@ -201,10 +205,19 @@ const BBPANELDEF panelDefs[] = {
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9}, 16, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4_16
+    // width, height, bus_speed, flags, data[8], bus_width, ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
+    // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
+{0, 0, 20000000, BB_PANEL_FLAG_SLOW_SPH, {8,23,10,9,24,25,26,27}, 8, 26, 0, 5, 4, 0, 2,
+    3, 0, 7, 6, 0, 0, 0, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_SENSORIA_C5
 };
 //
 // Forward references for panel callback functions
 //
+// Sensoria C5
+int SensoriaEinkPower(void *pBBEP, int bOn);
+int SensoriaIOInit(void *pBBEP);
+void SensoriaRowControl(void *pBBEP, int iMode);
+void SensoriaIODeInit(void *pBBEP);
 // LilyGo T5S3-Pro
 int LilyGoEinkPower(void *pBBEP, int bOn);
 int LilyGoIOInit(void *pBBEP);
@@ -250,6 +263,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4_16
+    {SensoriaEinkPower, SensoriaIOInit, SensoriaRowControl, SensoriaIODeInit, NULL}, // BB_PANEL_SENSORIA_C5
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -263,6 +277,18 @@ static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, nee
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
+#ifdef ARDUINO_ESP32C5_DEV
+parlio_tx_unit_config_t parlio_tx_config;
+parlio_tx_unit_handle_t parlio_tx_handle;
+static bool c5_notify_dma_ready(parlio_tx_unit_handle_t handle, const parlio_tx_done_event_data_t *edata, void *user_ctx)
+{
+    if (bSlowSPH) {
+        gpio_set_level(u8SPH, 1); // CS deactivate
+    }
+    dma_is_done = true;
+    return false;
+}
+#else
 static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {           
     if (bSlowSPH) {
@@ -270,8 +296,7 @@ static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
     }
     dma_is_done = true;
     return false;
-}           
-
+}
 // Maximum line width = 1024 * 4 = 4096 pixels
 #define MAX_TX_SIZE 1024
 static esp_lcd_i80_bus_config_t s3_bus_config = {
@@ -309,6 +334,8 @@ static esp_lcd_panel_io_i80_config_t s3_io_config = {
 
 static esp_lcd_i80_bus_handle_t i80_bus = NULL;
 static esp_lcd_panel_io_handle_t io_handle = NULL;
+#endif // S3/C5
+
 #define PWR_GOOD_OK            0xfa
 int bbepReadPowerGood(void)
 {
@@ -760,6 +787,67 @@ int vcom;
     return BBEP_SUCCESS;
 } /* EPDiyV7EinkPower() */
 
+int SensoriaEinkPower(void *pBBEP, int bOn)
+{
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+uint8_t ucTemp[4];
+uint8_t u8Value = 0; // I/O bits for the PCA9535
+int vcom;
+
+//    Serial.printf("SensoriaEinkPower: %d\n", bOn);
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS;
+    if (bOn) {
+        //  u8Value |= 4; // STV on DEBUG - not sure why it's not used
+        bbepPCA9535DigitalWrite(0, 1); // OE on
+        bbepPCA9535DigitalWrite(1, 1); // GMOD on
+        bbepPCA9535DigitalWrite(5, 1); // WAKEUP on
+        bbepPCA9535DigitalWrite(3, 1); // PWRUP on
+        bbepPCA9535DigitalWrite(4, 1); // VCOM CTRL on
+        vTaskDelay(3); // allow time to power up
+        while (!(bbepPCA9535DigitalRead(6))) { } // CFG_PIN_PWRGOOD
+ //       Serial.println("Power good!");
+        ucTemp[0] = TPS_REG_UPSEQ0;
+        ucTemp[1] = 0xe1;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
+        ucTemp[0] = TPS_REG_UPSEQ1;
+        ucTemp[1] = 0xaa;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
+        ucTemp[0] = TPS_REG_ENABLE;
+        ucTemp[1] = 0x3f; // enable output
+        bbepI2CWrite(0x68, ucTemp, 2);
+        // set VCOM (usually -1.6V = -1600mV = 160 value used in registers
+        vcom = pState->iVCOM / -10; // convert to TPS format
+        ucTemp[0] = 3; // vcom voltage register 3+4 = L + H
+        ucTemp[1] = (uint8_t)vcom;
+        ucTemp[2] = (uint8_t)(vcom >> 8);
+        bbepI2CWrite(0x68, ucTemp, 3);
+
+        int iTimeout = 0;
+        u8Value = 0;
+        while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
+            bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
+            iTimeout++;
+            vTaskDelay(1);
+        }
+//        if (iTimeout >= 400) {
+//             Serial.println("The power_good signal never arrived!");
+//            return BBEP_IO_ERROR;
+//        }
+        pState->pwr_on = 1;
+    } else { // power off
+        bbepPCA9535DigitalWrite(0, 0); // OE off
+        bbepPCA9535DigitalWrite(1, 0); // GMOD off
+        bbepPCA9535DigitalWrite(3, 0); // PWRUP off
+        bbepPCA9535DigitalWrite(4, 0); // VCOM CTRL off
+        vTaskDelay(1);
+        bbepPCA9535DigitalWrite(5, 0); // WAKEUP off
+        pState->pwr_on = 0;
+    }
+    return BBEP_SUCCESS;
+} /* SensoriaEinkPower() */
+
 int EPDiyV7RAWEinkPower(void *pBBEP, int bOn)
 {
 FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
@@ -981,6 +1069,18 @@ int PaperS3IOInit(void *pBBEP)
     return BBEP_SUCCESS;
 } /* PaperS3IOInit() */
 //
+// Shut down the IO to save power
+//
+void SensoriaIODeInit(void *pBBEP)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    bbepPinMode(pState->panelDef.ioCKV, INPUT);
+    bbepPinMode(pState->panelDef.ioSPH, INPUT);
+    bbepPinMode(pState->panelDef.ioLE, INPUT);
+    bbepPinMode(pState->panelDef.ioCL, INPUT);
+    bbepPCA9535DigitalWrite(5, 0); // turn TPS65185 WAKEUP off
+} /* SensoriaIODeInit() */
+//
 // Shut down the IO to save power (EPDiy V7 PCB)
 //
 void EPDiyV7IODeInit(void *pBBEP)
@@ -992,7 +1092,7 @@ void EPDiyV7IODeInit(void *pBBEP)
 //    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
     bbepPinMode(pState->panelDef.ioLE, INPUT);
     bbepPinMode(pState->panelDef.ioCL, INPUT);
-    bbepPCA9535DigitalWrite(13, 1); // turn TPS65185 WAKEUP off
+    bbepPCA9535DigitalWrite(13, 0); // turn TPS65185 WAKEUP off
 } /* EPDiyV7IODeInit() */
 //
 // Initialize the IO for the EPDiy V7 PCB
@@ -1016,6 +1116,31 @@ int EPDiyV7IOInit(void *pBBEP)
     bbepPCA9535PinMode(15, INPUT); // TPS_nINT
     return BBEP_SUCCESS;
 } /* EPDiyV7IOInit() */
+//
+// Initialize the IO for the Sensoria ESP32-C5 PCB
+//
+int SensoriaIOInit(void *pBBEP)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    
+ //   Serial.println("SensoriaIOInit");
+ //   Serial.printf("CKV = %d, SPH = %d, LE = %d, CL = %d, SDA = %d, SCL = %d", pState->panelDef.ioCKV, pState->panelDef.ioSPH, pState->panelDef.ioLE, pState->panelDef.ioCL, pState->panelDef.ioSDA, pState->panelDef.ioSCL);
+//    if (pState->panelDef.ioPWR < 0x100) bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
+//    bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
+    bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
+//    if (pState->panelDef.ioOE < 0x100) bbepPinMode(pState->panelDef.ioOE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioLE, OUTPUT);
+    bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
+    memset(ioRegs, 0, sizeof(ioRegs)); // copy of IO expander registers
+    for (int i=0; i<6; i++) { // set lower 6 bits as outputs
+        bbepPCA9535PinMode(i, OUTPUT);
+    }
+    bbepPCA9535PinMode(6, INPUT); // TPS_PWR_GOOD
+    bbepPCA9535PinMode(7, INPUT); // TPS_nINT
+    return BBEP_SUCCESS;
+} /* SensoriaIOInit() */
 //
 // Initialize the IO for the V7 RAW PCB
 //
@@ -1188,6 +1313,43 @@ void EPDiyV7RowControl(void *pBBEP, int iType)
         delayMicroseconds(0);
     }
 }
+
+void SensoriaRowControl(void *pBBEP, int iType)
+{
+    FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
+    gpio_num_t le = (gpio_num_t)pState->panelDef.ioLE;
+
+    if (iType == ROW_START) {
+        gpio_set_level(ckv, 1); // CKV on
+        delayMicroseconds(7);
+        bbepPCA9535DigitalWrite(2, 0); // SPV off
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); // CKV on
+        delayMicroseconds(8);
+        bbepPCA9535DigitalWrite(2, 1); // SPV on
+        delayMicroseconds(10);
+        gpio_set_level(ckv, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); // CKV on
+        delayMicroseconds(18);
+        gpio_set_level(ckv, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); // CKV on
+        delayMicroseconds(18);
+        gpio_set_level(ckv, 0); // CKV off
+        delayMicroseconds(0);
+        gpio_set_level(ckv, 1); // CKV on
+    } else if (iType == ROW_STEP) {
+        gpio_set_level(ckv, 0); // CKV off
+        gpio_set_level(le, 1); // LE toggle
+        gpio_set_level(le, 0);
+        delayMicroseconds(0);
+    }
+} /* SensoriaRowControl() */
+
 void Inkplate6PlusRowControl(void *pBBEP, int iType)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
@@ -1273,7 +1435,9 @@ void bbepRowControl(FASTEPDSTATE *pState, int iType)
 void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 {
     esp_err_t err;
-
+    
+//    Serial.printf("bbepWriteRow %d bytes\n", iLen);
+    
     while (!dma_is_done) {
         delayMicroseconds(1);
     }
@@ -1286,9 +1450,15 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
     }
     dma_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
+#ifdef ARDUINO_ESP32C5_DEV
+    parlio_transmit_config_t tx_cfg;
+    memset(&tx_cfg, 0, sizeof(tx_cfg));
+    err = parlio_tx_unit_transmit(parlio_tx_handle, pData, (iLen + pState->panelDef.iLinePadding) * 8, &tx_cfg);
+#else
     err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen + pState->panelDef.iLinePadding);
+#endif // S3/C5
     if (err != ESP_OK) {
-     //   Serial.printf("Error %d sending LCD data\n", (int)err);
+       // Serial.printf("Error %d sending row data\n", (int)err);
     }
 //    while (!dma_is_done) {
 //        delayMicroseconds(1);
@@ -1316,6 +1486,42 @@ int bbepIOInit(FASTEPDSTATE *pState)
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
     pState->iFullPasses = 5; // the default number of passes for smooth and full updates
+#ifdef ARDUINO_ESP32C5_DEV
+    memset(&parlio_tx_config, 0, sizeof(parlio_tx_config));
+    parlio_tx_config.clk_src = PARLIO_CLK_SRC_DEFAULT;
+    parlio_tx_config.clk_in_gpio_num = (gpio_num_t)-1; // external clock disabled
+    parlio_tx_config.output_clk_freq_hz = pState->panelDef.bus_speed;
+    parlio_tx_config.data_width = pState->panelDef.bus_width;
+    for (int i=0; i<pState->panelDef.bus_width; i++) {
+        parlio_tx_config.data_gpio_nums[i] = (gpio_num_t)pState->panelDef.data[i];
+    }
+    if (pState->panelDef.bus_width < 16) {
+        for (int i=8; i<16; i++) {
+            parlio_tx_config.data_gpio_nums[i] = (gpio_num_t)-1;
+        }
+    }
+    parlio_tx_config.clk_out_gpio_num = (gpio_num_t)pState->panelDef.ioCL;
+    parlio_tx_config.valid_gpio_num = (gpio_num_t)pState->panelDef.ioSPH; // CS
+    parlio_tx_config.valid_start_delay = 1; // N.B. this cannot be 0
+    parlio_tx_config.valid_stop_delay = 10;
+    parlio_tx_config.trans_queue_depth = 2;
+    parlio_tx_config.max_transfer_size = 1024; // max 4096 pixels
+    parlio_tx_config.dma_burst_size = 32;
+    parlio_tx_config.sample_edge = PARLIO_SAMPLE_EDGE_POS;
+    parlio_tx_config.flags = {
+        .invert_valid_out = true, // The valid signal is high by default, inverted to simulate the chip select signal CS in QPI timing
+    };
+   // parlio_tx_config.clk_gate_en = 0; // disable
+    parlio_tx_handle = NULL;
+    ESP_ERROR_CHECK(parlio_new_tx_unit(&parlio_tx_config, &parlio_tx_handle));
+    parlio_tx_event_callbacks_t tx_callbacks;
+    tx_callbacks.on_trans_done = c5_notify_dma_ready;
+    ESP_ERROR_CHECK(parlio_tx_unit_register_event_callbacks(parlio_tx_handle, &tx_callbacks, nullptr));
+    ESP_ERROR_CHECK(parlio_tx_unit_enable(parlio_tx_handle));
+//    bSlowSPH = 1; // no CS signal in PARLIO
+//    u8SPH = (gpio_num_t)pState->panelDef.ioSPH;
+    u8CKV = (gpio_num_t)pState->panelDef.ioCKV;
+#else
     // Initialize the ESP32 LCD API to drive parallel data at high speed
     // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
     s3_bus_config.dc_gpio_num = (gpio_num_t)pState->panelDef.ioDCDummy;
@@ -1323,7 +1529,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     s3_bus_config.bus_width = pState->panelDef.bus_width;
     for (int i=0; i<pState->panelDef.bus_width; i++) {
         s3_bus_config.data_gpio_nums[i] = pState->panelDef.data[i];
-    }   
+    }
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&s3_bus_config, &i80_bus));
     s3_io_config.pclk_hz = pState->panelDef.bus_speed;
     if (pState->panelDef.flags & BB_PANEL_FLAG_SLOW_SPH) {
@@ -1335,6 +1541,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
         s3_io_config.cs_gpio_num = (gpio_num_t)pState->panelDef.ioSPH;
     }
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
+#endif // ESP32 C5/S3
     dma_is_done = true;
     //Serial.println("IO init done");
     return BBEP_SUCCESS;
