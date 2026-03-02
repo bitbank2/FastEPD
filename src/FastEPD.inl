@@ -15,7 +15,7 @@
 //===========================================================================
 //
 #include "FastEPD.h"
-#ifdef ARDUINO_ESP32C5_DEV
+#ifdef CONFIG_IDF_TARGET_ESP32C5
 #include "driver/parlio_tx.h"
 #else
 #include <esp_lcd_panel_io.h>
@@ -208,7 +208,7 @@ const BBPANELDEF panelDefs[] = {
     // width, height, bus_speed, flags, data[8], bus_width, ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
     // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
 {1280, 720, 40000000, BB_PANEL_FLAG_MIRROR_Y, {8,23,10,9,24,25,26,27}, 8, 26, 0, 5, 4, 0, 2,
-    3, 0, 7, 6, 0, 0, 0, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_SENSORIA_C5
+    3, 0, 7, 6, 0, 0, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 16, -1600}, // BB_PANEL_SENSORIA_C5
 };
 //
 // Forward references for panel callback functions
@@ -277,7 +277,7 @@ static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, nee
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
-#ifdef ARDUINO_ESP32C5_DEV
+#ifdef CONFIG_IDF_TARGET_ESP32C5
 parlio_tx_unit_config_t parlio_tx_config;
 parlio_tx_unit_handle_t parlio_tx_handle;
 static bool c5_notify_dma_ready(parlio_tx_unit_handle_t handle, const parlio_tx_done_event_data_t *edata, void *user_ctx)
@@ -1450,7 +1450,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
     }
     dma_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
-#ifdef ARDUINO_ESP32C5_DEV
+#ifdef CONFIG_IDF_TARGET_ESP32C5
     parlio_transmit_config_t tx_cfg;
     memset(&tx_cfg, 0, sizeof(tx_cfg));
     err = parlio_tx_unit_transmit(parlio_tx_handle, pData, (iLen + pState->panelDef.iLinePadding) * 8, &tx_cfg);
@@ -1486,7 +1486,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
     pState->iFullPasses = 5; // the default number of passes for smooth and full updates
-#ifdef ARDUINO_ESP32C5_DEV
+#ifdef CONFIG_IDF_TARGET_ESP32C5
     memset(&parlio_tx_config, 0, sizeof(parlio_tx_config));
     parlio_tx_config.clk_src = PARLIO_CLK_SRC_DEFAULT;
     parlio_tx_config.clk_in_gpio_num = (gpio_num_t)-1; // external clock disabled
