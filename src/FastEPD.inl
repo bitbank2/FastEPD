@@ -207,7 +207,7 @@ const BBPANELDEF panelDefs[] = {
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4_16
     // width, height, bus_speed, flags, data[8], bus_width, ioPWR, ioSPV, ioCKV, ioSPH, ioOE, ioLE,
     // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
-{0, 0, 20000000, BB_PANEL_FLAG_SLOW_SPH, {8,23,10,9,24,25,26,27}, 8, 26, 0, 5, 4, 0, 2,
+{1280, 720, 40000000, BB_PANEL_FLAG_MIRROR_Y, {8,23,10,9,24,25,26,27}, 8, 26, 0, 5, 4, 0, 2,
     3, 0, 7, 6, 0, 0, 0, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_SENSORIA_C5
 };
 //
@@ -1503,7 +1503,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     parlio_tx_config.clk_out_gpio_num = (gpio_num_t)pState->panelDef.ioCL;
     parlio_tx_config.valid_gpio_num = (gpio_num_t)pState->panelDef.ioSPH; // CS
     parlio_tx_config.valid_start_delay = 1; // N.B. this cannot be 0
-    parlio_tx_config.valid_stop_delay = 10;
+    parlio_tx_config.valid_stop_delay = 1;
     parlio_tx_config.trans_queue_depth = 2;
     parlio_tx_config.max_transfer_size = 1024; // max 4096 pixels
     parlio_tx_config.dma_burst_size = 32;
