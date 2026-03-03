@@ -193,7 +193,7 @@ const BBPANELDEF panelDefs[] = {
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDIY_V7_16
 
     {0, 0, 26666666, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 9, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_V7_RAW
+      4, 14, 39, 40, BB_NOT_USED, 0, 0, u8M5Matrix, sizeof(u8M5Matrix), 32, -1600}, // BB_PANEL_V7_RAW
     //                                             D8                 15 D0                  D7          STV,CKV,XSTL,OE,XLE
     {960, 540, 20000000, BB_PANEL_FLAG_SLOW_SPH, {11,12,13,14,21,47,45,38}, 8, BB_NOT_USED, BB_NOT_USED, 39, 9, 0, 0,
       10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5PRO 
@@ -883,7 +883,7 @@ int vcom;
             vTaskDelay(1);
         }
         if (iTimeout >= 400) {
-            // Serial.println("The power_good signal never arrived!");
+           // Serial.println("The power_good signal never arrived!");
             return BBEP_IO_ERROR;
         }
         pState->pwr_on = 1;
@@ -1147,6 +1147,7 @@ int SensoriaIOInit(void *pBBEP)
 int EPDiyV7RAWIOInit(void *pBBEP)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     bbepPinMode(pState->panelDef.ioPWR, OUTPUT);
     bbepPinMode(pState->panelDef.ioSPV, OUTPUT);
     bbepPinMode(pState->panelDef.ioCKV, OUTPUT);
