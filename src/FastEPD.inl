@@ -1897,12 +1897,11 @@ void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
             // Send the data
             if (dy < iStartRow || dy > iEndRow) { // skip this row
-                memset(pState->dma_buf, 0xff, pState->native_width / 4);
+                memset(pState->dma_buf, 0, pState->native_width / 4);
             } else { // mask the area we want to change
                 memcpy(pState->dma_buf, u8Cache, pState->native_width / 4);
             }
             bbepWriteRow(pState, pState->dma_buf, pState->native_width / 4, (i!=0));
-            //bbepRowControl(pState, ROW_STEP);
         }
         delayMicroseconds(230);
     }
@@ -2005,6 +2004,81 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
     if (!bKeepOn) bbepEinkPower(pState, 0);
     return BBEP_SUCCESS;
 } /* bbepSmoothUpdate() */
+//  
+// Perform a fast (single flash) update
+// This allows for faster 1-bpp updates without an explicit clear step
+//  
+int bbepFastUpdate(FASTEPDSTATE *pState, bool bKeepOn)
+{
+    uint8_t *s, *d;
+    int i, n, pass, iDMAOff, dy; // destination Y for flipped displays
+
+    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->mode != BB_MODE_1BPP) return BBEP_ERROR_BAD_PARAMETER;
+    if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+    // Set the color in two steps (inverted, non-inverted)
+    // First create the 2-bit codes per pixel for pushing both white and black simultaneously
+    for (i = 0; i < pState->native_height; i++) {
+        dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+        s = &pState->pCurrent[i * (pState->native_width/8)];
+        d = &pState->pTemp[dy * (pState->native_width/4)];
+        memcpy(&pState->pPrevious[i * (pState->native_width/8)], s, pState->native_width / 8); // previous = current
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            s += (pState->native_width/8) - 1;
+            for (n = 0; n < (pState->native_width / 4); n += 4) {
+                uint8_t dram2 = *s--;
+                uint8_t dram1 = *s--;
+                *(uint16_t *)&d[n] = LUTBW_16[dram2];
+                *(uint16_t *)&d[n+2] = LUTBW_16[dram1];
+            }
+        } else {
+            for (n = 0; n < (pState->native_width / 4); n += 4) {
+                uint8_t dram1 = *s++;
+                uint8_t dram2 = *s++;
+                *(uint16_t *)&d[n+2] = LUTBW_16[dram2];
+                *(uint16_t *)&d[n] = LUTBW_16[dram1];
+            }
+        }
+    } // for i
+    // Write N passes of the push data, but inverted first
+    for (pass = 0; pass < pState->iFullPasses; pass++) {
+        uint32_t *s32, *d32;
+        int iPitch = pState->native_width / 4; // bytes
+        iPitch = (iPitch+3)/4; // 32-bit words
+        bbepRowControl(pState, ROW_START);
+        iDMAOff = 0;
+        for (i = 0; i < pState->native_height; i++) {
+            d = &pState->dma_buf[iDMAOff];
+            d32 = (uint32_t *)d;
+            s32 = (uint32_t *)&pState->pTemp[i * (pState->native_width / 4)];
+            // Send the data for the row
+            for (n = 0; n < iPitch; n++) {
+                *d32++ = ~(*s32++); // inverted
+            }
+            bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
+            iDMAOff ^= (pState->native_width/4);
+        }
+        delayMicroseconds(230);
+    } // for inverted passes
+    // Write N passes of the push data, but non-inverted
+    for (pass = 0; pass < pState->iFullPasses; pass++) {
+        int iPitch = pState->native_width / 4; // bytes
+        bbepRowControl(pState, ROW_START);
+        iDMAOff = 0;
+        for (i = 0; i < pState->native_height; i++) {
+            d = &pState->dma_buf[iDMAOff];
+            s = &pState->pTemp[i * (pState->native_width / 4)];
+            // Send the data for the row
+            memcpy(d, s, iPitch);
+            bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
+            iDMAOff ^= (pState->native_width/4);
+        }
+        delayMicroseconds(230);
+    } // for non-inverted passes
+    // Set the drivers inside epaper panel into discharge state.
+    bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
+    if (!bKeepOn) bbepEinkPower(pState, 0);
+    return BBEP_SUCCESS;
+} /* bbepFastUpdate() */
 //
 // Perform a full (flashing) update given the current mode and pixels
 // The time to perform the update can vary greatly depending on the pixel mode

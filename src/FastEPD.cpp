@@ -394,6 +394,11 @@ void FASTEPD::fillScreen(uint8_t u8Color)
     bbepFillScreen(&_state, u8Color);
 } /* fillScreen() */
 
+int FASTEPD::fastUpdate(bool bKeepOn)
+{
+    return bbepFastUpdate(&_state, bKeepOn);
+} /* fastUpdate() */
+
 int FASTEPD::fullUpdate(int iClearMode, bool bKeepOn, BB_RECT *pRect)
 {
     return bbepFullUpdate(&_state, iClearMode, bKeepOn, pRect);
