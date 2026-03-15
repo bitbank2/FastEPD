@@ -30,6 +30,7 @@
 #define BB_PANEL_FLAG_MIRROR_X 0x01
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
 #define BB_PANEL_FLAG_SLOW_SPH 0x04
+#define BB_PANEL_FLAG_DARK     0x08
 
 #define BB_NOT_USED 0xff
 #define BBEP_TRANSPARENT 255
@@ -40,7 +41,6 @@ enum {
    CLEAR_FAST, // 8 passes black/white
    CLEAR_SLOW, // 10 passes black/white/black/white
    CLEAR_WHITE, // 8 passes to white
-   CLEAR_EXTRA_WHITE, // 12 passes to white
    CLEAR_BLACK, // 8 passes to black
 };
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
