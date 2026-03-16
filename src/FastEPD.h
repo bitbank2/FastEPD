@@ -197,7 +197,7 @@ typedef struct tag_fastepdstate
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode;
     uint8_t shift_data, anti_alias, italic, bit_bang;
-    uint8_t u8LED1, u8LED2;
+    uint8_t u8LED1, u8LED2, prev_mode;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
     int rotation;
@@ -248,6 +248,7 @@ class FASTEPD
     void ioWrite(uint8_t u8Pin, uint8_t iValue);
     uint8_t ioRead(uint8_t u8Pin);
     int getMode(void) {return _state.mode;}
+    int getPreviousMode(void) {return _state.prev_mode;}
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     int einkPower(int bOn);

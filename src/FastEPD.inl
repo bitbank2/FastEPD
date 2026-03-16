@@ -2378,6 +2378,8 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
     printf("fullUpdate time: %dms\n", (int)l);
 #endif 
 #endif // SHOW_TIME
+    // Mark this as able to do a partialUpdate() to the same bit mode
+    pState->prev_mode = pState->mode;
     return BBEP_SUCCESS;
 } /* bbepFullUpdate() */
 //
