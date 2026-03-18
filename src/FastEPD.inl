@@ -2107,8 +2107,8 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
         case CLEAR_FAST:
-            bbepClear(pState, BB_CLEAR_DARKEN, 6, pRect);
-            bbepClear(pState, BB_CLEAR_LIGHTEN, 6, pRect);
+            bbepClear(pState, BB_CLEAR_DARKEN, 8, pRect);
+            bbepClear(pState, BB_CLEAR_LIGHTEN, 8, pRect);
             break;
         case CLEAR_WHITE:
             if (pState->panelDef.flags & BB_PANEL_FLAG_DARK) {
@@ -2383,6 +2383,115 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
     return BBEP_SUCCESS;
 } /* bbepFullUpdate() */
 //
+// Convert the previous image buffer contents to be
+// the same bit depth as the current mode (1 or 2-bpp) so that
+// it can do a differential (partial/non-flickering) update
+//
+void bbepConvertPrevBuffer(FASTEPDSTATE *pState)
+{
+    uint8_t *s, *d, *c;
+    int i, n, x, y, iSrcPitch, iDestPitch;
+    
+    switch (pState->prev_mode) {
+        case BB_MODE_1BPP:
+            iSrcPitch = pState->native_width / 8;
+            break;
+        case BB_MODE_2BPP:
+            iSrcPitch = pState->native_width / 4;
+            break;
+        case BB_MODE_4BPP:
+            iSrcPitch = pState->native_width / 2;
+            break;
+    }
+    if (pState->mode == BB_MODE_1BPP) { // convert to 1-bpp
+        iDestPitch = pState->native_width / 8;
+        for (y=0; y<pState->native_height; y++) {
+            s = &pState->pPrevious[iSrcPitch * y];
+            d = &pState->pTemp[iDestPitch * y];
+            c = &pState->pCurrent[iDestPitch * y];
+            if (pState->prev_mode == BB_MODE_2BPP) {
+                for (x=0; x<pState->native_width; x+=8) { // work 8 pixels at a time
+                    uint8_t ucSrc, ucCurr, ucDest = 0;
+                    ucCurr = *c++; // get current pixels in case we need to make a decision
+                    for (n=0; n<2; n++) { // work on 2 sets of 4 pixels
+                        ucSrc = *s++; // get 4 source pixels
+                        for (i=0; i<4; i++) {
+                            ucDest <<= 1;
+                            switch (ucSrc & 0xc0) {
+                                case 0xc0: // white - easy
+                                    ucDest |= 1; // compared pixel will be white
+                                case 0x00: // black - easy
+                                    break;
+                                case 0x80: // light or dark gray - difficult, check current pixel
+                                case 0x40:
+                                    ucDest |= ((ucCurr >> 7) ^ 1); // opposite of current color
+                                    break;
+                            }
+                            ucCurr <<= 1;
+                            ucSrc <<= 2;
+                        } // for i
+                    } // for n
+                    *d++ = ucDest;
+                } // for x
+            } else { // 4bpp => 1bpp
+                for (x=0; x<pState->native_width; x+=8) { // work 8 pixels at a time
+                    uint8_t ucSrc, ucCurr, ucDest = 0;
+                    ucCurr = *c++; // get current pixels in case we need to make a decision
+                    for (n=0; n<4; n++) { // work on 4 sets of 2 pixels
+                        ucSrc = *s++; // get 2 source pixels
+                        for (i=0; i<2; i++) {
+                            ucDest <<= 1;
+                            switch (ucSrc & 0xf0) {
+                                case 0xf0: // white - easy
+                                    ucDest |= 1; // compared pixel will be white
+                                case 0x00: // black - easy
+                                    break;
+                                default: // middle grays - difficult, check current pixel
+                                    ucDest |= ((ucCurr >> 7) ^ 1); // opposite of current color
+                                    break;
+                            }
+                            ucCurr <<= 1;
+                            ucSrc <<= 4;
+                        } // for i
+                    } // for n
+                    *d++ = ucDest;
+                } // for x
+            } // previous pixels are 4-bpp
+        } // for y
+    } else { // convert to 2-bpp
+        iDestPitch = pState->native_width / 4;
+        for (y=0; y<pState->native_height; y++) {
+            s = &pState->pPrevious[iSrcPitch * y];
+            d = &pState->pTemp[iDestPitch * y];
+            c = &pState->pCurrent[iDestPitch * y];
+            if (pState->prev_mode == BB_MODE_1BPP) {
+                const uint8_t u8Conv1To2[16] = {0, 3, 0xc, 0xf, 0x30, 0x33, 0x3c, 0x3f,
+                                                0xc0, 0xc3, 0xcc, 0xcf, 0xf0, 0xf3, 0xfc, 0xff}; // convert each nibble
+                // Simple direct convertsion: 0->00, 1->11
+                for (x=0; x<pState->native_width; x += 8) { // work 8 pixels at a time
+                    uint8_t ucSrc = *s++; // get 8 source pixels
+                    *d++ = u8Conv1To2[ucSrc>>4];
+                    *d++ = u8Conv1To2[ucSrc & 0xf];
+                } // for x
+            } else { // 4bpp => 2bpp
+                for (x=0; x<pState->native_width; x += 4) { // work 4 pixels at a time
+                    uint8_t ucSrc, ucDest;
+                    ucSrc = *s++; // get 2 source pixels
+                    ucDest = (ucSrc & 0xc0); // left pixel top 2 bits
+                    ucDest |= ((ucSrc >> 2) << 4); // right pixel top 2 bits
+                    ucSrc = *s++; // another 2 source pixels
+                    ucDest |= ((ucSrc >> 6) << 2);
+                    ucDest |= (ucSrc >> 2);
+                    *d++ = ucDest;
+                } // for x
+            } // previous pixels are 4-bpp
+        } // for y
+    }
+    // Now we can overwrite the old pixels with the converted ones
+    memcpy(pState->pPrevious, pState->pTemp, iDestPitch * pState->native_height);
+    pState->prev_mode = pState->mode;
+} /* bbepConvertPrevBuffer() */
+//
 // Non-flickering update in 2-bpp gray mode
 //
 int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
@@ -2574,6 +2683,11 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
 
 // Only supported in 1-bit mode (for now)
     if (pState->mode != BB_MODE_1BPP && pState->mode != BB_MODE_2BPP) return BBEP_ERROR_BAD_PARAMETER;
+    if (pState->prev_mode == BB_MODE_NONE) return BBEP_ERROR_BAD_PARAMETER;
+    
+    if (pState->prev_mode != pState->mode) { // convert 1/2/4-bpp previous image to make current bit depth
+        bbepConvertPrevBuffer(pState);
+    }
 
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
 

@@ -249,8 +249,10 @@ class FASTEPD
     uint8_t ioRead(uint8_t u8Pin);
     int getMode(void) {return _state.mode;}
     int getPreviousMode(void) {return _state.prev_mode;}
+    void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
+    uint8_t *tempBuffer(void) { return _state.pTemp;}
     int einkPower(int bOn);
     void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
     int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);
