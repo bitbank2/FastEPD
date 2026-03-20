@@ -329,6 +329,106 @@ static uint8_t u8Unicode0, u8Unicode1;
   return 1;
 } /* write() */
 
+#ifndef ARDUINO
+void FASTEPD::print(const string &str)
+{
+   print(str.c_str());
+} /* print() */
+
+void FASTEPD::println(const string &str)
+{
+char ucTemp[4];
+
+   print(str);
+   ucTemp[0] = '\n';
+   ucTemp[1] = '\r';
+   ucTemp[2] = 0;
+   print((const char *)ucTemp);
+} /* print() */
+
+void FASTEPD::print(const char *pString)
+{
+uint8_t *s = (uint8_t *)pString;
+
+   while (*s != 0) {
+      write(*s++);
+   }
+} /* print() */
+
+void FASTEPD::println(const char *pString)
+{
+char ucTemp[4];
+
+    print(pString);
+    ucTemp[0] = '\n';
+    ucTemp[1] = '\r';
+    ucTemp[2] = 0;
+    print((const char *)ucTemp);
+} /* println() */
+
+void FASTEPD::print(int value, int format)
+{
+char c, ucTemp[32];
+char *d = &ucTemp[31];
+
+   if (value) {
+   d[0] = 0;
+   switch(format) {
+      case DEC:
+         while (value) {
+             d--;
+             *d = '0' + (value % 10);
+             value /= 10;
+         }
+         break;
+      case HEX:
+         while (value) {
+            d--;
+            c = value & 0xf;
+            if (c < 10)
+                    *d = '0' + c;
+            else
+                    *d = 'A' + (c-10);
+            value >>= 4;
+         }
+         break;
+      case OCT:
+         while (value) {
+            d--;
+            *d = '0' + (value & 7);
+            value >>= 3;
+         }
+         break;
+      case BIN:
+         while (value) {
+            d--;
+            *d = '0' + (value & 1);
+            value >>= 1;
+         }
+         break;
+      default:
+         break;
+      }
+   } else { // if zero value
+     d--;
+     *d = '0';
+   }
+      print((const char *)d);
+} /* print() */
+
+void FASTEPD::println(int value, int format)
+{
+char ucTemp[4];
+
+        print(value, format);
+        ucTemp[0] = '\n';
+        ucTemp[1] = '\r';
+        ucTemp[2] = 0;
+        print((const char *)ucTemp);
+} /* println() */
+
+#endif // !ARDUINO
+
 void FASTEPD::setBrightness(uint8_t led1, uint8_t led2)
 {
     bbepSetBrightness(&_state, led1, led2);

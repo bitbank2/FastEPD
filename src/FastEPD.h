@@ -26,6 +26,12 @@
 #include <string.h>
 #ifdef __LINUX__
 #define gpio_num_t uint8_t
+#include <string>
+using namespace std;
+#define DEC 10
+#define HEX 16
+#define OCT 8
+#define BIN 2
 #endif // __LINUX__
 #endif
 
@@ -296,6 +302,12 @@ class FASTEPD
     virtual size_t write(uint8_t);
 #else
     size_t write(uint8_t);
+    void print(const char *pString);
+    void println(const char *pString);
+    void print(int, int);
+    void println(int, int);
+    void print(const string &);
+    void println(const string &);
 #endif
 
   protected:
