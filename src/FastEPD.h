@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __LINUX__
+#define gpio_num_t uint8_t
+#endif // __LINUX__
 #endif
 
 #define BB_PANEL_FLAG_NONE     0x00
@@ -73,6 +76,7 @@ enum {
     BB_PANEL_TRMNL_X,
     BB_PANEL_EPDINKY_P4,
     BB_PANEL_EPDINKY_P4_16,
+    BB_PANEL_RPI,
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
@@ -152,7 +156,8 @@ enum {
 enum {
     ROW_START = 0,
     ROW_STEP,
-    ROW_END
+    ROW_END,
+    ROW_STEP_FAST
 };
 
 // error messages

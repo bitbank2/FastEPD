@@ -23,7 +23,11 @@
 #include <Wire.h>
 #endif
 #include "FastEPD.h"
+#ifdef __LINUX__
+#include "linux_io.inl"
+#else
 #include "arduino_io.inl"
+#endif // !__LINUX__
 #include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 
