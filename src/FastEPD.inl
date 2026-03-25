@@ -185,6 +185,9 @@ const BBPANELDEF panelDefs[] = {
     {1280, 720, 13333333, BB_PANEL_FLAG_SLOW_SPH | BB_PANEL_FLAG_MIRROR_X, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
       0, 7, 21, 22, 3, 5, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 16, -1600}, // BB_PANEL_INKPLATE5V2
 
+    {1200, 825, 13333333, BB_PANEL_FLAG_SLOW_SPH, {4,5,18,19,23,25,26,27}, 8, 4, 2, 32, 33, 0, 2,
+      0, 7, 21, 22, 3, 5, 15, u8NineInchMatrix, sizeof(u8NineInchMatrix), 16, -1800}, // BB_PANEL_INKPLATE10
+
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {9,10,11,12,13,14,21,47,5,6,7,15,16,17,18,8}, 16, 11, 45, 48, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDIY_V7_16
 
@@ -232,6 +235,10 @@ void Inkplate6PlusRowControl(void *pBBEP, int iMode);
 int Inkplate5V2EinkPower(void *pBBEP, int bOn);
 int Inkplate5V2IOInit(void *pBBEP);
 void Inkplate5V2RowControl(void *pBBEP, int iMode);
+// Inkplate10 (9.7" 1200x825 panel, dual PCAL6416A expanders, TPS65186 PMIC)
+int Inkplate10EinkPower(void *pBBEP, int bOn);
+int Inkplate10IOInit(void *pBBEP);
+void Inkplate10RowControl(void *pBBEP, int iMode);
 uint8_t EPDiyV7ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
 uint8_t Inkplate5V2ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
 
@@ -243,6 +250,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7
     {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl, NULL, NULL}, // BB_PANEL_INKPLATE6PLUS
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL, Inkplate5V2ExtIO}, // Inkplate5V2
+    {Inkplate10EinkPower, Inkplate10IOInit, Inkplate10RowControl, NULL, NULL}, // BB_PANEL_INKPLATE10
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
@@ -1262,6 +1270,100 @@ void Inkplate5V2RowControl(void *pBBEP, int iType)
         delayMicroseconds(0);
     }
 }
+//
+// Inkplate10 uses PCAL6416A expanders for panel control.
+//
+int Inkplate10EinkPower(void *pBBEP, int bOn)
+{
+FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
+uint8_t ucTemp[4];
+
+    if (bOn == pState->pwr_on) return BBEP_SUCCESS;
+    
+    if (bOn) {
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftSTR, 1); // WAKEUP on
+        delay(5);
+        
+        // Match the official Inkplate 10 TPS65186 sequence.
+        ucTemp[0] = 0x01;
+        ucTemp[1] = 0x20;
+        bbepI2CWrite(0x48, ucTemp, 2);
+        
+        ucTemp[0] = 0x09;
+        ucTemp[1] = 0xe4;
+        bbepI2CWrite(0x48, ucTemp, 2);
+
+        ucTemp[0] = 0x0b;
+        ucTemp[1] = 0x1b;
+        bbepI2CWrite(0x48, ucTemp, 2);
+        
+        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 1); // PWRUP on
+        
+        gpio_set_level((gpio_num_t)pState->panelDef.ioLE, 0); // LE off (GPIO 2)
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 1); // SPH on (GPIO 33)
+        bbepPCALDigitalWrite(1, 1); // GMOD on
+        bbepPCALDigitalWrite((uint8_t)pState->panelDef.ioSPV, 1); // SPV on
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off (GPIO 32)
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 1); // VCOM on
+        
+        unsigned long timer = millis();
+        do {
+            delay(1);
+        } while (!bbepReadPowerGood() && (millis() - timer) < 250);
+        
+        if ((millis() - timer) >= 250) {
+            bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off
+            bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off
+            return BBEP_IO_ERROR;
+        }
+        
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 1); // OE on
+        pState->pwr_on = 1;
+    } else {
+        bbepPCALDigitalWrite(pState->panelDef.ioOE, 0); // OE off
+        bbepPCALDigitalWrite(1, 0); // GMOD off
+        bbepPCALDigitalWrite(pState->panelDef.ioLE, 0); // LE off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 0); // CKV off
+        gpio_set_level((gpio_num_t)pState->panelDef.ioSPH, 0); // SPH off
+        bbepPCALDigitalWrite(pState->panelDef.ioSPV, 0); // SPV off
+        bbepPCALDigitalWrite(pState->panelDef.ioShiftMask, 0); // VCOM off
+        bbepPCALDigitalWrite(pState->panelDef.ioPWR, 0); // PWR off
+        pState->pwr_on = 0;
+    }
+    return BBEP_SUCCESS;
+} /* Inkplate10EinkPower() */
+
+int Inkplate10IOInit(void *pBBEP)
+{
+    // Start with the PCAL-based Inkplate5V2 initialization path.
+    int rc = Inkplate5V2IOInit(pBBEP);
+    if (rc != BBEP_SUCCESS) return rc;
+
+#ifdef ARDUINO
+    Wire.setClock(400000);
+#endif
+    
+    // Inkplate10 touch buttons are read through PCAL pins 10, 11, and 12.
+    // They must stay configured as inputs on this board.
+    bbepPCALPinMode(10, INPUT);
+    bbepPCALPinMode(11, INPUT);
+    bbepPCALPinMode(12, INPUT);
+    
+    // Unused pins are driven low for lower idle power.
+    bbepPCALPinMode(14, OUTPUT);
+    bbepPCALDigitalWrite(14, LOW);
+    bbepPCALPinMode(15, OUTPUT);
+    bbepPCALDigitalWrite(15, LOW);
+
+    return BBEP_SUCCESS;
+} /* Inkplate10IOInit() */
+
+void Inkplate10RowControl(void *pBBEP, int iType)
+{
+    Inkplate5V2RowControl(pBBEP, iType);
+} /* Inkplate10RowControl() */
+
 void bbepRowControl(FASTEPDSTATE *pState, int iType)
 {
     (*(pState->pfnRowControl))(pState, iType);
