@@ -238,7 +238,6 @@ void Inkplate5V2RowControl(void *pBBEP, int iMode);
 // Inkplate10 (9.7" 1200x825 panel, dual PCAL6416A expanders, TPS65186 PMIC)
 int Inkplate10EinkPower(void *pBBEP, int bOn);
 int Inkplate10IOInit(void *pBBEP);
-void Inkplate10RowControl(void *pBBEP, int iMode);
 uint8_t EPDiyV7ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
 uint8_t Inkplate5V2ExtIO(uint8_t iOp, uint8_t iPin, uint8_t iVal);
 
@@ -250,7 +249,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7
     {Inkplate6PlusEinkPower, Inkplate6PlusIOInit, Inkplate6PlusRowControl, NULL, NULL}, // BB_PANEL_INKPLATE6PLUS
     {Inkplate5V2EinkPower, Inkplate5V2IOInit, Inkplate5V2RowControl, NULL, Inkplate5V2ExtIO}, // Inkplate5V2
-    {Inkplate10EinkPower, Inkplate10IOInit, Inkplate10RowControl, NULL, NULL}, // BB_PANEL_INKPLATE10
+    {Inkplate10EinkPower, Inkplate10IOInit, Inkplate5V2RowControl, NULL, NULL}, // BB_PANEL_INKPLATE10
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_EPDIY_V7_16
     {EPDiyV7RAWEinkPower, EPDiyV7RAWIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_V7_RAW
     {LilyGoEinkPower, LilyGoIOInit, LilyGoRowControl, NULL, NULL},// BB_PANEL_LILYGO_T5PRO
@@ -1358,11 +1357,6 @@ int Inkplate10IOInit(void *pBBEP)
 
     return BBEP_SUCCESS;
 } /* Inkplate10IOInit() */
-
-void Inkplate10RowControl(void *pBBEP, int iType)
-{
-    Inkplate5V2RowControl(pBBEP, iType);
-} /* Inkplate10RowControl() */
 
 void bbepRowControl(FASTEPDSTATE *pState, int iType)
 {
