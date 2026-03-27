@@ -1,3 +1,7 @@
 .vscode
 build
 
+examples/virtualPanel/antialias_font/antialias_font.dSYM/Contents/Info.plist
+examples/virtualPanel/antialias_font/antialias_font.dSYM/Contents/Resources/DWARF/antialias_font
+examples/virtualPanel/antialias_font/antialias_font.dSYM/Contents/Resources/Relocations/aarch64/antialias_font.yml
+examples/virtualPanel/antialias_font/antialias_font
