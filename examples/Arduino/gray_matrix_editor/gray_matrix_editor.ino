@@ -12,8 +12,13 @@
 // terminal program.
 //
 #include <FastEPD.h>
+#include <PNGdec.h>
+#include "testimage.h"
+PNG png;
 FASTEPD epaper;
+int iXOff, iYOff;
 uint8_t ucTemp[64];
+uint16_t *usTemp;
 uint8_t u8_last[16 * 48]; // to allow UNDO of a single change
 // Starting gray matrix. Copy your current one here before compiling/running the program
 // This should normally be "const" data so that it gets written to FLASH, but for this
@@ -38,7 +43,7 @@ uint8_t u8_graytable[] = {
 };
 static int passes; // Calculated at startup based on the matrix size
 // List of supported commands
-const char *szCMDs[] = {"HELP", "LIST", "SHOW", "COPY", "SWAP", "EDIT", "UNDO", "CODE", 0};
+const char *szCMDs[] = {"HELP", "LIST", "SHOW", "COPY", "SWAP", "EDIT", "UNDO", "CODE", "IMAGE", 0};
 enum {
   CMD_HELP = 0,
   CMD_LIST,
@@ -48,8 +53,69 @@ enum {
   CMD_EDIT,
   CMD_UNDO,
   CMD_CODE,
+  CMD_IMAGE,
   CMD_COUNT
 };
+
+// Function to draw pixels to the display
+int PNGDraw(PNGDRAW *pDraw) {
+  uint16_t u16, *s;
+  uint8_t *d;
+  int iPitch, x, g0, g1;
+
+  if (pDraw->y >= epaper.height()) return 0; // past bottom, stop decoding
+
+#ifdef FUTURE
+  // easier to use this than to rewrite all of that code
+  png.getLineAsRGB565(pDraw, usTemp, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+  s = usTemp;
+  d = epaper.currentBuffer();
+  iPitch = epaper.width()/2;
+  d += ((iYOff + pDraw->y) * iPitch);
+  d += iXOff / 2;
+  for (x=0; x<pDraw->iWidth; x+=2) {
+      u16 = *s++;
+      g0 = (u16 & 0x7e0) >> 5; // calculate gray level
+      g0 += (u16 & 0x1f);
+      g0 += ((u16 & 0xf800) >> 11);
+      g0 = (g0 >> 3); // get 4-bit value
+      u16 = *s++;
+      g1 = (u16 & 0x7e0) >> 5; // calculate gray level
+      g1 += (u16 & 0x1f);
+      g1 += ((u16 & 0xf800) >> 11);
+      g1 = (g1 >> 3); // get 4-bit value
+      *d++ = (uint8_t)((g0 << 4) | g1);
+  }
+#else
+  d = epaper.currentBuffer();
+  d += pDraw->y * (epaper.width()/2);
+  memcpy(d, pDraw->pPixels, pDraw->iWidth/2);
+#endif
+  return 1;
+} /* PNGDraw() */
+
+void ShowImage()
+{
+int rc, w, h, x, y;
+
+    rc = png.openRAM((uint8_t *)testimage, sizeof(testimage), PNGDraw);
+    if (rc == PNG_SUCCESS) {
+        w = png.getWidth();
+        h = png.getHeight();
+        Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", w, h, png.getBpp(), png.getPixelType());
+          // Center the image on the display
+          x = (epaper.width() - w) / 2;
+          if (x < 0) x = 0;
+          y = (epaper.height() - h) / 2;
+          if (y < 0) y = 0;
+          iXOff = x; iYOff = y; // DEBUG
+          usTemp = (uint16_t *)malloc(w * 2);
+          rc = png.decode(NULL, 0);
+          free(usTemp);
+          png.close();
+          epaper.fullUpdate(false);
+       }
+} /* ShowImage() */
 
 // 125 seconds of no input will send a nag msg
 #define MAX_WAIT 2500
@@ -58,7 +124,7 @@ bool getCmd(char *szString)
 bool bFim = false;
 char c, *d = szString;
 
-int r, iTimeout = 0;
+int iTimeout = 0;
 
    d[0] = 0; // start with a null string in case we timeout
    while (!bFim && iTimeout < MAX_WAIT) {
@@ -153,6 +219,7 @@ void showHelp()
   Serial.println("EDIT n 0 1 2 2 1 0 0... write new values for row n");
   Serial.println("UNDO - undo the last change (only 1 step is reversible)");
   Serial.println("CODE - generate the code for the current gray matrix");
+  Serial.println("IMAGE - display the PNG test image");
 } /* showHelp() */
 
 // List the current values of the gray matrix in a form that can be easily copied
@@ -217,6 +284,9 @@ uint8_t *s, *d;
       break;
     case CMD_SHOW:
       ShowMatrix();
+      break;
+    case CMD_IMAGE:
+      ShowImage();
       break;
     case CMD_LIST:
       if (pData[1] < 0 || pData[1] > 15) {
@@ -284,11 +354,11 @@ void setup() {
   Serial.begin(115200);
   delay(3000); // wait for CDC serial to start
   passes = sizeof(u8_graytable) / 16;
-  epaper.initPanel(BB_PANEL_EPDIY_V7_16);
-  rc = epaper.setPanelSize(1872, 1404, BB_PANEL_FLAG_MIRROR_X);
-  if (rc != BBEP_SUCCESS) {
-      Serial.printf("setPanelSize returned %d\n", rc);
-  }
+  epaper.initPanel(BB_PANEL_TRMNL_X);
+//  rc = epaper.setPanelSize(1872, 1404, BB_PANEL_FLAG_MIRROR_X);
+//  if (rc != BBEP_SUCCESS) {
+//      Serial.printf("setPanelSize returned %d\n", rc);
+//  }
   epaper.setMode(BB_MODE_4BPP);
   ShowMatrix();
   memcpy(u8_last, u8_graytable, 16 * passes); // in case the user tries to UNDO first :)

@@ -2299,6 +2299,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
 //
 void bbepBackupPlane(FASTEPDSTATE *pState)
 {
+    if (pState->mode == BB_MODE_4BPP) return; // not applicable to 4-bpp mode
     int iSize = (pState->native_width/2) * pState->native_height;
     if (!pState->pPrevious || !pState->pCurrent) return;
     memcpy(pState->pPrevious, pState->pCurrent, iSize);
