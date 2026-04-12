@@ -11,6 +11,10 @@ FASTEPD epaper;
 #define REG09 9
 #define SDA_PIN 6
 #define SCL_PIN 5
+extern "C" {
+void s3_prep_diff(uint8_t *pCurr, uint8_t *pPrev, uint8_t *pDest, int iWidth);
+}
+
 //
 // Shut down the battery power of the LilyGo T5 S3 Pro
 // This is the only way to turn off the power and will only
@@ -35,8 +39,33 @@ uint8_t u8;
    Wire.endTransmission(); // won't even get here :)
 } /* T5Pro_Shutdown() */
 
+void TestSIMD(void)
+{
+static uint8_t c[16], p[16], d[32];
+   memset(c, 0, sizeof(c));
+   memset(p, 0, sizeof(p));
+   s3_prep_diff(c, p, d, 128);
+   Serial.printf("black->black, out: 0x%02x\n", d[0]);
+   memset(c, 0xff, sizeof(c));
+   s3_prep_diff(c, p, d, 128);
+   Serial.printf("black->white, out: 0x%02x\n", d[0]);
+   memset(c, 0, sizeof(c));
+   s3_prep_diff(c, p, d, 128);
+   Serial.printf("white->black, out: 0x%02x\n", d[0]);
+   memset(c, 0xff, sizeof(c));
+   memset(p, 0xff, sizeof(c));
+   s3_prep_diff(c, p, d, 128);
+   Serial.printf("white->white, out: 0x%02x\n", d[0]);
+   while (1) {
+      vTaskDelay(1);
+   }
+} /* TestSIMD() */
 void setup()
 {
+   Serial.begin(115200);
+   delay(3000);
+   Serial.println("Starting...");
+ //  TestSIMD();
    epaper.initPanel(BB_PANEL_LILYGO_T5PRO);
    epaper.clearWhite();
    epaper.setFont(FONT_12x16);

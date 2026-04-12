@@ -1,7 +1,7 @@
 //
-// C core functions for bb_epdiy
+// C core functions for the FastEPD library
 // Written by Larry Bank (bitbank@pobox.com)
-// Copyright (C) 2024 BitBank Software, Inc.
+// Copyright (C) 2024-2026 BitBank Software, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1496,7 +1496,7 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
         return BBEP_ERROR_NO_MEMORY;
     }
     // Allocate memory for each line to transmit
-    pState->dma_buf = (uint8_t *)heap_caps_malloc((pState->width / 2) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
+    pState->dma_buf = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width / 2) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
     iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
     pGrayLower = (uint8_t *)malloc(256 * iPasses);
     if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
@@ -1893,6 +1893,11 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
     if (!bKeepOn) bbepEinkPower(pState, 0);
     return BBEP_SUCCESS;
 } /* bbepSmoothUpdate() */
+
+extern "C" {
+void s3_onebit_black(uint8_t *pSrc, uint8_t *pDest, int iWidth);
+}
+
 //
 // Perform a full (flashing) update given the current mode and pixels
 // The time to perform the update can vary greatly depending on the pixel mode
@@ -2063,6 +2068,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
         // Set the color in multiple passes starting from white
         // First create the 2-bit codes per pixel for the black pixels
         uint8_t *s, *d;
+#ifndef FUTURE
         int dy; // destination Y for flipped displays
         for (i = 0; i < pState->native_height; i++) {
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
@@ -2100,12 +2106,15 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             }
             //vTaskDelay(0);
         } // for i
+#endif // FUTURE
         // Write N passes of the black data to the whole display
         for (pass = 0; pass < pState->iFullPasses; pass++) {
             bbepRowControl(pState, ROW_START);
             iDMAOff = 0;
             for (i = 0; i < pState->native_height; i++) {
                 d = &pState->dma_buf[iDMAOff];
+//                s = &pState->pCurrent[i * (pState->native_width/8)];
+//                s3_onebit_black(s, d, pState->native_width);
                 s = &pState->pTemp[i * (pState->native_width / 4)];
                 // Send the data for the row
                 memcpy(d, s, pState->native_width/4);
@@ -2180,6 +2189,41 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
     return BBEP_SUCCESS;
 } /* bbepFullUpdate() */
 
+#ifdef ARDUINO_ESP32S3_DEV
+#ifdef __cplusplus
+extern "C" {
+#endif // cpp
+void s3_prep_diff(uint8_t *pCurr, uint8_t *pPrev, uint8_t *pDest, int iWidth);
+#ifdef __cplusplus
+}
+#endif // cpp
+#endif // ARDUINO_ESP32S3_DEV
+// Future use
+void bbepPrepareDiff(uint8_t *c, uint8_t *p, uint8_t *d, int iWidth)
+{
+    int iPitch;
+    iPitch = (iWidth + 7)/8; // 1-bpp
+#ifdef ARDUINO_ESP32S3_DEV
+    s3_prep_diff(c, p, d, iWidth);
+#else
+    for (int n = 0; n < iWidth / 16; n++) {
+        uint8_t cur, prev, diffw, diffb;
+        cur = *c++; prev = *p;
+        *p++ = cur; // new->old
+        diffw = prev & ~cur;
+        diffb = ~prev & cur;
+        *(uint16_t *)&d[0] = LUTW_16[diffw] & LUTB_16[diffb];
+
+        cur = *c++; prev = *p;
+        *p++ = cur; // new->old
+        diffw = prev & ~cur;
+        diffb = ~prev & cur;
+        *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
+        d += 4;
+    }
+#endif
+} /* bbepPrepareDiff() */
+
 int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
     int i, n, pass, iDMAOff;
@@ -2234,7 +2278,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
                 diffb = ~prev & cur;
                 *(uint16_t *)&d[2] = LUTW_16[diffw] & LUTB_16[diffb];
                 d += 4;
-            }
+            } // for n
         }
     }
     if (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) {
