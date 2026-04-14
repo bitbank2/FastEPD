@@ -206,7 +206,9 @@ const BBPANELDEF panelDefs[] = {
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9}, 16, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4_16
+#ifdef __LINUX__
 {0, 0, 40000000, BB_PANEL_FLAG_NONE, {4,5,6,7,8,9,10,11}, 8, 24, 26, 20, 19, 16, 13,12, 23, 1, 0, 22, 21, 0, u8M5Matrix, sizeof(u8M5Matrix), 32, -1600}, // BB_PANEL_RPI
+#endif // __LINUX__
 };
 
 int PaperS3EinkPower(void *pBBEP, int bOn);
@@ -257,7 +259,9 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4_16
+#ifdef __LINUX__
     {RPIEinkPower, RPIIOInit, RPIRowControl, NULL, NULL}, // BB_PANEL_RPI
+#endif
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
