@@ -15,12 +15,14 @@
 //===========================================================================
 //
 #include "FastEPD.h"
+#ifndef __LINUX__
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_log.h>
 #if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT)
 #error "Please enable PSRAM support"
 #endif
+#endif // !__LINUX__
 
 #ifndef __BB_EP__
 #define __BB_EP__
@@ -204,18 +206,16 @@ const BBPANELDEF panelDefs[] = {
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9}, 16, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1600}, // BB_PANEL_EPDINKY_P4_16
+{0, 0, 40000000, BB_PANEL_FLAG_NONE, {4,5,6,7,8,9,10,11}, 8, 24, 26, 20, 19, 16, 13,12, 23, 1, 0, 22, 21, 0, u8M5Matrix, sizeof(u8M5Matrix), 32, -1600}, // BB_PANEL_RPI
 };
-//
-// Forward references for panel callback functions
-//
-// LilyGo T5S3-Pro
-int LilyGoEinkPower(void *pBBEP, int bOn);
-int LilyGoIOInit(void *pBBEP);
-void LilyGoRowControl(void *pBBEP, int iMode);
-// M5Stack PaperS3
+
 int PaperS3EinkPower(void *pBBEP, int bOn);
 int PaperS3IOInit(void *pBBEP);
 void PaperS3RowControl(void *pBBEP, int iMode);
+// LilyGo T5S3 Pro
+int LilyGoEinkPower(void *pBBEP, int bOn);
+int LilyGoIOInit(void *pBBEP);
+void LilyGoRowControl(void *pBBEP, int iMode);
 // EPDiy V7
 int EPDiyV7EinkPower(void *pBBEP, int bOn);
 int EPDiyV7IOInit(void *pBBEP);
@@ -257,6 +257,7 @@ const BBPANELPROCS panelProcs[] = {
     {EPDiyV7EinkPower, EPDiyV7IOInit, EPDiyV7RowControl, EPDiyV7IODeInit, EPDiyV7ExtIO}, // BB_PANEL_TRMNL_X
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4
     {epdInkyEinkPower, epdInkyIOInit, EPDiyV7RowControl, NULL, NULL}, // BB_PANEL_EPDINKY_P4_16
+    {RPIEinkPower, RPIIOInit, RPIRowControl, NULL, NULL}, // BB_PANEL_RPI
 };
 
 uint8_t ioRegs[24]; // MCP23017 copy of I/O register state so that we can just write new bits
@@ -267,6 +268,7 @@ static uint16_t LUTBW_16[256];
 static uint8_t *pGrayLower = NULL, *pGrayUpper = NULL;
 volatile bool dma_is_done = true;
 static uint8_t u8Cache[1024]; // used also for masking a row of 2-bit codes, needs to handle up to 4096 pixels wide
+#ifndef __LINUX__
 static gpio_num_t u8CKV, u8SPH;
 static uint8_t bSlowSPH = 0;
 
@@ -316,6 +318,8 @@ static esp_lcd_panel_io_i80_config_t s3_io_config = {
 
 static esp_lcd_i80_bus_handle_t i80_bus = NULL;
 static esp_lcd_panel_io_handle_t io_handle = NULL;
+#endif // !__LINUX__
+
 #define PWR_GOOD_OK            0xfa
 int bbepReadPowerGood(void)
 {
@@ -1366,6 +1370,7 @@ void bbepRowControl(FASTEPDSTATE *pState, int iType)
 
 // The data needs to come from a DMA buffer or the Espressif DMA driver
 // will allocate (and leak) an internal buffer each time
+#ifndef __LINUX__
 void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 {
     esp_err_t err;
@@ -1391,6 +1396,7 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 //        vTaskDelay(0);
 //    }
 } /* bbepWriteRow() */
+#endif // !__LINUX__
 
 uint8_t TPS65185PowerGood(void)
 {
@@ -1405,13 +1411,14 @@ uint8_t ucTemp[4];
 //
 int bbepIOInit(FASTEPDSTATE *pState)
 {
-    #ifndef ARDUINO
+    #if !defined( ARDUINO ) && !defined( __LINUX__ )
         esp_log_level_set("gpio", ESP_LOG_NONE);
     #endif
     int rc = (*(pState->pfnIOInit))(pState);
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
     pState->iFullPasses = 5; // the default number of passes for smooth and full updates
+#ifndef __LINUX__
     // Initialize the ESP32 LCD API to drive parallel data at high speed
     // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
     s3_bus_config.dc_gpio_num = (gpio_num_t)pState->panelDef.ioDCDummy;
@@ -1431,6 +1438,8 @@ int bbepIOInit(FASTEPDSTATE *pState)
         s3_io_config.cs_gpio_num = (gpio_num_t)pState->panelDef.ioSPH;
     }
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
+#endif // !__LINUX__
+ 
     dma_is_done = true;
     //Serial.println("IO init done");
     return BBEP_SUCCESS;
@@ -1484,19 +1493,32 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
     pState->height = pState->native_height = height;
     pState->iFlags = flags;
     pState->iVCOM = iVCOM;
+#ifdef __LINUX__
+    pState->pCurrent = (uint8_t *)malloc((pState->width * pState->height)/2);
+    if (pState->iPanelType == BB_PANEL_VIRTUAL) { 
+        return BBEP_SUCCESS; // for graphics only
+    }   
+    pState->pTemp = (uint8_t *)malloc((pState->width * pState->height)/4); // LUT data
+#else
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
     if (pState->iPanelType == BB_PANEL_VIRTUAL) {
         return BBEP_SUCCESS; // for graphics only
     }
-    pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
+#endif // !__LINUX__
+    pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
+
     if (!pState->pTemp) {
         free(pState->pCurrent);
         return BBEP_ERROR_NO_MEMORY;
     }
     // Allocate memory for each line to transmit
+#ifndef __LINUX__
     pState->dma_buf = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width / 2) + pState->panelDef.iLinePadding + 16, MALLOC_CAP_DMA);
+#else
+    pState->dma_buf = (uint8_t *)malloc((pState->width/2) + pState->panelDef.iLinePadding + 16);
+#endif
     iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
     pGrayLower = (uint8_t *)malloc(256 * iPasses);
     if (!pGrayLower) return BBEP_ERROR_NO_MEMORY;
@@ -2201,8 +2223,6 @@ void s3_prep_diff(uint8_t *pCurr, uint8_t *pPrev, uint8_t *pDest, int iWidth);
 // Future use
 void bbepPrepareDiff(uint8_t *c, uint8_t *p, uint8_t *d, int iWidth)
 {
-    int iPitch;
-    iPitch = (iWidth + 7)/8; // 1-bpp
 #ifdef ARDUINO_ESP32S3_DEV
     s3_prep_diff(c, p, d, iWidth);
 #else

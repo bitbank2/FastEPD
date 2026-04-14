@@ -23,13 +23,295 @@
 #include <Wire.h>
 #endif
 #include "FastEPD.h"
+#ifdef __LINUX__
+#include "linux_io.inl"
+#include <arm_neon.h>
+#include <pthread.h>
+#else
 #include "arduino_io.inl"
+#endif // __LINUX__
 #include "FastEPD.inl"
 #include "bb_ep_gfx.inl"
 
 //#pragma GCC optimize("O2")
 // Display how much time each operation takes on the serial monitor
 #define SHOW_TIME
+
+#ifdef __LINUX__
+// Expand each bit into a byte for SIMD processing
+static const uint64_t u64_expand[] = {
+0x0000000000000000, 0x0000000000000001, 0x0000000000000100, 0x0000000000000101,
+0x0000000000010000, 0x0000000000010001, 0x0000000000010100, 0x0000000000010101,
+0x0000000001000000, 0x0000000001000001, 0x0000000001000100, 0x0000000001000101,
+0x0000000001010000, 0x0000000001010001, 0x0000000001010100, 0x0000000001010101,
+0x0000000100000000, 0x0000000100000001, 0x0000000100000100, 0x0000000100000101,
+0x0000000100010000, 0x0000000100010001, 0x0000000100010100, 0x0000000100010101,
+0x0000000101000000, 0x0000000101000001, 0x0000000101000100, 0x0000000101000101,
+0x0000000101010000, 0x0000000101010001, 0x0000000101010100, 0x0000000101010101,
+0x0000010000000000, 0x0000010000000001, 0x0000010000000100, 0x0000010000000101,
+0x0000010000010000, 0x0000010000010001, 0x0000010000010100, 0x0000010000010101,
+0x0000010001000000, 0x0000010001000001, 0x0000010001000100, 0x0000010001000101,
+0x0000010001010000, 0x0000010001010001, 0x0000010001010100, 0x0000010001010101,
+0x0000010100000000, 0x0000010100000001, 0x0000010100000100, 0x0000010100000101,
+0x0000010100010000, 0x0000010100010001, 0x0000010100010100, 0x0000010100010101,
+0x0000010101000000, 0x0000010101000001, 0x0000010101000100, 0x0000010101000101,
+0x0000010101010000, 0x0000010101010001, 0x0000010101010100, 0x0000010101010101,
+0x0001000000000000, 0x0001000000000001, 0x0001000000000100, 0x0001000000000101,
+0x0001000000010000, 0x0001000000010001, 0x0001000000010100, 0x0001000000010101,
+0x0001000001000000, 0x0001000001000001, 0x0001000001000100, 0x0001000001000101,
+0x0001000001010000, 0x0001000001010001, 0x0001000001010100, 0x0001000001010101,
+0x0001000100000000, 0x0001000100000001, 0x0001000100000100, 0x0001000100000101,
+0x0001000100010000, 0x0001000100010001, 0x0001000100010100, 0x0001000100010101,
+0x0001000101000000, 0x0001000101000001, 0x0001000101000100, 0x0001000101000101,
+0x0001000101010000, 0x0001000101010001, 0x0001000101010100, 0x0001000101010101,
+0x0001010000000000, 0x0001010000000001, 0x0001010000000100, 0x0001010000000101,
+0x0001010000010000, 0x0001010000010001, 0x0001010000010100, 0x0001010000010101,
+0x0001010001000000, 0x0001010001000001, 0x0001010001000100, 0x0001010001000101,
+0x0001010001010000, 0x0001010001010001, 0x0001010001010100, 0x0001010001010101,
+0x0001010100000000, 0x0001010100000001, 0x0001010100000100, 0x0001010100000101,
+0x0001010100010000, 0x0001010100010001, 0x0001010100010100, 0x0001010100010101,
+0x0001010101000000, 0x0001010101000001, 0x0001010101000100, 0x0001010101000101,
+0x0001010101010000, 0x0001010101010001, 0x0001010101010100, 0x0001010101010101,
+
+0x0100000000000000, 0x0100000000000001, 0x0100000000000100, 0x0100000000000101,
+0x0100000000010000, 0x0100000000010001, 0x0100000000010100, 0x0100000000010101,
+0x0100000001000000, 0x0100000001000001, 0x0100000001000100, 0x0100000001000101,
+0x0100000001010000, 0x0100000001010001, 0x0100000001010100, 0x0100000001010101,
+0x0100000100000000, 0x0100000100000001, 0x0100000100000100, 0x0100000100000101,
+0x0100000100010000, 0x0100000100010001, 0x0100000100010100, 0x0100000100010101,
+0x0100000101000000, 0x0100000101000001, 0x0100000101000100, 0x0100000101000101,
+0x0100000101010000, 0x0100000101010001, 0x0100000101010100, 0x0100000101010101,
+0x0100010000000000, 0x0100010000000001, 0x0100010000000100, 0x0100010000000101,
+0x0100010000010000, 0x0100010000010001, 0x0100010000010100, 0x0100010000010101,
+0x0100010001000000, 0x0100010001000001, 0x0100010001000100, 0x0100010001000101,
+0x0100010001010000, 0x0100010001010001, 0x0100010001010100, 0x0100010001010101,
+0x0100010100000000, 0x0100010100000001, 0x0100010100000100, 0x0100010100000101,
+0x0100010100010000, 0x0100010100010001, 0x0100010100010100, 0x0100010100010101,
+0x0100010101000000, 0x0100010101000001, 0x0100010101000100, 0x0100010101000101,
+0x0100010101010000, 0x0100010101010001, 0x0100010101010100, 0x0100010101010101,
+0x0101000000000000, 0x0101000000000001, 0x0101000000000100, 0x0101000000000101,
+0x0101000000010000, 0x0101000000010001, 0x0101000000010100, 0x0101000000010101,
+0x0101000001000000, 0x0101000001000001, 0x0101000001000100, 0x0101000001000101,
+0x0101000001010000, 0x0101000001010001, 0x0101000001010100, 0x0101000001010101,
+0x0101000100000000, 0x0101000100000001, 0x0101000100000100, 0x0101000100000101,
+0x0101000100010000, 0x0101000100010001, 0x0101000100010100, 0x0101000100010101,
+0x0101000101000000, 0x0101000101000001, 0x0101000101000100, 0x0101000101000101,
+0x0101000101010000, 0x0101000101010001, 0x0101000101010100, 0x0101000101010101,
+0x0101010000000000, 0x0101010000000001, 0x0101010000000100, 0x0101010000000101,
+0x0101010000010000, 0x0101010000010001, 0x0101010000010100, 0x0101010000010101,
+0x0101010001000000, 0x0101010001000001, 0x0101010001000100, 0x0101010001000101,
+0x0101010001010000, 0x0101010001010001, 0x0101010001010100, 0x0101010001010101,
+0x0101010100000000, 0x0101010100000001, 0x0101010100000100, 0x0101010100000101,
+0x0101010100010000, 0x0101010100010001, 0x0101010100010100, 0x0101010100010101,
+0x0101010101000000, 0x0101010101000001, 0x0101010101000100, 0x0101010101000101,
+0x0101010101010000, 0x0101010101010001, 0x0101010101010100, 0x0101010101010101,
+};
+static int PrepVideoRow(int iWidth, uint8_t *pSrc, uint8_t *pDest, uint8_t *pWave, uint8_t *pCounts)
+{
+int x, bChanges = 0;
+//
+// Theory of operation:
+// The counts array keeps track of the current state of eink pixels.
+// A count value of 0 indicates white and 7 indicates black.
+// This prevents pixels from being "overpushed" in a specific direction.
+// Each current pixel is compared to black and white and if the count
+// of that pixel is not already in that state, then a push in that
+// direction is generated. If an entire line contains no changing pixels
+// then that info is returned from this function as a 0 to indicate
+// that the row step logic should not wait at the end of the row for
+// the electric fields to move any pixels. This can speed up overall
+// the update process otherwise each pass would be fixed at about 12ms
+//
+
+#ifdef OLD_WAY
+uint8_t uc, ucOld, ucOut, ucMask;
+
+    uc = *pSrc++; // read first byte to start
+    ucOld = *pDest;
+    ucMask = 0x80;
+    ucOut = 0;
+    bChanges = 0;
+    for (x=0; x<iWidth; x+=4) {
+        for (int j=0; j<4; j++) { // 4 pixels per output byte
+            ucOut <<= 2; // next pair of control bits
+            if ((uc & ucMask) != (ucOld & ucMask)) { // color change
+                // Reset the counts to do a full set of pushes
+                pCounts[0] = (uc & ucMask) ? 5 : 0;
+            }
+            if (uc & ucMask) { // current pixel is white
+                if (pCounts[0] > 0) { // changing to white
+                    ucOut |= 2; // push white
+                    pCounts[0]--; // decrement the count
+                }
+            } else { // current pixel is black
+                if (pCounts[0] < 5) { // changing to black
+                    ucOut |= 1; // push black
+                    pCounts[0]++; // increment the count
+                }
+            }
+            pCounts++;
+            ucMask >>= 1;
+       } // for j
+       //bChanges |= ucOut; // non-zero row will be detected
+       bChanges |= ucOut;
+       *pWave++ = ucOut;
+       if (ucMask == 0) { // next source byte
+           *pDest++ = uc; // new becomes old
+           uc = *pSrc++;
+           ucOld = *pDest;
+           ucMask = 0x80;
+       }
+    } // for x
+#else // New way
+uint8x16_t u64Ones = vdupq_n_u8(0x01);
+//uint8x16_t u64Eights = vdupq_n_u8(0x08);
+uint8x16_t u64Fives = vdupq_n_u8(0x05);
+static const uint8_t u8PushWhite[] = {0x02,0x08,0x20,0x80,0x02,0x08,0x20,0x80,0x02,0x08,0x20,0x80,0x02,0x08,0x20,0x80};
+static const uint8_t u8PushBlack[] = {0x01,0x04,0x10,0x40,0x01,0x04,0x10,0x40,0x01,0x04,0x10,0x40,0x01,0x04,0x10,0x40};
+uint8x16_t u64White = vld1q_u8(u8PushWhite);
+uint8x16_t u64Black = vld1q_u8(u8PushBlack);
+uint8x16_t vchanges = vdupq_n_u8(0);
+uint8x8_t vout64;
+
+    for (x=0; x<iWidth; x+=16) { // work 16 pixels at a time
+        uint8x16_t temp64, wideNew, wideOld, count64, cmp64, push64;
+        push64 = vdupq_n_u8(0); // assume no pushing
+        wideNew = vcombine_u8(vld1_u8((uint8_t *)&u64_expand[pSrc[0]]), vld1_u8((uint8_t *)&u64_expand[pSrc[1]])); // expanded source byte
+        wideOld = vcombine_u8(vld1_u8((uint8_t *)&u64_expand[pDest[0]]), vld1_u8((uint8_t *)&u64_expand[pDest[1]])); // expanded comparison byte
+        count64 = vld1q_u8(pCounts);
+        cmp64 = vceqq_u8(wideNew, wideOld); // any color changes?
+        count64 = vandq_u8(cmp64, count64); // keep counts for unchanging pixels
+        temp64 = vmulq_u8(wideNew, u64Fives); //Eights); // white pixels -> 8
+        cmp64 = vmvnq_u8(cmp64); // pixels which are different = 0xff
+        cmp64 = vandq_u8(cmp64, temp64); // changing white pixels = 8
+        count64 = vorrq_u8(count64, cmp64); // counts reset to 0 for black, 8 for white
+        // test counts and adjust pixel pushing
+        // if color == 1 (white) and count > 0, push
+        cmp64 = vceqq_u8(wideNew, u64Ones);
+        temp64 = vcgeq_u8(count64, u64Ones);
+        cmp64 = vandq_u8(cmp64, temp64); // satisfy both conditions
+        push64 = vandq_u8(cmp64, u64White); // a 2 in each slot to push white
+        count64 = vsubq_u8(count64, vandq_u8(cmp64, u64Ones)); // decrement counts
+        // if color == 0 (black) and count < 5, push
+        cmp64 = vceqq_u8(wideNew, vdupq_n_u8(0));
+        temp64 = vcltq_u8(count64, u64Fives);
+        cmp64 = vandq_u8(cmp64, temp64); // satisfy both conditions
+        temp64 = vandq_u8(cmp64, u64Black); // a 1 in each slot to push black
+        push64 = vorrq_u8(push64, temp64); // combine with white pushes
+        count64 = vaddq_u8(count64, vandq_u8(cmp64, u64Ones)); // increment counts
+        vst1q_u8(pCounts, count64); // new counts are finished
+        pCounts += 16;
+        *pDest++ = *pSrc++; // old = new
+        *pDest++ = *pSrc++;
+        // combine 16 push flags into 4 bytes
+        temp64 = vdupq_n_u8(0);
+        push64 = vpaddq_u8(push64, temp64); // merge the push bits together
+        push64 = vpaddq_u8(push64, temp64); // now we have 4 bytes
+        vchanges = vorrq_u8(vchanges, push64);
+        vout64 = vget_low_u8(push64);
+        vout64 = vrev16_u8(vout64); // swap bytes due to our 8->64 bit lookup table
+        *(uint32_t *)pWave = vget_lane_u32(vreinterpret_u32_u8(vout64), 0); // write 4 control bytes
+        pWave += 4;
+    } // for x
+    bChanges = vgetq_lane_u32(vreinterpretq_u32_u8(vchanges), 0);
+#endif
+    return bChanges;
+} /* PrepVideoRow() */
+
+static void *video_thread(void *pArg)
+{
+FASTEPDSTATE *pBBEP = (FASTEPDSTATE *)pArg;
+uint8_t *pCounts; // memory holding push counts for each pixel
+int iWidth, iHeight, iPitch;
+uint8_t *c, *p, *d, *pc;
+int /*bActivity,*/ iRowStep;
+
+    iWidth = pBBEP->width;
+    iHeight = pBBEP->height;
+    pCounts = (uint8_t *)malloc(iWidth * iHeight);
+    memset(pCounts, 0, iWidth * iHeight);
+    iPitch = (iWidth+7)/8;
+
+// Continuously monitor the current buffer and keep the display up to
+// date with any pixel changes
+    while (pBBEP->bVideo) {
+        // Loop through each row and update any changes
+        // if a row contains no changes, push a faster unchanging row
+        c = pBBEP->pCurrent;
+        p = pBBEP->pPrevious;
+        d = pBBEP->pTemp;
+        pc = pCounts;
+        bbepRowControl(pBBEP, ROW_START);
+        for (int iRow = 0; iRow < iHeight; iRow++) {
+            /*bActivity =*/ PrepVideoRow(iWidth, c, p, d, pc);
+            if (iRow == 0) iRowStep = ROW_NOP;
+//            else if (bActivity == 0) iRowStep = ROW_STEP_FAST;
+            else iRowStep = ROW_STEP;
+            bbepWriteRow(pBBEP, d, iPitch*2, iRowStep);
+            c += iPitch; p += iPitch; d += iPitch*2; pc += iWidth;
+        } // for each row
+        bbepRowControl(pBBEP, ROW_END);
+    } // while video is running
+    free(pCounts);
+    pthread_exit(NULL);
+} /* video_thread() */
+//
+// Perform a single pass of video style update (pixel counters)
+//
+void FASTEPD::videoUpdate(void)
+{
+int iWidth, iHeight, iPitch;
+uint8_t *c, *p, *d, *pc;
+int bActivity, iRowStep;
+static int iFrame = 0;
+
+    iFrame++;
+
+    if (_state.pCounts == NULL) {
+        _state.pCounts = (uint8_t *)malloc(_state.width * _state.height);
+        memset(_state.pCounts, 0, _state.width * _state.height);
+    }
+    einkPower(1); // make sure power is turned on
+    iWidth = _state.width;
+    iHeight =_state.height;
+    iPitch = (iWidth+7)/8;
+//    if ((iFrame & 127) == 127) {
+        // give a little push to static colors once in a while
+//        memset(_state.pCounts, 3, _state.width * _state.height);
+//    }
+    // Loop through each row and update any changes
+    // if a row contains no changes, push a faster unchanging row
+    c = _state.pCurrent;
+    p = _state.pPrevious;
+    d = _state.pTemp;
+    pc = _state.pCounts;
+    bbepRowControl(&_state, ROW_START);
+    for (int iRow = 0; iRow < iHeight; iRow++) {
+        bActivity = PrepVideoRow(iWidth, c, p, d, pc);
+        if (iRow == 0) iRowStep = ROW_NOP;
+        else if (bActivity == 0) iRowStep = ROW_STEP_FAST;
+        else iRowStep = ROW_STEP;
+        bbepWriteRow(&_state, d, iPitch*2, iRowStep);
+        c += iPitch; p += iPitch; d += iPitch*2; pc += iWidth;
+    } // for each row
+    bbepRowControl(&_state, ROW_END);
+} /* videoUpdate() */
+
+void FASTEPD::startVideo(void)
+{
+pthread_t host;
+
+    clearWhite(1); // start from a known state
+
+    _state.bVideo = 1; // video is running
+    pthread_create(&host, NULL, video_thread, (void *)&_state);
+} /* startVideo() */
+
+void FASTEPD::stopVideo(void)
+{
+    _state.bVideo = 0; // second thread will exit
+} /* stopVideo() */
+#endif // __LINUX__
 
 int FASTEPD::getStringBox(const char *text, BB_RECT *pRect)
 {

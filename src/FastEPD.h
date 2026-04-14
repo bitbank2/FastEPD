@@ -24,6 +24,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// for Print support
+#ifdef __LINUX__
+#include <string>
+using namespace std;
+#define DEC 10
+#define HEX 16
+#define OCT 8
+#define BIN 2
+#endif // __LINUX__
 #endif
 
 #define BB_PANEL_FLAG_NONE     0x00
@@ -74,6 +83,7 @@ enum {
     BB_PANEL_TRMNL_X,
     BB_PANEL_EPDINKY_P4,
     BB_PANEL_EPDINKY_P4_16,
+    BB_PANEL_RPI,
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
@@ -117,12 +127,15 @@ typedef struct _paneldef {
     int iVCOM; // VCOM in millivolts (e.g. -1600 = -1.6V)
 } BBPANELDEF;
 
+#ifndef __BB_RECT__
+#define __BB_RECT__
 typedef struct bbepr {
     int x;
     int y;
     int w;
     int h;
 } BB_RECT;
+#endif // __BB_RECT__
 
 // To access external IO through a single function pointer
 // This enum defines the operation
@@ -153,6 +166,8 @@ enum {
 enum {
     ROW_START = 0,
     ROW_STEP,
+    ROW_STEP_FAST,
+    ROW_NOP,
     ROW_END
 };
 
@@ -197,6 +212,7 @@ typedef struct tag_fastepdstate
     int iPanelType;
     uint8_t wrap, last_error, pwr_on, mode;
     uint8_t shift_data, anti_alias, italic, bit_bang;
+    volatile int bVideo;
     uint8_t u8LED1, u8LED2;
     int iCursorX, iCursorY;
     int width, height, native_width, native_height;
@@ -210,6 +226,9 @@ typedef struct tag_fastepdstate
     uint8_t *pCurrent; // current pixels
     uint8_t *pPrevious; // comparison with previous buffer
     uint8_t *pTemp; // temporary buffer for the patterns sent to the eink controller
+#ifdef __LINUX__
+    uint8_t *pCounts; // pointer to pixel counts buffer
+#endif // __LINUX__
     BBPANELDEF panelDef;
     BB_SET_PIXEL *pfnSetPixel;
     BB_SET_PIXEL_FAST *pfnSetPixelFast;
@@ -236,6 +255,11 @@ class FASTEPD
     int initSprite(int iWidth, int iHeight);
     int drawSprite(FASTEPD *pSprite, int x, int y, int iTransparent = -1);
     void freeSprite(void);
+#ifdef __LINUX__
+    void startVideo(void);
+    void stopVideo(void);
+    void videoUpdate(void);
+#endif
     int setPanelSize(int iPanel);
     int setCustomMatrix(const uint8_t *pMatrix, size_t matrix_size);
     int setPanelSize(int width, int height, int flags = BB_PANEL_FLAG_NONE, int iVCOM = -1600);
@@ -292,6 +316,12 @@ class FASTEPD
     virtual size_t write(uint8_t);
 #else
     size_t write(uint8_t);
+    void print(const char *pString);
+    void println(const char *pString);
+    void print(int, int);
+    void println(int, int);
+    void print(const string &);
+    void println(const string &);
 #endif
 
   protected:
