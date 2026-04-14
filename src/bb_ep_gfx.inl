@@ -1141,7 +1141,9 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
             }
             tw = w;
             if (pBBEP->anti_alias) { // draw half-size anti-aliased characters
-                const uint8_t grayColors[4] = {0xf, 0xc, 0x6, 0};
+                const uint8_t grayColorPalette[4] = {0xf, 0xc, 0x6, 0};
+                const uint8_t invertedGrayColorPalette[4] = {0, 0x6, 0xc, 0xf};
+                const uint8_t *grayColors = iBG == BBEP_BLACK ? invertedGrayColorPalette : grayColorPalette; // invert the gray table if we're on a black background
                 int iLineSize = (tw+7)/8;
                 memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
@@ -1156,7 +1158,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                         u8 = *s++; // grab first byte
                         u8Count = 4;
                         for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
-                            u8Color = grayColors[iBG == BBEP_BLACK ? 3 - (u8>>6) : u8>>6]; // invert the color if we're on a black background
+                            u8Color = grayColors[u8>>6];
                             if (u8Color != iBG) {
                                 // draw the pixel if it's not transparent
                                 // avoid overlapping the previous character's pixels if the font is Italic for example
