@@ -1015,12 +1015,6 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     if (pBBEP->italic) {
         u32Frac = 16384; // 0.25f
     }
-    if (pBBEP->anti_alias) {
-        width *= 2;
-        height *= 2;
-        x *= 2;
-        y *= 2;
-    }
     if (szMsg[1] == 0 && (szMsg[0] & 0x80)) { // single byte means we're coming from the Arduino write() method with pre-converted extended ASCII
         szExtMsg[0] = szMsg[0]; szExtMsg[1] = 0;
     } else {
@@ -1032,6 +1026,12 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
         x = pBBEP->iCursorX;
     if (y == -1)
         y = pBBEP->iCursorY;
+    if (pBBEP->anti_alias) {
+        width *= 2;
+        height *= 2;
+        x *= 2;
+        y *= 2;
+    }
     if (*(uint16_t *)pFont == BB_FONT_MARKER) {
         pBBF = (BB_FONT *)pFont; pBBFS = NULL;
         first = pBBF->first;
@@ -1142,19 +1142,30 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
             tw = w;
             if (pBBEP->anti_alias) { // draw half-size anti-aliased characters
                 const uint8_t grayColors[4] = {0xf, 0xc, 0x6, 0};
+                const uint8_t invertedGrays[4] = {0, 0x6, 0xc, 0xf};
+                uint8_t *pGrays = (iBG == 0) ? (uint8_t*)invertedGrays : (uint8_t*)grayColors;
                 int iLineSize = (tw+7)/8;
                 memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
-                    uint8_t u8, u8Count, u8Color;
-                    g5_decode_line(&g5dec, &u8Cache[(ty & 1) * iLineSize]);
+                    uint8_t u8, u8Count, u8Color, *d = &u8Cache[(ty & 1) * iLineSize];
+                    if (g5_decode_line(&g5dec, d) == G5_DECODE_COMPLETE && d != u8Cache) {
+                        // we're trying to draw 1 line beyond the end. A stray byte can
+                        // show up on the start of the next line from previous data
+                        u8Cache[iLineSize] = 0;
+                    }
+                    if (w & 7) {
+                        d[iLineSize-1] &= ~(0xff >> (w&7)); // make sure no partial byte leftovers are used
+                    }
                     if (ty & 1 && ty/2 >= 0) {
                         Scale2Gray(u8Cache, iLineSize, iLineSize); // convert a pair of lines
                         s = u8Cache;
                         u8 = *s++; // grab first byte
                         u8Count = 4;
                         for (tx=x+x_off; tx<x+x_off+tw && tx < width; tx+=2) {
-                            u8Color = grayColors[u8>>6];
-                            (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, u8Color);
+                            u8Color = u8>>6;
+                            if (u8Color != 0) {// not background
+                                (*pBBEP->pfnSetPixelFast)(pBBEP, tx/2, ty/2, pGrays[u8Color]);
+                            }
                             u8 <<= 2;
                             u8Count--;
                             if (u8Count == 0) {
@@ -1218,8 +1229,13 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
                 y += pGlyphSmall->xAdvance;
         }
     } // while drawing characters
-    pBBEP->iCursorX = x;
-    pBBEP->iCursorY = y;
+    if (pBBEP->anti_alias) {
+        pBBEP->iCursorX = x/2; // adjust to normal pixels
+        pBBEP->iCursorY = y/2;
+    } else {
+        pBBEP->iCursorX = x;
+        pBBEP->iCursorY = y;
+    }
     return BBEP_SUCCESS;
 } /* EPDWriteStringCustom() */
 //
