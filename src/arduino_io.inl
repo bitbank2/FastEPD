@@ -361,7 +361,7 @@ int i = 0;
     dev_config.device_address = iAddr;
     dev_config.scl_speed_hz = 400000;
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
-    ret = i2c_master_transmit_receive(dev_handle, NULL, 0, pData, iLen, 1000); // 1-second timeout
+    ret = i2c_master_receive(dev_handle, pData, iLen, 1000); // 1-second timeout
     i2c_master_bus_rm_device(dev_handle);
     return (ret == ESP_OK);
 #else // older ESP-IDF
