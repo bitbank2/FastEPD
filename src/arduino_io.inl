@@ -33,8 +33,9 @@ static int iDelay = 0; //1;
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "driver/i2c_master.h"
-i2c_master_bus_handle_t bus_handle;
-i2c_master_dev_handle_t dev_handle;
+static i2c_master_bus_handle_t bus_handle = NULL;
+static i2c_master_dev_handle_t dev_handle = NULL;
+static uint8_t current_i2c_addr = 0xff;
 // GPIO modes
 #define memcpy_P memcpy
 #define pgm_read_byte(a) (*(uint8_t *)a)
@@ -276,14 +277,28 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
         Wire.setTimeout(100);
 #else
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    i2c_master_bus_config_t conf;
+    if (dev_handle != NULL) {
+        ESP_ERROR_CHECK(i2c_master_bus_rm_device(dev_handle));
+        dev_handle = NULL;
+        current_i2c_addr = 0xff;
+    }
+    if (bus_handle != NULL) {
+        ESP_ERROR_CHECK(i2c_del_master_bus(bus_handle));
+        bus_handle = NULL;
+    }
 
-    conf.i2c_port = I2C_NUM_0;
-    conf.sda_io_num = (gpio_num_t)sda;
-    conf.scl_io_num = (gpio_num_t)scl;
-    conf.clk_source = I2C_CLK_SRC_DEFAULT;
-    conf.glitch_ignore_cnt = 7;
-    conf.flags.enable_internal_pullup = true;
+    i2c_master_bus_config_t conf = {
+        .i2c_port = I2C_NUM_0,
+        .sda_io_num = (gpio_num_t)sda,
+        .scl_io_num = (gpio_num_t)scl,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .intr_priority = 0,
+        .trans_queue_depth = 0,
+        .flags = {
+            .enable_internal_pullup = true,
+        },
+    };
     ESP_ERROR_CHECK(i2c_new_master_bus(&conf, &bus_handle));
 #else // older esp-idff
     i2c_config_t conf;
@@ -317,13 +332,20 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
     return rc;
 #else
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    i2c_device_config_t dev_config;
-    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_config.device_address = iAddr; 
-    dev_config.scl_speed_hz = 400000;
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+    if (dev_handle == NULL || current_i2c_addr != iAddr) {
+        if (dev_handle != NULL) {
+            ESP_ERROR_CHECK(i2c_master_bus_rm_device(dev_handle));
+            dev_handle = NULL;
+        }
+        i2c_device_config_t dev_config = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = iAddr,
+            .scl_speed_hz = 400000,
+        };
+        ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+        current_i2c_addr = iAddr;
+    }
     esp_err_t ret = i2c_master_transmit(dev_handle, pData, iLen, 1000); // 1-second timeout
-    i2c_master_bus_rm_device(dev_handle);
     return (ret == ESP_OK);
 #else // older idf version
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -356,13 +378,20 @@ int i = 0;
 #else
     esp_err_t ret;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    i2c_device_config_t dev_config;
-    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_config.device_address = iAddr;
-    dev_config.scl_speed_hz = 400000;
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+    if (dev_handle == NULL || current_i2c_addr != iAddr) {
+        if (dev_handle != NULL) {
+            ESP_ERROR_CHECK(i2c_master_bus_rm_device(dev_handle));
+            dev_handle = NULL;
+        }
+        i2c_device_config_t dev_config = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = iAddr,
+            .scl_speed_hz = 400000,
+        };
+        ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+        current_i2c_addr = iAddr;
+    }
     ret = i2c_master_receive(dev_handle, pData, iLen, 1000); // 1-second timeout
-    i2c_master_bus_rm_device(dev_handle);
     return (ret == ESP_OK);
 #else // older ESP-IDF
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
