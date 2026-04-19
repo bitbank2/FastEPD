@@ -28,11 +28,12 @@ int rc;
 
     bbepInitPanel(&virt, BB_PANEL_VIRTUAL, 0);
     // A virtual panel must be given a size
-    bbepSetPanelSize(&virt, 960, 540, 0);
+    bbepSetPanelSize(&virt, 960, 540, 0, 0);
 
     // Predefined devices can have a display size
     // associated with them already
-    rc = bbepInitPanel(&bbep, BB_PANEL_M5PAPERS3, 20000000);
+    rc = bbepInitPanel(&bbep, BB_PANEL_EPDIY_V7, 20000000);
+    bbepSetPanelSize(&bbep, 960, 540, 0, -1600);
     if (rc == BBEP_SUCCESS) {
       bbepSetMode(&virt, BB_MODE_4BPP); // source and destination
       bbepSetMode(&bbep, BB_MODE_4BPP); // need to be the same bit depth

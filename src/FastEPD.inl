@@ -1924,9 +1924,9 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
     return BBEP_SUCCESS;
 } /* bbepSmoothUpdate() */
 
-extern "C" {
-void s3_onebit_black(uint8_t *pSrc, uint8_t *pDest, int iWidth);
-}
+//extern "C" {
+//void s3_onebit_black(uint8_t *pSrc, uint8_t *pDest, int iWidth);
+//}
 
 //
 // Perform a full (flashing) update given the current mode and pixels

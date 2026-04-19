@@ -28,7 +28,6 @@
 #include <string>
 #endif // __cplusplus
 // for Print support
-using namespace std;
 #define DEC 10
 #define HEX 16
 #define OCT 8
