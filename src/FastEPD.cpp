@@ -466,6 +466,106 @@ uint8_t FASTEPD::ioRead(uint8_t u8Pin)
     return val;
 }
 
+// Implement missing print functions
+#ifndef ARDUINO
+void FASTEPD::print(int value, int format)
+{
+char c, ucTemp[32];
+char *d = &ucTemp[31];
+
+   if (value) {
+   d[0] = 0;
+   switch(format) {
+      case DEC:
+         while (value) {
+             d--;
+             *d = '0' + (value % 10);
+             value /= 10;
+         }
+         break;
+      case HEX:
+         while (value) {
+            d--;
+            c = value & 0xf;
+            if (c < 10)
+                    *d = '0' + c;
+            else
+                    *d = 'A' + (c-10);
+            value >>= 4;
+         }
+         break;
+      case OCT:
+         while (value) {
+            d--;
+            *d = '0' + (value & 7);
+            value >>= 3;
+         }
+         break;
+      case BIN:
+         while (value) {
+            d--;
+            *d = '0' + (value & 1);
+            value >>= 1;
+         }
+         break;
+      default:
+         break;
+      }
+   } else { // if zero value
+     d--;
+     *d = '0';
+   }
+   print((const char *)d);
+} /* print() */
+
+void FASTEPD::println(int value, int format)
+{
+char ucTemp[4];
+
+        print(value, format);
+        ucTemp[0] = '\n';
+        ucTemp[1] = '\r';
+        ucTemp[2] = 0;
+        print((const char *)ucTemp);
+} /* println() */
+
+void FASTEPD::print(const std::string &str)
+{
+   print(str.c_str());
+} /* print() */
+
+void FASTEPD::println(const char *pString)
+{
+char ucTemp[4];
+
+    print(pString);
+    ucTemp[0] = '\n';
+    ucTemp[1] = '\r';
+    ucTemp[2] = 0;
+    print((const char *)ucTemp);
+} /* println() */
+void FASTEPD::println(const std::string &str)
+{
+char ucTemp[4];
+
+   print(str);
+   ucTemp[0] = '\n';
+   ucTemp[1] = '\r';
+   ucTemp[2] = 0;
+   print((const char *)ucTemp);
+} /* println() */
+
+void FASTEPD::print(const char *pString)
+{
+uint8_t *s = (uint8_t *)pString;
+
+   while (*s != 0) {
+      write(*s++);
+   }
+} /* print() */
+
+#endif // !ARDUINO
+
 void FASTEPD::setBitBang(bool bBitBang)
 {
     _state.bit_bang = (uint8_t)bBitBang;
@@ -487,7 +587,9 @@ void FASTEPD::setFont(const void *pFont, bool bAntiAlias)
 {
     _state.iFont = -1;
     _state.pFont = (void *)pFont;
-    if (_state.mode != BB_MODE_4BPP) bAntiAlias = false; // only works in grayscale mode
+    if (_state.mode == BB_MODE_1BPP) {
+        bAntiAlias = false; // only works in 2 or 4-bit grayscale mode
+    }
     _state.anti_alias = (uint8_t)bAntiAlias;
 } /* setFont() */
 
@@ -582,8 +684,13 @@ static uint8_t u8Unicode0, u8Unicode1;
         pGlyphSmall = &pBBFS->glyphs[c - first]; pGlyph = NULL;
       }
     if (c == '\n') {
+      h = (pBBF) ? pBBF->height : pBBFS->height;
       _state.iCursorX = 0;
-      _state.iCursorY += (pBBF) ? pBBF->height : pBBFS->height;
+      if (_state.anti_alias) { 
+          _state.iCursorY += h/2;
+      } else {
+          _state.iCursorY += h;
+      }
     } else if (c != '\r') {
       if (c >= first && c <= last) {
         if (pBBF) {
@@ -597,7 +704,11 @@ static uint8_t u8Unicode0, u8Unicode1;
           w += (pBBF) ? pGlyph->xOffset : pGlyphSmall->xOffset;
           if (_state.wrap && (_state.iCursorX + w) > _state.width) {
             _state.iCursorX = 0;
-            _state.iCursorY += h;
+            if (_state.anti_alias) {
+                _state.iCursorY += h/2;
+            } else {
+                _state.iCursorY += h;
+            }
           }
           bbepWriteStringCustom(&_state, _state.pFont, -1, -1, szTemp, _state.iFG);
         }

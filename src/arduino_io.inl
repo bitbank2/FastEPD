@@ -32,7 +32,9 @@ static int iDelay = 0; //1;
 #ifndef ARDUINO
 #include "driver/gpio.h"
 #include "esp_timer.h"
-
+#include "driver/i2c_master.h"
+i2c_master_bus_handle_t bus_handle;
+i2c_master_dev_handle_t dev_handle;
 // GPIO modes
 #define memcpy_P memcpy
 #define pgm_read_byte(a) (*(uint8_t *)a)
@@ -273,6 +275,17 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
         Wire.setClock(400000);
         Wire.setTimeout(100);
 #else
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    i2c_master_bus_config_t conf;
+
+    conf.i2c_port = I2C_NUM_0;
+    conf.sda_io_num = (gpio_num_t)sda;
+    conf.scl_io_num = (gpio_num_t)scl;
+    conf.clk_source = I2C_CLK_SRC_DEFAULT;
+    conf.glitch_ignore_cnt = 7;
+    conf.flags.enable_internal_pullup = true;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&conf, &bus_handle));
+#else // older esp-idff
     i2c_config_t conf;
     ESP_ERROR_CHECK(i2c_driver_delete());
     conf.mode = I2C_MODE_MASTER;
@@ -281,9 +294,10 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = 400000;
-    conf.clk_flags = 0; 
+    conf.clk_flags = 0;
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
+#endif // older IDF
 #endif // ARDUINO
     } // !BitBang
     return BBEP_SUCCESS;
@@ -302,6 +316,16 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
     rc = !Wire.endTransmission();
     return rc;
 #else
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    i2c_device_config_t dev_config;
+    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_config.device_address = iAddr; 
+    dev_config.scl_speed_hz = 400000;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+    esp_err_t ret = i2c_master_transmit(dev_handle, pData, iLen, 1000); // 1-second timeout
+    i2c_master_bus_rm_device(dev_handle);
+    return (ret == ESP_OK);
+#else // older idf version
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     if (cmd == NULL) {
        // ESP_LOGE("bb_epdiy", "insufficient memory for I2C transaction");
@@ -313,6 +337,7 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
     return (ret == ESP_OK);
+#endif // older esp-idf
 #endif // ARDUINO
     } // !BitBang
 }
@@ -330,6 +355,16 @@ int i = 0;
     }
 #else
     esp_err_t ret;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    i2c_device_config_t dev_config;
+    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_config.device_address = iAddr;
+    dev_config.scl_speed_hz = 400000;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
+    ret = i2c_master_transmit_receive(dev_handle, NULL, 0, pData, iLen, 1000); // 1-second timeout
+    i2c_master_bus_rm_device(dev_handle);
+    return (ret == ESP_OK);
+#else // older ESP-IDF
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     if (cmd == NULL) {
        // ESP_LOGE("epdiy", "insufficient memory for I2C transaction");
@@ -347,6 +382,7 @@ int i = 0;
         i = iLen;
     }
     i2c_cmd_link_delete(cmd);
+#endif // older esp-idf version
 #endif // ARDUINO
     } // !BitBang
     return i;

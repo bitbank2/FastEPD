@@ -24,15 +24,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// for Print support
-#ifdef __LINUX__
+#ifdef __cplusplus
 #include <string>
+#endif // __cplusplus
+// for Print support
 using namespace std;
 #define DEC 10
 #define HEX 16
 #define OCT 8
 #define BIN 2
-#endif // __LINUX__
 #endif
 
 #define BB_PANEL_FLAG_NONE     0x00
@@ -320,8 +320,8 @@ class FASTEPD
     void println(const char *pString);
     void print(int, int);
     void println(int, int);
-    void print(const string &);
-    void println(const string &);
+    void print(const std::string &);
+    void println(const std::string &);
 #endif
 
   protected:

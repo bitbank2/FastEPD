@@ -1141,9 +1141,16 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
             }
             tw = w;
             if (pBBEP->anti_alias) { // draw half-size anti-aliased characters
-                const uint8_t grayColors[4] = {0xf, 0xc, 0x6, 0};
-                const uint8_t invertedGrays[4] = {0, 0x6, 0xc, 0xf};
-                uint8_t *pGrays = (iBG == 0) ? (uint8_t*)invertedGrays : (uint8_t*)grayColors;
+                const uint8_t grayColors4bpp[4] = {0xf, 0xc, 0x6, 0};
+                const uint8_t invertedGrays4bpp[4] = {0, 0x6, 0xc, 0xf};
+                const uint8_t grayColors2bpp[4] = {3, 2, 1, 0};
+                const uint8_t invertedGrays2bpp[4] = {0, 1, 2, 3};
+                uint8_t *pGrays;
+                if (pBBEP->mode == BB_MODE_4BPP) {
+                    pGrays = (iBG == 0) ? (uint8_t*)invertedGrays4bpp : (uint8_t*)grayColors4bpp;
+                } else { // must be 2bpp
+                    pGrays = (iBG == 0) ? (uint8_t*)invertedGrays2bpp : (uint8_t*)grayColors2bpp;
+                }
                 int iLineSize = (tw+7)/8;
                 memset(u8Cache, 0, iLineSize*2); // start with 2 lines of white (gray table is inverted)
                 for (ty=dy; ty<end_y+1 && ty+1 < height; ty++) {
