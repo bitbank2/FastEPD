@@ -9,8 +9,8 @@ FASTEPD epaper;
 
 #define PWRMGMT_ADDR 0x6b
 #define REG09 9
-#define SDA_PIN 6
-#define SCL_PIN 5
+#define SDA_PIN 39
+#define SCL_PIN 40
 extern "C" {
 void s3_prep_diff(uint8_t *pCurr, uint8_t *pPrev, uint8_t *pDest, int iWidth);
 }
@@ -66,7 +66,8 @@ void setup()
    delay(3000);
    Serial.println("Starting...");
  //  TestSIMD();
-   epaper.initPanel(BB_PANEL_LILYGO_T5PRO);
+   epaper.initPanel(BB_PANEL_EPDIY_V7);
+   epaper.setPanelSize(960, 540);
    epaper.clearWhite();
    epaper.setFont(FONT_12x16);
    epaper.println("Power off in 5 seconds...");
