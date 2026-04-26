@@ -291,6 +291,8 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
     conf.clk_source = I2C_CLK_SRC_DEFAULT;
     conf.glitch_ignore_cnt = 7;
     conf.flags.enable_internal_pullup = true;
+    conf.intr_priority = 0;
+    conf.trans_queue_depth = 0; // keep synchronous mode
     ESP_ERROR_CHECK(i2c_new_master_bus(&conf, &my_bus_handle));
 #else // older esp-idff
     i2c_config_t conf;
