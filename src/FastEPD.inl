@@ -16,6 +16,9 @@
 //
 #include "FastEPD.h"
 #ifndef __LINUX__
+#ifdef ARDUINO
+#include <SPI.h>
+#endif // ARDUINO
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_log.h>
@@ -1053,6 +1056,7 @@ int EPDiyV7RAWIOInit(void *pBBEP)
     bbepPinMode(12, OUTPUT); // TPS_VCOM_CTRL
     bbepPinMode(14, OUTPUT); // TPS_WAKEUP
     bbepPinMode(47, INPUT); // TPS_POWER_GOOD
+    bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     return BBEP_SUCCESS;
 } /* EPDiyV7RAWIOInit() */
 
@@ -1632,6 +1636,372 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 #endif
 #endif // ARDUINO
 } /* bbepInitLights() */
+//
+// IT8951 support
+//
+void it8951WaitForReady(FASTEPDSTATE *pState)
+{
+    const uint32_t start = millis();
+    while (digitalRead(pState->u8Busy) == LOW) {
+        if (millis() - start > 3000) {
+            // Serial-only — HRDY timeouts are expected during the multi-attempt probe sequence
+            Serial.println("HRDY timeout");
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+} /* it8951WaitForReady() */
+
+void it8951WriteNData(FASTEPDSTATE *pState, const uint16_t *buf, uint32_t word_count) {
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    //it8951GetSystemInfo(pState);
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x0000); // data preamble
+    it8951WaitForReady(pState);
+    for (uint32_t i = 0; i < word_count; i++) {
+        SPI.transfer16(buf[i]);
+    }
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+} /* i8951WriteNData() */
+
+void it8951WriteData(FASTEPDSTATE *pState, uint16_t data) {
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x0000); // data preamble
+    it8951WaitForReady(pState);
+    SPI.transfer16(data);
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+} /* it8951WriteData() */
+
+void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd) {
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x6000); // command preamble
+    it8951WaitForReady(pState);
+    SPI.transfer16(cmd);
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+} /* it8951WriteCmdCode() */
+
+void it8951SendCmdArg(FASTEPDSTATE *pState, uint16_t cmd, uint16_t *args, uint16_t num_args)
+{ 
+    it8951WriteCmdCode(pState, cmd);
+    for (int i = 0; i < num_args; i++) {
+        it8951WriteData(pState, args[i]);
+    }
+} /* it8951SendCmdArg() */
+
+void it8951WriteVcom(FASTEPDSTATE *pState, uint16_t selector, uint16_t value)
+{
+    it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
+    it8951WriteData(pState, selector);
+    it8951WriteData(pState, value);
+}
+
+uint16_t it8951ReadData(FASTEPDSTATE *pState) {
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x1000); // read preamble
+    SPI.transfer16(0);       // dummy read
+    it8951WaitForReady(pState);
+    const uint16_t data = SPI.transfer16(0);
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+    return data;
+} /* it8951ReadData() */
+
+void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count)
+{
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x1000); // read preamble
+    it8951WaitForReady(pState);
+    SPI.transfer16(0);       // dummy read
+    it8951WaitForReady(pState);
+    for (int i = 0; i < word_count; i++) {
+        buf[i] = SPI.transfer16(0);
+    }
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+} /* it8951ReadNData() */
+
+uint16_t it8951ReadReg(FASTEPDSTATE *pState, uint16_t addr)
+{
+    it8951WriteCmdCode(pState, IT8951_TCON_REG_RD);
+    it8951WriteData(pState, addr);
+    return it8951ReadData(pState);
+} /* it8951ReadReg() */
+
+void it8951WriteReg(FASTEPDSTATE *pState, uint16_t addr, uint16_t val)
+{
+    it8951WriteCmdCode(pState, IT8951_TCON_REG_WR);
+    it8951WriteData(pState, addr);
+    it8951WriteData(pState, val);
+} /* it8951WriteReg() */
+
+void it8951WaitForLUTReady(FASTEPDSTATE *pState) {
+    const uint32_t start = millis();
+    while (it8951ReadReg(pState, IT8951_REG_LUTAFSR) != 0) {
+        if (millis() - start > 30000) { 
+            Serial.println("Display-ready timeout (LUTAFSR)");
+            break;
+        }
+        yield();
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+} /* it8951WaitForLUTReady() */
+
+void it8951SetImgBufBaseAddr(FASTEPDSTATE *pState)
+{
+    const uint16_t hi = (pState->img_buf_addr >> 16) & 0xFFFF;
+    const uint16_t lo = pState->img_buf_addr & 0xFFFF;
+    it8951WriteReg(pState, IT8951_REG_LISAR + 2, hi);
+    it8951WriteReg(pState, IT8951_REG_LISAR, lo);
+} /* it8951SetImgBufBaseAddr() */
+
+void it8951LoadImgAreaStart(FASTEPDSTATE *pState, uint16_t endian, uint16_t pix_fmt, uint16_t rotate,
+                              uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+{
+    uint16_t args[5];
+    args[0] = (endian << 8) | (pix_fmt << 4) | rotate;
+    args[1] = x;
+    args[2] = y;
+    args[3] = w;
+    args[4] = h;
+    it8951SendCmdArg(pState, IT8951_TCON_LD_IMG_AREA, args, 5);
+} /* it8951LoadImgAreaStart() */
+
+void it8951DisplayArea(FASTEPDSTATE *pState, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t mode)
+{
+    it8951WriteCmdCode(pState, USDEF_I80_CMD_DPY_AREA);
+    it8951WriteData(pState, x);
+    it8951WriteData(pState, y);
+    it8951WriteData(pState, w);
+    it8951WriteData(pState, h);
+    it8951WriteData(pState, mode);
+} /* it8951DisplayArea() */
+
+void it8951DisplayArea1Bit(FASTEPDSTATE *pState, uint16_t x, uint16_t y, uint16_t w, uint16_t h,
+                             uint16_t mode, uint8_t bg_gray, uint8_t fg_gray)
+{
+    // Enable 1bpp mode
+    it8951WriteReg(pState, IT8951_REG_UP1SR + 2, it8951ReadReg(pState, IT8951_REG_UP1SR + 2) | (1 << 2));
+    it8951WriteReg(pState, IT8951_REG_BGVR, (uint16_t(bg_gray) << 8) | fg_gray);
+    it8951DisplayArea(pState, x, y, w, h, mode);
+    it8951WaitForLUTReady(pState);
+} /* it8951DisplayArea1Bit() */
+
+bool it8951ProbeController(FASTEPDSTATE *pState, const char *label, bool send_sys_run, int vcom_selector)
+{
+IT8951DevInfo dev_info_;
+
+    memset(&dev_info_, 0, sizeof(dev_info_));
+
+    if (send_sys_run) {
+        Serial.printf("[%s] Sending SYS_RUN wake command", label);
+        it8951WriteCmdCode(pState, IT8951_TCON_SYS_RUN);
+        vTaskDelay(1);
+    }
+
+    if (vcom_selector > 0) {
+        Serial.printf("[%s] Writing VCOM=%u with selector 0x%04X", label, pState->panelDef.iVCOM, vcom_selector);
+        it8951WriteVcom(pState, vcom_selector, -pState->panelDef.iVCOM);
+        it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
+        it8951WriteData(pState, 0x0000);
+        uint16_t readback = it8951ReadData(pState);
+        Serial.printf("[%s] VCOM read-back: %u (0x%04X)", label, readback, readback);
+        if (readback == -pState->panelDef.iVCOM) {
+            pState->vcom_write_selector = vcom_selector;
+        }
+    }
+
+    memset(&dev_info_, 0, sizeof(dev_info_));
+    it8951WriteCmdCode(pState, USDEF_I80_CMD_GET_DEV_INFO);
+    it8951ReadNData(pState, reinterpret_cast<uint16_t *>(&dev_info_), sizeof(IT8951DevInfo) / 2);
+
+    pState->img_buf_addr = (uint32_t(dev_info_.img_buf_addr_h) << 16) | dev_info_.img_buf_addr_l;
+ 
+    Serial.printf("[%s] DevInfo: W=%u H=%u BufL=0x%04X BufH=0x%04X",
+             label, dev_info_.panel_width, dev_info_.panel_height,
+             dev_info_.img_buf_addr_l, dev_info_.img_buf_addr_h);
+    // Valid info?
+    return dev_info_.panel_width > 0 && dev_info_.panel_width < 10000 &&
+           dev_info_.panel_height > 0 && dev_info_.panel_height < 10000;
+
+} /* it8951ProbeController() */
+
+void it8951WriteFramebuffer1Bit(FASTEPDSTATE *pState) {
+uint8_t *s;
+int iPitch;
+
+    it8951WaitForLUTReady(pState);
+    it8951SetImgBufBaseAddr(pState);
+
+    it8951LoadImgAreaStart(pState, IT8951_LDIMG_L_ENDIAN, IT8951_8BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
+   
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x0000); // data preamble
+    it8951WaitForReady(pState);
+
+    s = pState->pCurrent;
+    iPitch = (pState->native_width + 7)/8;    
+    for (int y = 0; y < pState->native_height; y++) {
+        SPI.writeBytes(s, iPitch);
+        if ((y & 0x07) == 0) {
+            yield();
+        }
+        s += iPitch;
+    }
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+    // finish the operation
+    it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
+} /* it8951WriteFramebuffer1Bit() */
+
+void it8951WriteFramebuffer4Bit(FASTEPDSTATE *pState)
+{
+uint8_t *s;
+int iPitch;
+
+    it8951WaitForLUTReady(pState);
+    it8951SetImgBufBaseAddr(pState);
+
+  // Disable 1bpp mode if it was previously enabled
+    it8951WriteReg(pState, IT8951_REG_UP1SR + 2, it8951ReadReg(pState, IT8951_REG_UP1SR + 2) & ~(1 << 2));
+
+    it8951LoadImgAreaStart(pState, IT8951_LDIMG_L_ENDIAN, IT8951_4BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
+    
+
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x0000); // data preamble
+    it8951WaitForReady(pState);
+
+    s = pState->pCurrent;
+    iPitch = (pState->native_width + 1)/2;
+    for (int y = 0; y < pState->native_height; y++) {
+        SPI.writeBytes(s, iPitch);
+        if ((y & 0x07) == 0) {
+            yield();
+        }
+    }
+
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+    it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
+} /* it8951WriteFramebuffer4Bit() */
+//
+// Initialize the IT8951 external SPI controller
+//
+int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t u8CLK, uint8_t u8CS, uint8_t u8Busy, uint8_t u8RST, uint8_t u8EN, uint8_t u8ITE_EN)
+{
+    pinMode(u8CS, OUTPUT);
+    pinMode(u8Busy, INPUT);
+    pinMode(u8RST, OUTPUT);
+    pinMode(u8EN, OUTPUT);
+    pinMode(u8ITE_EN, OUTPUT);
+
+    pState->u8CS = u8CS;
+    pState->u8RST = u8RST;
+    pState->u8Busy = u8Busy;
+    pState->u8EN = u8EN;
+    pState->u8ITE_EN = u8ITE_EN;
+
+    digitalWrite(u8CS, HIGH);
+    digitalWrite(u8RST, HIGH);
+    digitalWrite(u8EN, HIGH);
+    digitalWrite(u8ITE_EN, HIGH);
+    SPI.begin(u8CLK, u8MISO, u8MOSI, -1);
+    pState->spi_frequency = IT8951_SPI_PROBE_FREQUENCY;
+
+   // Multi-attempt probe sequence
+    struct ProbeAttempt {
+        const char *label;
+        bool send_sys_run;
+        int vcom_selector;
+    };
+    static const ProbeAttempt attempts[] = {
+        {"cold read", false, 0},
+        {"wake then read", true, 0},
+        {"wake + VCOM 0x0001", true, 0x0001},
+        {"wake + VCOM 0x0002", true, 0x0002},
+    };
+
+    bool found_device = false;
+    for (size_t i = 0; i < sizeof(attempts) / sizeof(attempts[0]); i++) {
+        Serial.printf("Probe attempt %u: %s", (unsigned)(i + 1), attempts[i].label);
+// power cycle
+        digitalWrite(pState->u8CS, HIGH);
+        digitalWrite(pState->u8RST, HIGH);
+        digitalWrite(pState->u8EN, LOW);
+        digitalWrite(pState->u8ITE_EN, LOW);
+        delay(100);
+        digitalWrite(pState->u8EN, HIGH);
+        digitalWrite(pState->u8ITE_EN, HIGH);
+        delay(500);
+// hardware reset
+        digitalWrite(pState->u8CS, HIGH);
+        digitalWrite(pState->u8RST, HIGH);
+        digitalWrite(pState->u8EN, HIGH);
+        digitalWrite(pState->u8ITE_EN, HIGH);
+        delay(50);
+        digitalWrite(pState->u8RST, LOW);
+        delay(10);
+        digitalWrite(pState->u8RST, HIGH);
+        delay(1500);
+        Serial.printf("[%s] Power cycle complete, HRDY=%s",
+                 attempts[i].label,
+                 digitalRead(u8Busy) ? "HIGH" : "LOW");
+        it8951WaitForReady(pState);
+        if (it8951ProbeController(pState, attempts[i].label, attempts[i].send_sys_run, attempts[i].vcom_selector)) {
+            found_device = true;
+            break;
+        }
+    }
+
+    if (!found_device) {
+        Serial.println("SPI communication failed - IT8951 never returned valid device info");
+        return BBEP_IO_ERROR;
+    }
+ // If VCOM wasn't verified during probe, try preferred selectors
+    if (pState->vcom_write_selector == 0) {
+        Serial.println("Panel answered before VCOM was verified, trying selector 0x0002");
+        it8951WriteVcom(pState, 0x0002, -pState->panelDef.iVCOM);
+        it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
+        it8951WriteData(pState, 0x0000);
+        uint16_t readback = it8951ReadData(pState);
+        if (readback == -pState->panelDef.iVCOM) {
+            pState->vcom_write_selector = 0x0002;
+        } else {
+            Serial.printf("Selector 0x0002 read-back was %u, trying 0x0001", readback);
+            it8951WriteVcom(pState, 0x0001, -pState->panelDef.iVCOM);
+            it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
+            it8951WriteData(pState, 0x0000);
+            readback = it8951ReadData(pState);
+            if (readback == -pState->panelDef.iVCOM) {
+                pState->vcom_write_selector = 0x0001;
+            }
+        }
+    }
+    // Enable packed write mode and set temperature
+    it8951WriteReg(pState, IT8951_REG_I80CPCR, 0x0001);
+    it8951WriteCmdCode(pState, USDEF_I80_CMD_TEMP);
+    it8951WriteData(pState, 0x0001);
+    it8951WriteData(pState, 14);
+    Serial.println("IT8951 initialization complete");
+    pState->spi_frequency = IT8951_SPI_RUN_FREQUENCY; // switch to data frequency
+    return BBEP_SUCCESS;
+} /* bbepInitIT8951() */
 
 //
 // Initialize the panel based on the constant name

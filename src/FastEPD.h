@@ -209,6 +209,8 @@ typedef struct tag_bbeppanelprocs
 typedef struct tag_fastepdstate
 {
     int iPanelType;
+    uint8_t u8CS, u8RST, u8Busy, u8EN, u8ITE_EN; // IT8951 support
+    uint32_t spi_frequency, img_buf_addr, vcom_write_selector;
     uint8_t wrap, last_error, pwr_on, mode;
     uint8_t shift_data, anti_alias, italic, bit_bang;
     volatile int bVideo;
@@ -238,6 +240,66 @@ typedef struct tag_fastepdstate
     BB_ROW_CONTROL *pfnRowControl;
 } FASTEPDSTATE;
 
+// IT8951 Support
+// IT8951 command codes
+#define IT8951_TCON_SYS_RUN      0x0001
+#define IT8951_TCON_STANDBY      0x0002
+#define IT8951_TCON_SLEEP        0x0003
+#define IT8951_TCON_REG_RD       0x0010
+#define IT8951_TCON_REG_WR       0x0011
+#define IT8951_TCON_MEM_BST_RD_T 0x0012
+#define IT8951_TCON_MEM_BST_RD_S 0x0013
+#define IT8951_TCON_MEM_BST_WR   0x0014
+#define IT8951_TCON_MEM_BST_END  0x0015
+#define IT8951_TCON_LD_IMG       0x0020
+#define IT8951_TCON_LD_IMG_AREA  0x0021
+#define IT8951_TCON_LD_IMG_END   0x0022
+
+// User-defined I80 command codes
+#define USDEF_I80_CMD_DPY_AREA       0x0034
+#define USDEF_I80_CMD_GET_DEV_INFO   0x0302
+#define USDEF_I80_CMD_VCOM           0x0039
+#define USDEF_I80_CMD_TEMP           0x0040
+#define USDEF_I80_CMD_LD_IMG_1BPP    0x0095
+// Rotation modes
+#define IT8951_ROTATE_0   0
+#define IT8951_ROTATE_90  1
+#define IT8951_ROTATE_180 2
+#define IT8951_ROTATE_270 3
+// Waveform modes
+#define IT8951_MODE_0  0
+#define IT8951_MODE_1  1
+#define IT8951_MODE_2  2
+#define IT8951_MODE_3  3
+#define IT8951_MODE_4  4
+// Pixel format constants
+#define IT8951_2BPP 0
+#define IT8951_3BPP 1
+#define IT8951_4BPP 2
+#define IT8951_8BPP 3
+#define IT8951_LDIMG_L_ENDIAN 0
+
+// Register addresses
+#define IT8951_REG_I80CPCR  0x0004
+#define IT8951_REG_LISAR    0x0208
+#define IT8951_REG_LUTAFSR  0x1224
+#define IT8951_REG_UP1SR    0x1138
+#define IT8951_REG_BGVR     0x1250
+
+// SPI frequencies
+#define IT8951_SPI_PROBE_FREQUENCY 1000000
+#define IT8951_SPI_RUN_FREQUENCY   4000000
+
+// IT8951 device info structure
+typedef struct {
+    uint16_t panel_width;
+    uint16_t panel_height;
+    uint16_t img_buf_addr_l;
+    uint16_t img_buf_addr_h;
+    uint16_t fw_version[8];
+    uint16_t lut_version[8];
+} IT8951DevInfo;
+
 #ifdef __cplusplus
 #ifdef ARDUINO
 class FASTEPD : public Print
@@ -248,6 +310,7 @@ class FASTEPD
   public:
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
     int initPanel(int iPanelType, uint32_t u32Speed = 0);
+    int initIT8951(uint8_t u8MOSI, uint8_t u8MISO, uint8_t u8CLK, uint8_t u8CS, uint8_t u8Busy, uint8_t u8RST, uint8_t u8EN, uint8_t u8ITE_EN);
     void initLights(uint8_t led1, uint8_t led2 = 0xff);
     void setBrightness(uint8_t led1, uint8_t led2 = 0);
     int initCustomPanel(BBPANELDEF *pPanel, BBPANELPROCS *pProcs);
