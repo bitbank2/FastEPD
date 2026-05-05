@@ -446,7 +446,7 @@ int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
     switch (pBBEP->rotation) {
         case 0:
             i = (x >> 1) + (y * iPitch);
-            if (x & 1) {
+            if (!(x & 1)) {
                 u8Mask >>= 4;
                 ucColor <<= 4;
             }
@@ -460,14 +460,14 @@ int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
             break;
         case 180:
             i = ((pBBEP->width - 1 - x) >> 1) + ((pBBEP->height - 1 - y) * iPitch);
-            if (!(x & 1)) {
+            if (x & 1) {
                 u8Mask >>= 4;
                 ucColor <<= 4;
             }
             break;
         case 270:
             i = ((pBBEP->height - 1 - y) >> 1) + (x * iPitch);
-            if (!(y & 1)) {
+            if (y & 1) {
                 u8Mask >>= 4;
                 ucColor <<= 4;
             }
@@ -598,7 +598,7 @@ int bbepSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
             break;
     }
     u8 = pBBEP->pCurrent[i];
-    u8 = (u8 & u8Mask) | ucColor;
+    u8 = (u8 & ~u8Mask) | ucColor;
     pBBEP->pCurrent[i] = u8;
     return BBEP_SUCCESS;
 } /* bbepSetPixel4Clr() */

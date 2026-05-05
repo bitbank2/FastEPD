@@ -83,6 +83,7 @@ enum {
     BB_PANEL_EPDINKY_P4,
     BB_PANEL_EPDINKY_P4_16,
     BB_PANEL_RPI,
+    BB_PANEL_IT8951,
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
@@ -278,6 +279,7 @@ typedef struct tag_fastepdstate
 #define IT8951_4BPP 2
 #define IT8951_8BPP 3
 #define IT8951_LDIMG_L_ENDIAN 0
+#define IT8951_LDIMG_B_ENDIAN 1
 
 // Register addresses
 #define IT8951_REG_I80CPCR  0x0004

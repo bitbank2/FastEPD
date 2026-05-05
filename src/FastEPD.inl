@@ -166,6 +166,7 @@ const uint8_t u8M5Matrix[] = {
     /* 14 */  2, 2, 1, 2, 2, 1, 2, 2,
     /* 15 */  2, 2, 2, 2, 2, 2, 2, 2,
     };
+
 // Forward references
 int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
@@ -1477,7 +1478,7 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
             bbepSetCustomMatrix(pState, u8NineInchMatrix, sizeof(u8NineInchMatrix));
             break;
         case BBEP_DISPLAY_ED103TC2:
-            bbepSetPanelSize(pState, 1872, 1414, BB_PANEL_FLAG_MIRROR_X, -1600);
+            bbepSetPanelSize(pState, 1872, 1404, BB_PANEL_FLAG_MIRROR_X, -1600);
             bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
             break;
         case BBEP_DISPLAY_ED052TC4:
@@ -1514,7 +1515,11 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
 #else
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
-    if (pState->iPanelType == BB_PANEL_VIRTUAL) {
+    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) {
+        pState->pfnSetPixel = bbepSetPixel2Clr;
+        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        pState->mode = BB_MODE_1BPP;
+        pState->rotation = 0;
         return BBEP_SUCCESS; // for graphics only
     }
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
@@ -1805,18 +1810,18 @@ IT8951DevInfo dev_info_;
     memset(&dev_info_, 0, sizeof(dev_info_));
 
     if (send_sys_run) {
-        Serial.printf("[%s] Sending SYS_RUN wake command", label);
+        //Serial.printf("[%s] Sending SYS_RUN wake command", label);
         it8951WriteCmdCode(pState, IT8951_TCON_SYS_RUN);
         vTaskDelay(1);
     }
 
     if (vcom_selector > 0) {
-        Serial.printf("[%s] Writing VCOM=%u with selector 0x%04X", label, pState->panelDef.iVCOM, vcom_selector);
+        //Serial.printf("[%s] Writing VCOM=%u with selector 0x%04X", label, pState->panelDef.iVCOM, vcom_selector);
         it8951WriteVcom(pState, vcom_selector, -pState->panelDef.iVCOM);
         it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
         it8951WriteData(pState, 0x0000);
         uint16_t readback = it8951ReadData(pState);
-        Serial.printf("[%s] VCOM read-back: %u (0x%04X)", label, readback, readback);
+        //Serial.printf("[%s] VCOM read-back: %u (0x%04X)", label, readback, readback);
         if (readback == -pState->panelDef.iVCOM) {
             pState->vcom_write_selector = vcom_selector;
         }
@@ -1828,9 +1833,9 @@ IT8951DevInfo dev_info_;
 
     pState->img_buf_addr = (uint32_t(dev_info_.img_buf_addr_h) << 16) | dev_info_.img_buf_addr_l;
  
-    Serial.printf("[%s] DevInfo: W=%u H=%u BufL=0x%04X BufH=0x%04X",
-             label, dev_info_.panel_width, dev_info_.panel_height,
-             dev_info_.img_buf_addr_l, dev_info_.img_buf_addr_h);
+    //Serial.printf("[%s] DevInfo: W=%u H=%u BufL=0x%04X BufH=0x%04X",
+    //         label, dev_info_.panel_width, dev_info_.panel_height,
+    //         dev_info_.img_buf_addr_l, dev_info_.img_buf_addr_h);
     // Valid info?
     return dev_info_.panel_width > 0 && dev_info_.panel_width < 10000 &&
            dev_info_.panel_height > 0 && dev_info_.panel_height < 10000;
@@ -1844,8 +1849,10 @@ int iPitch;
     it8951WaitForLUTReady(pState);
     it8951SetImgBufBaseAddr(pState);
 
-    it8951LoadImgAreaStart(pState, IT8951_LDIMG_L_ENDIAN, IT8951_8BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
+Serial.println("about to load img area");
+    it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_8BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
    
+Serial.println("About to start data");
     digitalWrite(pState->u8CS, LOW);
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
@@ -1855,7 +1862,15 @@ int iPitch;
     s = pState->pCurrent;
     iPitch = (pState->native_width + 7)/8;    
     for (int y = 0; y < pState->native_height; y++) {
-        SPI.writeBytes(s, iPitch);
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            for (int x = 0; x<iPitch; x++) {
+                d[iPitch - 1 - x] = s[x];
+            }
+            SPI.writeBytes(d, iPitch);
+        } else {
+            SPI.writeBytes(s, iPitch);
+        }
         if ((y & 0x07) == 0) {
             yield();
         }
@@ -1863,8 +1878,11 @@ int iPitch;
     }
     SPI.endTransaction();
     digitalWrite(pState->u8CS, HIGH);
+Serial.println("Data sent");
     // finish the operation
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
+    it8951DisplayArea1Bit(pState, 0, 0, pState->native_width, pState->native_height, 2, 0, 0xff);
+Serial.println("finish update");
 } /* it8951WriteFramebuffer1Bit() */
 
 void it8951WriteFramebuffer4Bit(FASTEPDSTATE *pState)
@@ -1878,7 +1896,7 @@ int iPitch;
   // Disable 1bpp mode if it was previously enabled
     it8951WriteReg(pState, IT8951_REG_UP1SR + 2, it8951ReadReg(pState, IT8951_REG_UP1SR + 2) & ~(1 << 2));
 
-    it8951LoadImgAreaStart(pState, IT8951_LDIMG_L_ENDIAN, IT8951_4BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
+    it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_4BPP, 0, 0, 0, pState->native_width, pState->native_height);
     
 
     digitalWrite(pState->u8CS, LOW);
@@ -1890,16 +1908,72 @@ int iPitch;
     s = pState->pCurrent;
     iPitch = (pState->native_width + 1)/2;
     for (int y = 0; y < pState->native_height; y++) {
-        SPI.writeBytes(s, iPitch);
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            for (int x = 0; x<iPitch; x++) {
+                d[iPitch - 1 - x] = (s[x] >> 4) | (s[x] << 4);
+            }
+            SPI.writeBytes(d, iPitch);
+        } else {
+            SPI.writeBytes(s, iPitch);
+        }
         if ((y & 0x07) == 0) {
             yield();
         }
+        s += iPitch;
     }
 
     SPI.endTransaction();
     digitalWrite(pState->u8CS, HIGH);
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
+    it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
 } /* it8951WriteFramebuffer4Bit() */
+
+void it8951WriteFramebuffer2Bit(FASTEPDSTATE *pState)
+{
+uint8_t *s;
+int iPitch;
+
+    it8951WaitForLUTReady(pState);
+    it8951SetImgBufBaseAddr(pState);
+
+  // Disable 1bpp mode if it was previously enabled
+    it8951WriteReg(pState, IT8951_REG_UP1SR + 2, it8951ReadReg(pState, IT8951_REG_UP1SR + 2) & ~(1 << 2));
+
+    it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_2BPP, 0, 0, 0, pState->native_width, pState->native_height);
+
+
+    digitalWrite(pState->u8CS, LOW);
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
+    it8951WaitForReady(pState);
+    SPI.transfer16(0x0000); // data preamble
+    it8951WaitForReady(pState);
+
+    s = pState->pCurrent;
+    iPitch = (pState->native_width + 3)/4;
+    for (int y = 0; y < pState->native_height; y++) {
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            for (int x = 0; x<iPitch; x++) {
+                uint8_t a = s[x];
+                d[iPitch - 1 - x] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
+            }
+            SPI.writeBytes(d, iPitch);
+        } else {
+            SPI.writeBytes(s, iPitch);
+        }
+        if ((y & 0x07) == 0) {
+            yield();
+        }
+        s += iPitch;
+    }
+
+    SPI.endTransaction();
+    digitalWrite(pState->u8CS, HIGH);
+    it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
+    it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
+} /* it8951WriteFramebuffer2Bit() */
+
 //
 // Initialize the IT8951 external SPI controller
 //
@@ -1939,7 +2013,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
 
     bool found_device = false;
     for (size_t i = 0; i < sizeof(attempts) / sizeof(attempts[0]); i++) {
-        Serial.printf("Probe attempt %u: %s", (unsigned)(i + 1), attempts[i].label);
+        //Serial.printf("Probe attempt %u: %s\n", (unsigned)(i + 1), attempts[i].label);
 // power cycle
         digitalWrite(pState->u8CS, HIGH);
         digitalWrite(pState->u8RST, HIGH);
@@ -1948,7 +2022,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
         delay(100);
         digitalWrite(pState->u8EN, HIGH);
         digitalWrite(pState->u8ITE_EN, HIGH);
-        delay(500);
+        delay(50); //500
 // hardware reset
         digitalWrite(pState->u8CS, HIGH);
         digitalWrite(pState->u8RST, HIGH);
@@ -1958,10 +2032,10 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
         digitalWrite(pState->u8RST, LOW);
         delay(10);
         digitalWrite(pState->u8RST, HIGH);
-        delay(1500);
-        Serial.printf("[%s] Power cycle complete, HRDY=%s",
-                 attempts[i].label,
-                 digitalRead(u8Busy) ? "HIGH" : "LOW");
+        delay(50); // 1500
+        //Serial.printf("[%s] Power cycle complete, HRDY=%s\n",
+        //         attempts[i].label,
+        //         digitalRead(u8Busy) ? "HIGH" : "LOW");
         it8951WaitForReady(pState);
         if (it8951ProbeController(pState, attempts[i].label, attempts[i].send_sys_run, attempts[i].vcom_selector)) {
             found_device = true;
@@ -1970,12 +2044,12 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     }
 
     if (!found_device) {
-        Serial.println("SPI communication failed - IT8951 never returned valid device info");
+        //Serial.println("SPI communication failed - IT8951 never returned valid device info\n");
         return BBEP_IO_ERROR;
     }
  // If VCOM wasn't verified during probe, try preferred selectors
     if (pState->vcom_write_selector == 0) {
-        Serial.println("Panel answered before VCOM was verified, trying selector 0x0002");
+        //Serial.println("Panel answered before VCOM was verified, trying selector 0x0002\n");
         it8951WriteVcom(pState, 0x0002, -pState->panelDef.iVCOM);
         it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
         it8951WriteData(pState, 0x0000);
@@ -1983,7 +2057,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
         if (readback == -pState->panelDef.iVCOM) {
             pState->vcom_write_selector = 0x0002;
         } else {
-            Serial.printf("Selector 0x0002 read-back was %u, trying 0x0001", readback);
+            //Serial.printf("Selector 0x0002 read-back was %u, trying 0x0001\n", readback);
             it8951WriteVcom(pState, 0x0001, -pState->panelDef.iVCOM);
             it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
             it8951WriteData(pState, 0x0000);
@@ -1998,7 +2072,8 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     it8951WriteCmdCode(pState, USDEF_I80_CMD_TEMP);
     it8951WriteData(pState, 0x0001);
     it8951WriteData(pState, 14);
-    Serial.println("IT8951 initialization complete");
+    //Serial.println("IT8951 initialization complete");
+    pState->iPanelType = BB_PANEL_IT8951;
     pState->spi_frequency = IT8951_SPI_RUN_FREQUENCY; // switch to data frequency
     return BBEP_SUCCESS;
 } /* bbepInitIT8951() */
@@ -2020,7 +2095,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
         pState->pCurrent = NULL; // make sure the memory is allocated
-        if (iPanel == BB_PANEL_VIRTUAL) {
+        if (iPanel == BB_PANEL_VIRTUAL || iPanel == BB_PANEL_IT8951) {
             pState->pfnExtIO = NULL;
             pState->pfnEinkPower = NULL;
             pState->pfnRowControl = NULL;
@@ -2093,6 +2168,8 @@ int iPasses;
 //
 int bbepEinkPower(FASTEPDSTATE *pState, int bOn)
 {
+    if (pState->iPanelType == BB_PANEL_IT8951) return BBEP_SUCCESS; // special case
+
     if (!pState->pfnEinkPower) return BBEP_ERROR_BAD_PARAMETER;
 
     return (*(pState->pfnEinkPower))(pState, bOn);
@@ -2204,7 +2281,7 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
 {
     int i, n, pass;
     
-    if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
+    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) return BBEP_ERROR_BAD_PARAMETER;
 
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
     bbepClear(pState, (u8Color == BBEP_WHITE) ? BB_CLEAR_LIGHTEN : BB_CLEAR_DARKEN, 5, NULL);
@@ -2309,6 +2386,16 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
     int iStartCol, iStartRow, iEndCol, iEndRow;
     uint8_t u8;
 
+    if (pState->iPanelType == BB_PANEL_IT8951) { // special case
+        if (pState->mode == BB_MODE_4BPP) {
+            it8951WriteFramebuffer4Bit(pState);
+        } else if (pState->mode == BB_MODE_2BPP) {
+            it8951WriteFramebuffer2Bit(pState);
+        } else {
+            it8951WriteFramebuffer1Bit(pState);
+        } 
+        return BBEP_SUCCESS;
+    }
 #ifdef SHOW_TIME
     long l = millis();
 #endif
@@ -2629,6 +2716,7 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     long l = millis();
 #endif
     if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
+    if (pState->iPanelType == BB_PANEL_IT8951) return bbepFullUpdate(pState, 0, 0, NULL);
 
 // Only supported in 1-bit mode (for now)
     if (pState->mode != BB_MODE_1BPP) return BBEP_ERROR_BAD_PARAMETER;
