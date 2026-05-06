@@ -1515,6 +1515,7 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
 #else
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
+    pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
     if (pState->iPanelType == BB_PANEL_IT8951) {
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
@@ -1523,7 +1524,6 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
         pState->rotation = 0;
         return BBEP_SUCCESS; // for it8951 only
     }
-    pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
 #endif // !__LINUX__
     pState->pPrevious = &pState->pCurrent[(width/4) * height]; // comparison with previous buffer (only 1-bpp mode)
 
