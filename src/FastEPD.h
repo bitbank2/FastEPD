@@ -212,7 +212,7 @@ typedef struct tag_fastepdstate
     int iPanelType;
     uint8_t u8CS, u8RST, u8Busy, u8EN, u8ITE_EN; // IT8951 support
     uint32_t spi_frequency, img_buf_addr, vcom_write_selector;
-    uint8_t wrap, last_error, pwr_on, mode;
+    uint8_t wrap, last_error, pwr_on, prev_mode, mode;
     uint8_t shift_data, anti_alias, italic, bit_bang;
     volatile int bVideo;
     uint8_t u8LED1, u8LED2;
@@ -332,12 +332,15 @@ class FASTEPD
     void getStringBox(const String &str, BB_RECT *pRect);
 #endif
     int setMode(int iMode); // set graphics mode
+    void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
+    int getPreviousMode(void) { return _state.prev_mode;}
     void ioPinMode(uint8_t u8Pin, uint8_t iMode);
     void ioWrite(uint8_t u8Pin, uint8_t iValue);
     uint8_t ioRead(uint8_t u8Pin);
     int getMode(void) {return _state.mode;}
     uint8_t *previousBuffer(void) { return _state.pPrevious;}
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
+    uint8_t *tempBuffer(void) { return _state.pTemp;}
     int einkPower(int bOn);
     void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
     int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);

@@ -1515,12 +1515,13 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
 #else
     pState->pCurrent = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 2, MALLOC_CAP_SPIRAM); // current pixels
     if (!pState->pCurrent) return BBEP_ERROR_NO_MEMORY;
-    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) {
+    if (pState->iPanelType == BB_PANEL_IT8951) {
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        pState->pPrevious = NULL;
         pState->mode = BB_MODE_1BPP;
         pState->rotation = 0;
-        return BBEP_SUCCESS; // for graphics only
+        return BBEP_SUCCESS; // for it8951 only
     }
     pState->pTemp = (uint8_t *)heap_caps_aligned_alloc(16, (pState->width * pState->height) / 4, MALLOC_CAP_SPIRAM); // LUT data
 #endif // !__LINUX__
@@ -1863,7 +1864,7 @@ Serial.println("About to start data");
     iPitch = (pState->native_width + 7)/8;    
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            uint8_t *d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = s[x];
             }
@@ -1909,7 +1910,7 @@ int iPitch;
     iPitch = (pState->native_width + 1)/2;
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            uint8_t *d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = (s[x] >> 4) | (s[x] << 4);
             }
@@ -1953,7 +1954,7 @@ int iPitch;
     iPitch = (pState->native_width + 3)/4;
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = (uint8_t *)LUTBW_16; // 512 bytes we can use for a temp line
+            uint8_t *d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 uint8_t a = s[x];
                 d[iPitch - 1 - x] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
@@ -2673,6 +2674,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
     printf("fullUpdate time: %dms\n", (int)l);
 #endif 
 #endif // SHOW_TIME
+    pState->prev_mode = pState->mode;
     return BBEP_SUCCESS;
 } /* bbepFullUpdate() */
 
@@ -2709,6 +2711,298 @@ void bbepPrepareDiff(uint8_t *c, uint8_t *p, uint8_t *d, int iWidth)
 #endif
 } /* bbepPrepareDiff() */
 
+//
+// Convert the previous image buffer contents to be
+// the same bit depth as the current mode (1 or 2-bpp) so that
+// it can do a differential (partial/non-flickering) update
+//
+void bbepConvertPrevBuffer(FASTEPDSTATE *pState)
+{
+    uint8_t *s, *d, *c;
+    int i, n, x, y, iSrcPitch, iDestPitch;
+    
+    switch (pState->prev_mode) {
+        case BB_MODE_1BPP:
+            iSrcPitch = pState->native_width / 8;
+            break;
+        case BB_MODE_2BPP:
+            iSrcPitch = pState->native_width / 4;
+            break;
+        case BB_MODE_4BPP:
+            iSrcPitch = pState->native_width / 2;
+            break;
+    }
+    if (pState->mode == BB_MODE_1BPP) { // convert to 1-bpp
+        iDestPitch = pState->native_width / 8;
+        for (y=0; y<pState->native_height; y++) {
+            s = &pState->pPrevious[iSrcPitch * y];
+            d = &pState->pTemp[iDestPitch * y];
+            c = &pState->pCurrent[iDestPitch * y];
+            if (pState->prev_mode == BB_MODE_2BPP) {
+                for (x=0; x<pState->native_width; x+=8) { // work 8 pixels at a time
+                    uint8_t ucSrc, ucCurr, ucDest = 0;
+                    ucCurr = *c++; // get current pixels in case we need to make a decision
+                    for (n=0; n<2; n++) { // work on 2 sets of 4 pixels
+                        ucSrc = *s++; // get 4 source pixels
+                        for (i=0; i<4; i++) {
+                            ucDest <<= 1;
+                            switch (ucSrc & 0xc0) {
+                                case 0xc0: // white - easy
+                                    ucDest |= 1; // compared pixel will be white
+                                case 0x00: // black - easy
+                                    break;
+                                case 0x80: // light or dark gray - difficult, check current pixel
+                                case 0x40:
+                                    ucDest |= ((ucCurr >> 7) ^ 1); // opposite of current color
+                                    break;
+                            }
+                            ucCurr <<= 1;
+                            ucSrc <<= 2;
+                        } // for i
+                    } // for n
+                    *d++ = ucDest;
+                } // for x
+            } else { // 4bpp => 1bpp
+                for (x=0; x<pState->native_width; x+=8) { // work 8 pixels at a time
+                    uint8_t ucSrc, ucCurr, ucDest = 0;
+                    ucCurr = *c++; // get current pixels in case we need to make a decision
+                    for (n=0; n<4; n++) { // work on 4 sets of 2 pixels
+                        ucSrc = *s++; // get 2 source pixels
+                        for (i=0; i<2; i++) {
+                            ucDest <<= 1;
+                            switch (ucSrc & 0xf0) {
+                                case 0xf0: // white - easy
+                                    ucDest |= 1; // compared pixel will be white
+                                case 0x00: // black - easy
+                                    break;
+                                default: // middle grays - difficult, check current pixel
+                                    ucDest |= ((ucCurr >> 7) ^ 1); // opposite of current color
+                                    break;
+                            }
+                            ucCurr <<= 1;
+                            ucSrc <<= 4;
+                        } // for i
+                    } // for n
+                    *d++ = ucDest;
+                } // for x
+            } // previous pixels are 4-bpp
+        } // for y
+    } else { // convert to 2-bpp
+        iDestPitch = pState->native_width / 4;
+        for (y=0; y<pState->native_height; y++) {
+            s = &pState->pPrevious[iSrcPitch * y];
+            d = &pState->pTemp[iDestPitch * y];
+            c = &pState->pCurrent[iDestPitch * y];
+            if (pState->prev_mode == BB_MODE_1BPP) {
+                const uint8_t u8Conv1To2[16] = {0, 3, 0xc, 0xf, 0x30, 0x33, 0x3c, 0x3f,
+                                                0xc0, 0xc3, 0xcc, 0xcf, 0xf0, 0xf3, 0xfc, 0xff}; // convert each nibble
+                // Simple direct convertsion: 0->00, 1->11
+                for (x=0; x<pState->native_width; x += 8) { // work 8 pixels at a time
+                    uint8_t ucSrc = *s++; // get 8 source pixels
+                    *d++ = u8Conv1To2[ucSrc>>4];
+                    *d++ = u8Conv1To2[ucSrc & 0xf];
+                } // for x
+            } else { // 4bpp => 2bpp
+                for (x=0; x<pState->native_width; x += 4) { // work 4 pixels at a time
+                    uint8_t ucSrc, ucDest;
+                    ucSrc = *s++; // get 2 source pixels
+                    ucDest = (ucSrc & 0xc0); // left pixel top 2 bits
+                    ucDest |= ((ucSrc >> 2) << 4); // right pixel top 2 bits
+                    ucSrc = *s++; // another 2 source pixels
+                    ucDest |= ((ucSrc >> 6) << 2);
+                    ucDest |= (ucSrc >> 2);
+                    *d++ = ucDest;
+                } // for x
+            } // previous pixels are 4-bpp
+        } // for y
+    }
+    // Now we can overwrite the old pixels with the converted ones
+    memcpy(pState->pPrevious, pState->pTemp, iDestPitch * pState->native_height);
+    pState->prev_mode = pState->mode;
+} /* bbepConvertPrevBuffer() */
+
+//
+// Non-flickering update in 2-bpp gray mode
+//
+int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
+{
+    uint8_t *s, *pNew, *pOld, *d;
+    uint8_t *u8Gray2BW, *u8Gray2Gray;
+    int pass, iDMAOff;
+    int i, k, n, dy; // destination Y for flipped displays
+    // Create fast lookup tables to convert the pixels directly into pushes
+    u8Gray2BW = u8Cache;
+    u8Gray2Gray = &u8Cache[16];
+    // Create a lookup table for the 16 permutations of old + new pixels
+    // combine them as new (upper 2 bits) with old (lower 2 bits)
+    for (i=0; i<16; i++) {
+        // black/white table
+        switch (i) {
+            case 0x0: // black to black
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0x1: // dark gray to black
+                u8Gray2BW[i] = 1; // push black in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0x2: // light gray to black
+            case 0x3: // white to black
+                u8Gray2BW[i] = 1; // push black in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0x4: // black to dark gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 2; // push white in second pass
+                break;
+            case 0x5: // dark gray to dark gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0x6: // light gray to dark gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 1; // push black in second pass
+                break;
+            case 0x7: // white to dark gray
+                u8Gray2BW[i] = 1; // push black in first pass
+                u8Gray2Gray[i] = 2; // push white in second pass
+                break;
+            case 0x8: // black to light gray
+                u8Gray2BW[i] = 2; // push white in first pass
+                u8Gray2Gray[i] = 1; // push black in second pass
+                break;
+            case 0x9: // dark gray to light gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 2; // push white in second pass
+                break;
+            case 0xa: // light gray to light gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0xb: // white to light gray
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 1; // push black in second pass
+                break;
+            case 0xc: // black to white
+            case 0xd: // dark gray to white
+                u8Gray2BW[i] = 2; // push white in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+            case 0xe: // light gray to white
+                u8Gray2BW[i] = 2; // push white in first pass
+                u8Gray2Gray[i] = 2; // nothing in second pass
+                break;
+            case 0xf: // white to white
+                u8Gray2BW[i] = 0; // nothing in first pass
+                u8Gray2Gray[i] = 0; // nothing in second pass
+                break;
+        } // switch
+    } // for i
+    for (i = 0; i < pState->native_height; i++) {
+        dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+        d = &pState->pTemp[i * (pState->native_width/4)];
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            pNew = &pState->pCurrent[(dy * (pState->native_width/4)) + pState->native_width/4 - 1];
+            pOld = &pState->pPrevious[(dy * (pState->native_width/4)) + pState->native_width/4 - 1];
+            // push white and black pixels simultaneously
+            for (n = 0; n < (pState->native_width / 4); n++) {
+                uint8_t ucNew, ucOld, ucPush = 0;
+                ucNew = *pNew--; ucOld = *pOld--;
+                for (k = 0; k < 4; k++) { // 4 pixels per byte
+                    ucPush <<= 2;
+                    // convert new+old pixel into correct color pushes
+                    ucPush |= u8Gray2BW[((ucNew << 2) & 0xc) | ucOld & 3];
+                    ucNew >>= 2; ucOld >>= 2;
+                }
+                *d++ = ucPush;
+            } // for n
+        } else {
+            pNew = &pState->pCurrent[dy * (pState->native_width/4)];
+            pOld = &pState->pPrevious[dy * (pState->native_width/4)];
+            // push white and black pixels simultaneously
+            for (n = 0; n < (pState->native_width / 4); n++) {
+                uint8_t ucNew, ucOld, ucPush = 0;
+                ucNew = *pNew++; ucOld = *pOld++;
+                for (k = 0; k < 4; k++) { // 4 pixels per byte
+                    ucPush >>= 2;
+                    // convert new+old pixel into correct color pushes
+                    ucPush |= (u8Gray2BW[((ucNew << 2) & 0xc) | ucOld & 3]) << 6;
+                    ucNew >>= 2; ucOld >>= 2;
+                }
+                *d++ = ucPush;
+            } // for n
+        }
+    } // for i
+    for (pass = 0; pass < 5/*pState->iFullPasses*/; pass++) { // first N passes push to primary color
+        bbepRowControl(pState, ROW_START);
+        iDMAOff = 0;
+        for (i = 0; i < pState->native_height; i++) {
+            s = &pState->pTemp[i * (pState->native_width/4)];
+            d = &pState->dma_buf[iDMAOff];
+            memcpy(d, s, pState->native_width/4);
+            // Send the data for the row
+            bbepWriteRow(pState, &pState->dma_buf[iDMAOff], (pState->native_width / 4), (i!=0));
+            iDMAOff ^= (pState->native_width/4);
+        } // for i
+        delayMicroseconds(230);
+    } // for pass
+    for (i = 0; i < pState->native_height; i++) {
+        dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
+        d = &pState->pTemp[i * (pState->native_width/4)];
+        if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
+            pNew = &pState->pCurrent[(dy * (pState->native_width/4)) + pState->native_width/4 - 1];
+            pOld = &pState->pPrevious[(dy * (pState->native_width/4)) + pState->native_width/4 - 1];
+            // push white and black pixels simultaneously
+            for (n = 0; n < (pState->native_width / 4); n++) {
+                uint8_t ucNew, ucOld, ucPush = 0;
+                ucNew = *pNew--; ucOld = *pOld--;
+                for (k = 0; k < 4; k++) { // 4 pixels per byte
+                    ucPush <<= 2;
+                    // convert new+old pixel into correct color pushes
+                    ucPush |= u8Gray2Gray[((ucNew << 2) & 0xc) | ucOld & 3];
+                    ucNew >>= 2; ucOld >>= 2;
+                }
+                *d++ = ucPush;
+            } // for n
+        } else {
+            pNew = &pState->pCurrent[dy * (pState->native_width/4)];
+            pOld = &pState->pPrevious[dy * (pState->native_width/4)];
+            // push white and black pixels simultaneously
+            for (n = 0; n < (pState->native_width / 4); n++) {
+                uint8_t ucNew, ucOld, ucPush = 0;
+                ucNew = *pNew++; ucOld = *pOld++;
+                for (k = 0; k < 4; k++) { // 4 pixels per byte
+                    ucPush >>= 2;
+                    // convert new+old pixel into correct color pushes
+                    ucPush |= (u8Gray2Gray[((ucNew << 2) & 0xc) | ucOld & 3]) << 6;
+                    ucNew >>= 2; ucOld >>= 2;
+                }
+                *d++ = ucPush;
+            } // for n
+        }
+    } // for i
+    for (pass = 0; pass < 1; pass++) { // final passes push to grays
+        bbepRowControl(pState, ROW_START);
+        iDMAOff = 0;
+        for (i = 0; i < pState->native_height; i++) {
+            s = &pState->pTemp[i * (pState->native_width/4)];
+            d = &pState->dma_buf[iDMAOff];
+            memcpy(d, s, pState->native_width/4);
+            // Send the data for the row
+            bbepWriteRow(pState, &pState->dma_buf[iDMAOff], (pState->native_width / 4), (i!=0));
+            iDMAOff ^= (pState->native_width/4);
+        } // for i
+        delayMicroseconds(230);
+    } // for pass
+    memcpy(pState->pPrevious, pState->pCurrent, (pState->native_width/4) * pState->native_height); // previous = current
+    // This clear to neutral step is necessary; do not remove
+    bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
+    if (!bKeepOn) {
+        bbepEinkPower(pState, 0);
+    }
+    return BBEP_SUCCESS;
+} /* bbep2BppPartial()*/
+
 int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
     int i, n, pass, iDMAOff;
@@ -2718,10 +3012,18 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
     if (pState->iPanelType == BB_PANEL_IT8951) return bbepFullUpdate(pState, 0, 0, NULL);
 
-// Only supported in 1-bit mode (for now)
-    if (pState->mode != BB_MODE_1BPP) return BBEP_ERROR_BAD_PARAMETER;
+// Only supported in 1 and 2-bit mode (for now)
+    if (pState->mode != BB_MODE_1BPP && pState->mode != BB_MODE_2BPP) return BBEP_ERROR_BAD_PARAMETER;
+    if (pState->prev_mode == BB_MODE_NONE) return BBEP_ERROR_BAD_PARAMETER;
+                    
+    if (pState->prev_mode != pState->mode) { // convert 1/2/4-bpp previous image to make current bit depth 
+        bbepConvertPrevBuffer(pState);
+    }           
 
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
+
+    if (pState->mode == BB_MODE_2BPP) return bbep2BppPartial(pState, bKeepOn, iStartLine, iEndLine);
+
     if (iStartLine < 0) iStartLine = 0;
     if (iEndLine >= pState->native_height) iEndLine = pState->native_height-1;
     if (iEndLine < iStartLine) return BBEP_ERROR_BAD_PARAMETER;
