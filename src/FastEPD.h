@@ -38,6 +38,7 @@
 #define BB_PANEL_FLAG_MIRROR_X 0x01
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
 #define BB_PANEL_FLAG_SLOW_SPH 0x04
+#define BB_PANEL_FLAG_DARK     0x08
 
 #define BB_NOT_USED 0xff
 #define BBEP_TRANSPARENT 255
@@ -48,7 +49,6 @@ enum {
    CLEAR_FAST, // 8 passes black/white
    CLEAR_SLOW, // 10 passes black/white/black/white
    CLEAR_WHITE, // 8 passes to white
-   CLEAR_EXTRA_WHITE, // 12 passes to white
    CLEAR_BLACK, // 8 passes to black
 };
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
@@ -84,6 +84,7 @@ enum {
     BB_PANEL_EPDINKY_P4_16,
     BB_PANEL_RPI,
     BB_PANEL_IT8951,
+    BB_PANEL_SENSORIA_C5,
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT
@@ -332,8 +333,8 @@ class FASTEPD
     void getStringBox(const String &str, BB_RECT *pRect);
 #endif
     int setMode(int iMode); // set graphics mode
-    void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
     int getPreviousMode(void) { return _state.prev_mode;}
+    void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
     void ioPinMode(uint8_t u8Pin, uint8_t iMode);
     void ioWrite(uint8_t u8Pin, uint8_t iValue);
     uint8_t ioRead(uint8_t u8Pin);
@@ -346,6 +347,7 @@ class FASTEPD
     int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
+    int fastUpdate(bool bKeepOn = false);
     void setPasses(uint8_t iPartialPasses, uint8_t iFullPasses = 5);
     int setRotation(int iAngle);
     int getRotation(void) { return _state.rotation;}
