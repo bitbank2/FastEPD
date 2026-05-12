@@ -100,7 +100,7 @@ void StartHexFile(FILE *f, int iLen, int w, int h, const char *fname)
     fprintf(f, "//\n// Created with imageconvert, written by Larry Bank\n");
     fprintf(f, "// %d x %d x 1-bit per pixel\n", w, h);
     fprintf(f, "// compressed image data size = %d bytes\n//\n", iLen);
-    strcpy(szTemp, fname);
+    snprintf(szTemp, sizeof(szTemp), "%s", fname);
     i = strlen(szTemp);
     if (szTemp[i-2] == '.') szTemp[i-2] = 0; // get the leaf name for the data
     fprintf(f, "const uint8_t %s[] = {\n", szTemp);
@@ -147,8 +147,8 @@ int main(int argc, const char * argv[]) {
         
         printf("bmp size %d x %d\n", w, h);
         iPitch = (w+7) >> 3;
-        pOut = (uint8_t *)malloc(iPitch * h);
-        rc = g5_encode_init(&g5enc, w, h, pOut, iPitch * h);
+        pOut = (uint8_t *)calloc((size_t)iPitch, (size_t)h);
+        rc = g5_encode_init(&g5enc, w, h, pOut, (size_t)iPitch * (size_t)h);
         for (y=0; y<h && rc == G5_SUCCESS; y++) {
             rc = g5_encode_encodeLine(&g5enc, s);
             s += iPitch;
@@ -165,7 +165,7 @@ int main(int argc, const char * argv[]) {
             bbbm.size = iOutSize;
             f = fopen(argv[2], "w+b");
             if (!f) {
-                printf("Error opening: %s\n", argv[2]);
+                fprintf(stderr, "Error opening: %s\n", argv[2]);
             } else {
                 if (bHFile) { // generate HEX file to include in a project
                     StartHexFile(f, iOutSize+sizeof(BB_BITMAP), w, h, argv[2]);

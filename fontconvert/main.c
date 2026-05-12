@@ -100,7 +100,7 @@ void StartHexFile(FILE *f, int iLen, const char *fname, int size, int first, int
     fprintf(f, "// compressed font data size = %d bytes\n//\n", iLen);
     fprintf(f, "// for non-Arduino builds...\n#ifndef PROGMEM\n#define PROGMEM\n#endif\n");
 
-    strcpy(szTemp, fname);
+    snprintf(szTemp, sizeof(szTemp), "%s", fname);
     i = strlen(szTemp);
     if (szTemp[i-2] == '.') szTemp[i-2] = 0; // get the leaf name for the data
     j = i;
