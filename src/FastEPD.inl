@@ -2265,22 +2265,6 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     SPI.begin(u8CLK, u8MISO, u8MOSI, -1);
     pState->spi_frequency = IT8951_SPI_PROBE_FREQUENCY;
 
-   // Multi-attempt probe sequence
-    struct ProbeAttempt {
-        const char *label;
-        bool send_sys_run;
-        int vcom_selector;
-    };
-    static const ProbeAttempt attempts[] = {
-        {"cold read", false, 0},
-        {"wake then read", true, 0},
-        {"wake + VCOM 0x0001", true, 0x0001},
-        {"wake + VCOM 0x0002", true, 0x0002},
-    };
-
-    bool found_device = false;
-    for (size_t i = 0; i < sizeof(attempts) / sizeof(attempts[0]); i++) {
-        //Serial.printf("Probe attempt %u: %s\n", (unsigned)(i + 1), attempts[i].label);
 // power cycle
         digitalWrite(pState->u8CS, HIGH);
         digitalWrite(pState->u8RST, HIGH);
@@ -2300,23 +2284,23 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
         delay(10);
         digitalWrite(pState->u8RST, HIGH);
         delay(50); // 1500
-        //Serial.printf("[%s] Power cycle complete, HRDY=%s\n",
-        //         attempts[i].label,
-        //         digitalRead(u8Busy) ? "HIGH" : "LOW");
+//        Serial.printf("[%s] Power cycle complete, HRDY=%s\n",
+//                 attempts[i].label,
+//                 digitalRead(u8Busy) ? "HIGH" : "LOW");
         it8951WaitForReady(pState);
-        if (it8951ProbeController(pState, attempts[i].label, attempts[i].send_sys_run, attempts[i].vcom_selector)) {
-            found_device = true;
-            break;
-        }
-    }
-
+//        if (it8951ProbeController(pState, attempts[i].label, attempts[i].send_sys_run, attempts[i].vcom_selector)) {
+//            found_device = true;
+//            break;
+//        }
+//    }
+#ifdef FUTURE
     if (!found_device) {
-        //Serial.println("SPI communication failed - IT8951 never returned valid device info\n");
+        Serial.println("SPI communication failed - IT8951 never returned valid device info\n");
         return BBEP_IO_ERROR;
     }
  // If VCOM wasn't verified during probe, try preferred selectors
     if (pState->vcom_write_selector == 0) {
-        //Serial.println("Panel answered before VCOM was verified, trying selector 0x0002\n");
+        Serial.println("Panel answered before VCOM was verified, trying selector 0x0002\n");
         it8951WriteVcom(pState, 0x0002, -pState->panelDef.iVCOM);
         it8951WriteCmdCode(pState, USDEF_I80_CMD_VCOM);
         it8951WriteData(pState, 0x0000);
@@ -2334,12 +2318,19 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
             }
         }
     }
+#endif // FUTURE
+
+    it8951ProbeController(pState, "probe", 1, 0);
+
+    // Set VCOM
+    it8951WriteVcom(pState, 0x0001, 1500); // set VCOM to -1.5V (a safe voltage for most large panels)
+
     // Enable packed write mode and set temperature
     it8951WriteReg(pState, IT8951_REG_I80CPCR, 0x0001);
     it8951WriteCmdCode(pState, USDEF_I80_CMD_TEMP);
     it8951WriteData(pState, 0x0001);
     it8951WriteData(pState, 14);
-    //Serial.println("IT8951 initialization complete");
+//    Serial.println("IT8951 initialization complete");
     pState->iPanelType = BB_PANEL_IT8951;
     pState->spi_frequency = IT8951_SPI_RUN_FREQUENCY; // switch to data frequency
     return BBEP_SUCCESS;
