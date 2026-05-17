@@ -745,7 +745,11 @@ int FASTEPD::setPanelSize(int iPanel)
 int FASTEPD::setPanelSize(int width, int height, int flags, int iVCOM) {
     return bbepSetPanelSize(&_state, width, height, flags, iVCOM);
 } /* setPanelSize() */
-
+//
+// On Linux, the SPI bus is specified as a #.# for bus and chip select
+// Use MOSI for the bus number and MISO for the chip select
+// e.g. on Raspberry Pi, the default bus is 0 and CS0/CS1 are available
+//
 int FASTEPD::initIT8951(uint8_t u8MOSI, uint8_t u8MISO, uint8_t u8CLK, uint8_t u8CS, uint8_t u8Busy, uint8_t u8RST, uint8_t u8EN, uint8_t u8ITE_EN)
 {
     return bbepInitIT8951(&_state, u8MOSI, u8MISO, u8CLK, u8CS, u8Busy, u8RST, u8EN, u8ITE_EN);

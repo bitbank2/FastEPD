@@ -29,6 +29,17 @@
 #if PSRAM != enabled && !defined(CONFIG_ESP32_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32S3_SPIRAM_SUPPORT) && !defined(CONFIG_ESP32C5_SPIRAM_SUPPORT)
 #error "Please enable PSRAM support"
 #endif
+#else // __LINUX__
+void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin);
+void yield(void) {}
+void delay(int iMS);
+void vTaskDelay(int iDelay);
+void pinMode(int iPin, int iMode);
+int digitalRead(int iPin);
+void digitalWrite(int iPin, int iState);
+void linux_spi_write(uint8_t *pBuf, int iLen, uint32_t iSPISpeed);
+void linux_spi_write16(const uint16_t *pBuf, int iLen, uint32_t iSPISpeed);
+void linux_spi_read16(uint16_t *pBuf, int iLen, uint32_t iSPISpeed);
 #endif // !__LINUX__
 
 #ifndef __BB_EP__
@@ -1916,6 +1927,13 @@ void it8951WaitForReady(FASTEPDSTATE *pState)
 
 void it8951WriteNData(FASTEPDSTATE *pState, const uint16_t *buf, uint32_t word_count) {
     digitalWrite(pState->u8CS, LOW);
+#ifdef __LINUX__
+    uint16_t u16 = 0;
+    it8951WaitForReady(pState);
+    linux_spi_write16((uint16_t *)&u16, 1, pState->spi_frequency); // data preamble
+    it8951WaitForReady(pState);
+    linux_spi_write16(buf, word_count, pState->spi_frequency); 
+#else
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     //it8951GetSystemInfo(pState);
     it8951WaitForReady(pState);
@@ -1925,28 +1943,45 @@ void it8951WriteNData(FASTEPDSTATE *pState, const uint16_t *buf, uint32_t word_c
         SPI.transfer16(buf[i]);
     }
     SPI.endTransaction();
+#endif
     digitalWrite(pState->u8CS, HIGH);
 } /* i8951WriteNData() */
 
 void it8951WriteData(FASTEPDSTATE *pState, uint16_t data) {
     digitalWrite(pState->u8CS, LOW);
+#ifdef __LINUX__
+    uint16_t u16 = 0;
+    it8951WaitForReady(pState);
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_write16(&data, 1, pState->spi_frequency);
+#else
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x0000); // data preamble
     it8951WaitForReady(pState);
     SPI.transfer16(data);
     SPI.endTransaction();
+#endif // !__LINUX__
     digitalWrite(pState->u8CS, HIGH);
 } /* it8951WriteData() */
 
 void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd) {
     digitalWrite(pState->u8CS, LOW);
+#ifdef __LINUX__
+    uint16_t u16 = 0x6000; // command preamble
+    it8951WaitForReady(pState);
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_write16(&cmd, 1, pState->spi_frequency);
+#else
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x6000); // command preamble
     it8951WaitForReady(pState);
     SPI.transfer16(cmd);
     SPI.endTransaction();
+#endif // !__LINUX__
     digitalWrite(pState->u8CS, HIGH);
 } /* it8951WriteCmdCode() */
 
@@ -1966,14 +2001,26 @@ void it8951WriteVcom(FASTEPDSTATE *pState, uint16_t selector, uint16_t value)
 }
 
 uint16_t it8951ReadData(FASTEPDSTATE *pState) {
+uint16_t data;
+
     digitalWrite(pState->u8CS, LOW);
+#ifdef __LINUX__
+    uint16_t u16 = 0x1000; // read preamble
+    it8951WaitForReady(pState);
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    u16 = 0; // dummy read
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_read16(&data, 1, pState->spi_frequency);
+#else
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x1000); // read preamble
     SPI.transfer16(0);       // dummy read
     it8951WaitForReady(pState);
-    const uint16_t data = SPI.transfer16(0);
+    data = SPI.transfer16(0);
     SPI.endTransaction();
+#endif // !__LINUX__
     digitalWrite(pState->u8CS, HIGH);
     return data;
 } /* it8951ReadData() */
@@ -1981,6 +2028,15 @@ uint16_t it8951ReadData(FASTEPDSTATE *pState) {
 void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count)
 {
     digitalWrite(pState->u8CS, LOW);
+#ifdef __LINUX__
+    uint16_t u16 = 0x1000; // read preamble
+    it8951WaitForReady(pState);
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    u16 = 0; // dummy read
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_read16(buf, word_count, pState->spi_frequency);
+#else
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x1000); // read preamble
@@ -1991,6 +2047,7 @@ void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count)
         buf[i] = SPI.transfer16(0);
     }
     SPI.endTransaction();
+#endif // !__LINUX__
     digitalWrite(pState->u8CS, HIGH);
 } /* it8951ReadNData() */
 
@@ -2112,9 +2169,14 @@ int iPitch;
    
 //Serial.println("About to start data");
     digitalWrite(pState->u8CS, LOW);
-    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
+#ifdef __LINUX__
+    uint16_t u16 = 0;
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+#else
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     SPI.transfer16(0x0000); // data preamble
+#endif
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2125,16 +2187,26 @@ int iPitch;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = s[x];
             }
+#ifdef __LINUX__
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(d, iPitch);
+#endif // !__LINUX__
         } else {
+#ifdef __LINUX__
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(s, iPitch);
+#endif // !__LINUX__
         }
         if ((y & 0x07) == 0) {
             yield();
         }
         s += iPitch;
     }
+#ifndef __LINUX__
     SPI.endTransaction();
+#endif
     digitalWrite(pState->u8CS, HIGH);
 //Serial.println("Data sent");
     // finish the operation
@@ -2162,9 +2234,14 @@ int iPitch;
     
 
     digitalWrite(pState->u8CS, LOW);
-    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
+#ifdef __LINUX__
+    uint16_t u16 = 0;
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+#else
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     SPI.transfer16(0x0000); // data preamble
+#endif // !__LINUX__
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2175,17 +2252,26 @@ int iPitch;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = (s[x] >> 4) | (s[x] << 4);
             }
+#ifdef __LINUX__
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(d, iPitch);
+#endif
         } else {
+#ifdef __LINUX__
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(s, iPitch);
+#endif
         }
         if ((y & 0x07) == 0) {
             yield();
         }
         s += iPitch;
     }
-
+#ifndef __LINUX__
     SPI.endTransaction();
+#endif
     digitalWrite(pState->u8CS, HIGH);
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
@@ -2209,9 +2295,14 @@ int iPitch;
 
 
     digitalWrite(pState->u8CS, LOW);
-    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
+#ifdef __LINUX__
+    uint16_t u16 = 0;
+    linux_spi_write16(&u16, 1, pState->spi_frequency);
+#else
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     SPI.transfer16(0x0000); // data preamble
+#endif // !__LINUX__
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2223,17 +2314,26 @@ int iPitch;
                 uint8_t a = s[x];
                 d[iPitch - 1 - x] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
             }
+#ifdef __LINUX__
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(d, iPitch);
+#endif
         } else {
+#ifdef __LINUX__
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#else
             SPI.writeBytes(s, iPitch);
+#endif
         }
         if ((y & 0x07) == 0) {
             yield();
         }
         s += iPitch;
     }
-
+#ifndef __LINUX__
     SPI.endTransaction();
+#endif
     digitalWrite(pState->u8CS, HIGH);
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
@@ -2262,7 +2362,12 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     digitalWrite(u8RST, HIGH);
     digitalWrite(u8EN, HIGH);
     digitalWrite(u8ITE_EN, HIGH);
+#ifdef __LINUX__
+    linux_spi_init(u8CLK, u8MOSI, u8MISO);
+#else
     SPI.begin(u8CLK, u8MISO, u8MOSI, -1);
+#endif // !__LINUX__
+
     pState->spi_frequency = IT8951_SPI_PROBE_FREQUENCY;
 
 // power cycle
@@ -2484,7 +2589,6 @@ int bbepFixRect(FASTEPDSTATE *pState, BB_RECT *pRect, int *iStartCol, int *iEndC
 //
 void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
 {
-    uint8_t u8;
     int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
     if (val == BB_CLEAR_LIGHTEN) val = 0xaa;
     else if (val == BB_CLEAR_DARKEN) val = 0x55;
@@ -3019,7 +3123,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
 void bbepConvertPrevBuffer(FASTEPDSTATE *pState)
 {
     uint8_t *s, *d, *c;
-    int i, n, x, y, iSrcPitch, iDestPitch;
+    int i, n, x, y, iSrcPitch=0, iDestPitch;
     
     switch (pState->prev_mode) {
         case BB_MODE_1BPP:
@@ -3244,7 +3348,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
                 for (k = 0; k < 4; k++) { // 4 pixels per byte
                     ucPush <<= 2;
                     // convert new+old pixel into correct color pushes
-                    ucPush |= u8Gray2BW[((ucNew << 2) & 0xc) | ucOld & 3];
+                    ucPush |= u8Gray2BW[((ucNew << 2) & 0xc) | (ucOld & 3)];
                     ucNew >>= 2; ucOld >>= 2;
                 }
                 *d++ = ucPush;
@@ -3259,7 +3363,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
                 for (k = 0; k < 4; k++) { // 4 pixels per byte
                     ucPush >>= 2;
                     // convert new+old pixel into correct color pushes
-                    ucPush |= (u8Gray2BW[((ucNew << 2) & 0xc) | ucOld & 3]) << 6;
+                    ucPush |= (u8Gray2BW[((ucNew << 2) & 0xc) | (ucOld & 3)]) << 6;
                     ucNew >>= 2; ucOld >>= 2;
                 }
                 *d++ = ucPush;
@@ -3292,7 +3396,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
                 for (k = 0; k < 4; k++) { // 4 pixels per byte
                     ucPush <<= 2;
                     // convert new+old pixel into correct color pushes
-                    ucPush |= u8Gray2Gray[((ucNew << 2) & 0xc) | ucOld & 3];
+                    ucPush |= u8Gray2Gray[((ucNew << 2) & 0xc) | (ucOld & 3)];
                     ucNew >>= 2; ucOld >>= 2;
                 }
                 *d++ = ucPush;
@@ -3307,7 +3411,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
                 for (k = 0; k < 4; k++) { // 4 pixels per byte
                     ucPush >>= 2;
                     // convert new+old pixel into correct color pushes
-                    ucPush |= (u8Gray2Gray[((ucNew << 2) & 0xc) | ucOld & 3]) << 6;
+                    ucPush |= (u8Gray2Gray[((ucNew << 2) & 0xc) | (ucOld & 3)]) << 6;
                     ucNew >>= 2; ucOld >>= 2;
                 }
                 *d++ = ucPush;

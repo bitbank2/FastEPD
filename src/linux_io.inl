@@ -42,6 +42,9 @@
 #define pgm_read_dword(a) (*(uint32_t *)a)
 #define memcpy_P memcpy
 #define gpio_num_t uint8_t
+// Linux default SPI buffer is only 4K (max 64K)
+#define RPI_DMA_SIZE 4096
+#define pdMS_TO_TICKS(x) (x/10)
 #define gpio_set_level bbepDigitalWrite
 #define PROGMEM
 #define INPUT 0
@@ -50,7 +53,7 @@
 #define INPUT_PULLDOWN 3
 #define HIGH 1
 #define LOW 0
-
+static int spi_fd;
 // for parallel GPIO
 #define GPIO_BASE  (0xfe000000+0x00200000)
 //#define GPIO_BASE  (0x3F000000+0x00200000)
@@ -210,6 +213,72 @@ void vTaskDelay(int iDelay)
 {
     delay(iDelay * 10);
 }
+
+void linux_spi_write16(uint16_t *pBuf, int iLen, uint32_t iSPISpeed)
+{
+struct spi_ioc_transfer spi;
+
+   memset(&spi, 0, sizeof(spi));
+   while (iLen) { // max 64k transfers (default is 4k)
+       int j = iLen;
+       if (j > RPI_DMA_SIZE/2) j = RPI_DMA_SIZE/2;
+       spi.tx_buf = (unsigned long)pBuf;
+       spi.len = j*2;
+       spi.speed_hz =iSPISpeed;
+       //spi.cs_change = 1;
+       spi.bits_per_word = 16;
+       ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi);
+       iLen -= j;
+       pBuf += j;
+   }
+} /* linux_spi_write16() */
+
+void linux_spi_read16(uint16_t *pBuf, int iLen, uint32_t iSPISpeed)
+{
+struct spi_ioc_transfer spi;
+
+   memset(&spi, 0, sizeof(spi));
+   while (iLen) { // max 64k transfers (default is 4k)
+       int j = iLen;
+       if (j > RPI_DMA_SIZE/2) j = RPI_DMA_SIZE/2;
+       spi.rx_buf = (unsigned long)pBuf;
+       spi.len = j*2;
+       spi.speed_hz =iSPISpeed;
+       //spi.cs_change = 1;
+       spi.bits_per_word = 16;
+       ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi);
+       iLen -= j;
+       pBuf += j;
+   }
+} /* linux_spi_read16() */
+
+void linux_spi_write(uint8_t *pBuf, int iLen, uint32_t iSPISpeed)
+{
+struct spi_ioc_transfer spi;
+   memset(&spi, 0, sizeof(spi));
+   while (iLen) { // max 64k transfers (default is 4k)
+       int j = iLen;
+       if (j > RPI_DMA_SIZE) j = RPI_DMA_SIZE;
+       spi.tx_buf = (unsigned long)pBuf;
+       spi.len = j;
+       spi.speed_hz =iSPISpeed;
+       //spi.cs_change = 1;
+       spi.bits_per_word = 8;
+       ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi);
+       iLen -= j;
+       pBuf += j;
+   }
+} /* linux_spi_write() */
+
+void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin)
+{
+    char szTemp[32]; 
+    snprintf(szTemp, sizeof(szTemp), "/dev/spidev%d.%d", iMOSIPin, iCLKPin);
+    spi_fd = open(szTemp, O_RDWR);
+    if (spi_fd <= 0) {
+            printf("Error opening %s\n", szTemp);
+    }
+} /* linux_spi_init() */
 
 /**
  * Wait N CPU cycles (ARM CPU only)
