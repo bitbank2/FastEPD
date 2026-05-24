@@ -584,17 +584,17 @@ int bbepSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
         case 90:
             i = (y >> 2) + ((pBBEP->width - 1 - x) * iPitch);
             u8Mask >>= ((y & 3) * 2);
-            ucColor <<= ((y & 3) * 2);
+            ucColor <<= ((3-(y & 3)) * 2);
             break;
         case 180:
             i = ((pBBEP->width - 1 - x) >> 2) + ((pBBEP->height - 1 - y) * iPitch);
             u8Mask >>= ((3 - (x & 3)) * 2);
-            ucColor <<= ((3 - (x & 3)) * 2);
+            ucColor <<= ((x & 3) * 2);
             break;
         case 270:
             i = ((pBBEP->height - 1 - y) >> 2) + (x * iPitch);
             u8Mask >>= ((3 - (y & 3)) * 2);
-            ucColor <<= ((3 - (y & 3)) * 2);
+            ucColor <<= ((y & 3) * 2);
             break;
     }
     u8 = pBBEP->pCurrent[i];

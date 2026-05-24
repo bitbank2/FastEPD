@@ -82,7 +82,9 @@ enum {
     BB_PANEL_TRMNL_X,
     BB_PANEL_EPDINKY_P4,
     BB_PANEL_EPDINKY_P4_16,
+#ifdef __LINUX__
     BB_PANEL_RPI,
+#endif // __LINUX__
     BB_PANEL_IT8951,
     BB_PANEL_SENSORIA_C5,
     BB_PANEL_CUSTOM,

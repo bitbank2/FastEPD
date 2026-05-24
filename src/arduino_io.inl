@@ -278,14 +278,15 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
 #else
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
     i2c_master_bus_config_t conf;
-
     if (my_bus_handle) return BBEP_SUCCESS; // already initialized
 
 // Try to get existing bus (initialized elsewhere)
     if (i2c_master_get_bus_handle(I2C_NUM_0, &my_bus_handle) == ESP_OK) {
+            //printf("got an existing bus handle\n");
             return BBEP_SUCCESS;
     }
     conf.i2c_port = I2C_NUM_0;
+//printf("creating i2c bus with SDA/SCL = %d/%d\n", sda, scl);
     conf.sda_io_num = (gpio_num_t)sda;
     conf.scl_io_num = (gpio_num_t)scl;
     conf.clk_source = I2C_CLK_SRC_DEFAULT;
@@ -294,6 +295,7 @@ int bbepI2CInit(uint8_t sda, uint8_t scl, int bb)
     conf.intr_priority = 0;
     conf.trans_queue_depth = 0; // keep synchronous mode
     ESP_ERROR_CHECK(i2c_new_master_bus(&conf, &my_bus_handle));
+//printf("i2c bus handle: %d\n", (int)my_bus_handle);
 #else // older esp-idff
     i2c_config_t conf;
     ESP_ERROR_CHECK(i2c_driver_delete());
