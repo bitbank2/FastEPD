@@ -20,6 +20,8 @@
 #ifndef __FASTEPD_IO__
 #define __FASTEPD_IO__
 
+#define RPI_DMA_SIZE 4096
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -69,7 +71,76 @@ struct gpiod_line *lines[64];
 struct gpiod_line_request *lines[64];
 #endif
 static int file_i2c = -1; // I2C handle
+static int file_spi = -1; // SPI handle
 static uint32_t u32RowDelay;
+
+// placeholder; not needed on Linux
+void yield(void) {}
+//
+// MISO = GPIO chip number
+// MOSI = SPI instance
+// CLK = SPI CE
+//
+void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin)
+{
+#ifdef FUTURE
+    iGPIOChip = iMISOPin;
+#else
+    (void)iMISOPin;
+#endif
+    char szTemp[32];
+    snprintf(szTemp, sizeof(szTemp), "/dev/spidev%d.%d", iMOSIPin, iCLKPin);
+    file_spi = open(szTemp, O_RDWR);
+    if (file_spi <= 0) {
+            printf("Error opening %s\n", szTemp);
+    }
+} /* linux_spi_init() */
+
+void linux_spi_write16(uint16_t value, uint32_t iSPISpeed)
+{
+struct spi_ioc_transfer spi;
+   memset(&spi, 0, sizeof(spi));
+   spi.tx_buf = (unsigned long)&value;
+   spi.len = 2;
+   spi.speed_hz = iSPISpeed;
+   //spi.cs_change = 1;
+   spi.bits_per_word = 16;
+   ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
+} /* linux_spi_write16() */
+
+uint16_t linux_spi_read16(uint32_t iSPISpeed)
+{
+uint16_t value, fake;
+struct spi_ioc_transfer spi;
+   memset(&spi, 0, sizeof(spi));
+   fake = 0; // read/write is simultaneous
+   spi.tx_buf = (unsigned long)&fake;
+   spi.rx_buf = (unsigned long)&value;
+   spi.len = 2;
+   spi.speed_hz = iSPISpeed;
+   //spi.cs_change = 1;
+   spi.bits_per_word = 16;
+   ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
+   return value;
+} /* linux_spi_read16() */
+
+void linux_spi_write(uint8_t *pBuf, int iLen, uint32_t iSPISpeed)
+{
+struct spi_ioc_transfer spi;
+   memset(&spi, 0, sizeof(spi));
+   while (iLen) { // max 64k transfers (default is 4k)
+       int j = iLen;
+       if (j > RPI_DMA_SIZE) j = RPI_DMA_SIZE;
+       spi.tx_buf = (unsigned long)pBuf;
+       spi.len = j;
+       spi.speed_hz =iSPISpeed;
+       //spi.cs_change = 1;
+       spi.bits_per_word = 8;
+       ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
+       iLen -= j;
+       pBuf += j; 
+   }
+} /* linux_spi_write() */
 
 // Initialize the I2C bus on Linux
 int bbepI2CInit(uint8_t sda, uint8_t scl, uint8_t bBitBang)

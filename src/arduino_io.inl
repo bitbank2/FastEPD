@@ -257,6 +257,12 @@ uint8_t b = 0;
         i2cEnd();
      return response;
      } /* I2CTest() */
+#ifdef ESP_IDF_VERSION
+uint8_t digitalRead(uint8_t pin)
+{
+    return (uint8_t)gpio_get_level((gpio_num_t)pin);
+} /* digitalRead() */
+#endif // ESP-IDF
 //
 // Initialize the Wire library on the given SDA/SCL GPIOs
 //

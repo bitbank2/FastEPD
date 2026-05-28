@@ -1908,19 +1908,19 @@ void bbepInitLights(FASTEPDSTATE *pState, uint8_t led1, uint8_t led2)
 void it8951WaitForReady(FASTEPDSTATE *pState)
 {
     const uint32_t start = millis();
-    while (gpio_get_level((gpio_num_t)pState->u8Busy) == LOW) {
+    while (digitalRead(pState->u8Busy) == LOW) {
         if (millis() - start > 3000) {
             // Serial-only — HRDY timeouts are expected during the multi-attempt probe sequence
             //Serial.println("HRDY timeout");
             break;
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(10);
     }
 } /* it8951WaitForReady() */
 
 void it8951WriteNData(FASTEPDSTATE *pState, const uint16_t *buf, uint32_t word_count) {
-#ifdef ARDUINO
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     //it8951GetSystemInfo(pState);
     it8951WaitForReady(pState);
@@ -1930,34 +1930,49 @@ void it8951WriteNData(FASTEPDSTATE *pState, const uint16_t *buf, uint32_t word_c
         SPI.transfer16(buf[i]);
     }
     SPI.endTransaction();
-    gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
+#elif defined (__LINUX__)
+    it8951WaitForReady(pState);
+    for (uint32_t i = 0; i < word_count; i++) {
+        linux_spi_write16(buf[i], pState->spi_frequency);
+    } 
 #endif // ARDUINO
+    gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
 } /* i8951WriteNData() */
 
 void it8951WriteData(FASTEPDSTATE *pState, uint16_t data) {
-#ifdef ARDUINO
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x0000); // data preamble
     it8951WaitForReady(pState);
     SPI.transfer16(data);
     SPI.endTransaction();
+#elif defined (__LINUX__)
+    it8951WaitForReady(pState);
+    linux_spi_write16(0, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_write16(data, pState->spi_frequency);
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
-#endif // ARDUINO
 } /* it8951WriteData() */
 
 void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd) {
-#ifdef ARDUINO
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x6000); // command preamble
     it8951WaitForReady(pState);
     SPI.transfer16(cmd);
     SPI.endTransaction();
+#elif defined(__LINUX__)
+    it8951WaitForReady(pState);
+    linux_spi_write16(0x6000, pState->spi_frequency);
+    it8951WaitForReady(pState);
+    linux_spi_write16(cmd, pState->spi_frequency);
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
-#endif // ARDUINO
 } /* it8951WriteCmdCode() */
 
 void it8951SendCmdArg(FASTEPDSTATE *pState, uint16_t cmd, uint16_t *args, uint16_t num_args)
@@ -1976,26 +1991,31 @@ void it8951WriteVcom(FASTEPDSTATE *pState, uint16_t selector, uint16_t value)
 }
 
 uint16_t it8951ReadData(FASTEPDSTATE *pState) {
-#ifdef ARDUINO
+uint16_t data = 0;
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x1000); // read preamble
     SPI.transfer16(0);       // dummy read
     it8951WaitForReady(pState);
-    const uint16_t data = SPI.transfer16(0);
+    data = SPI.transfer16(0);
     SPI.endTransaction();
+#elif defined (__LINUX__)
+    it8951WaitForReady(pState);
+    linux_spi_write16(0x1000, pState->spi_frequency); // read preamble
+    linux_spi_write16(0, pState->spi_frequency); // dummy write
+    it8951WaitForReady(pState);
+    data = linux_spi_read16(pState->spi_frequency); 
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
     return data;
-#else
-    return 0;
-#endif
 } /* it8951ReadData() */
 
 void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count)
 {
-#ifdef ARDUINO
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x1000); // read preamble
@@ -2006,8 +2026,17 @@ void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count)
         buf[i] = SPI.transfer16(0);
     }
     SPI.endTransaction();
-    gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
+#elif defined (__LINUX__)
+    it8951WaitForReady(pState);
+    linux_spi_write16(0x1000, pState->spi_frequency); // read preamble
+    it8951WaitForReady(pState);
+    linux_spi_write16(0, pState->spi_frequency); // dummy write
+    it8951WaitForReady(pState);
+    for (uint32_t i=0; i<word_count; i++) {
+        buf[i] = linux_spi_read16(pState->spi_frequency);
+    }
 #endif // ARDUINO
+    gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
 } /* it8951ReadNData() */
 
 uint16_t it8951ReadReg(FASTEPDSTATE *pState, uint16_t addr)
@@ -2032,7 +2061,7 @@ void it8951WaitForLUTReady(FASTEPDSTATE *pState) {
             break;
         }
         //yield();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(100);
     }
 } /* it8951WaitForLUTReady() */
 
@@ -2117,7 +2146,6 @@ IT8951DevInfo dev_info_;
 
 void it8951WriteFramebuffer1Bit(FASTEPDSTATE *pState)
 {
-#ifdef ARDUINO
 uint8_t *s;
 int iPitch;
 
@@ -2130,9 +2158,14 @@ int iPitch;
    
 //Serial.println("About to start data");
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
+#ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
     SPI.transfer16(0x0000); // data preamble
+#elif defined (__LINUX__)
+    it8951WaitForReady(pState);
+    linux_spi_write16(0, pState->spi_frequency);
+#endif
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2143,16 +2176,26 @@ int iPitch;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = s[x];
             }
+#ifdef ARDUINO
             SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         } else {
+#ifdef ARDUINO
             SPI.writeBytes(s, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#endif
         }
         if ((y & 0x07) == 0) {
             yield();
         }
         s += iPitch;
     }
+#ifdef ARDUINO
     SPI.endTransaction();
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
 //Serial.println("Data sent");
     // finish the operation
@@ -2162,12 +2205,10 @@ int iPitch;
     IT8951EinkPower(pState, 0);
 
 //Serial.println("finish update");
-#endif // ARDUINO
 } /* it8951WriteFramebuffer1Bit() */
 
 void it8951WriteFramebuffer4Bit(FASTEPDSTATE *pState)
 {
-#ifdef ARDUINO
 uint8_t *s;
 int iPitch;
 
@@ -2182,9 +2223,13 @@ int iPitch;
     
 
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
-    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
+#ifdef ARDUINO
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     SPI.transfer16(0x0000); // data preamble
+#elif defined(__LINUX__)
+    linux_spi_write16(0, pState->spi_frequency);
+#endif
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2195,28 +2240,35 @@ int iPitch;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = (s[x] >> 4) | (s[x] << 4);
             }
+#ifdef ARDUINO
             SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         } else {
+#ifdef ARDUINO
             SPI.writeBytes(s, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#endif
         }
         if ((y & 0x07) == 0) {
             yield();
         }
         s += iPitch;
     }
-
+#ifdef ARDUINO
     SPI.endTransaction();
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
     it8951WaitForReady(pState);
     IT8951EinkPower(pState, 0);
-#endif // ARDUINO
 } /* it8951WriteFramebuffer4Bit() */
 
 void it8951WriteFramebuffer2Bit(FASTEPDSTATE *pState)
 {
-#ifdef ARDUINO
 uint8_t *s;
 int iPitch;
 
@@ -2229,11 +2281,14 @@ int iPitch;
 
     it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_2BPP, 0, 0, 0, pState->native_width, pState->native_height);
 
-
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
-    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     it8951WaitForReady(pState);
+#ifdef ARDUINO
+    SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
     SPI.transfer16(0x0000); // data preamble
+#elif defined(__LINUX__)
+    linux_spi_write16(0, pState->spi_frequency);
+#endif
     it8951WaitForReady(pState);
 
     s = pState->pCurrent;
@@ -2245,9 +2300,17 @@ int iPitch;
                 uint8_t a = s[x];
                 d[iPitch - 1 - x] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
             }
+#ifdef ARDUINO
             SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         } else {
+#ifdef ARDUINO
             SPI.writeBytes(s, iPitch);
+#elif defined(__LINUX__)
+            linux_spi_write(s, iPitch, pState->spi_frequency);
+#endif
         }
         if ((y & 0x07) == 0) {
             yield();
@@ -2255,13 +2318,14 @@ int iPitch;
         s += iPitch;
     }
 
+#ifdef ARDUINO
     SPI.endTransaction();
+#endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
     it8951WaitForReady(pState);
     IT8951EinkPower(pState, 0);
-#endif // ARDUINO
 } /* it8951WriteFramebuffer2Bit() */
 
 //
@@ -2287,6 +2351,8 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     gpio_set_level((gpio_num_t)u8ITE_EN, HIGH);
 #ifdef ARDUINO
     SPI.begin(u8CLK, u8MISO, u8MOSI, -1);
+#else
+    linux_spi_init(u8MISO, u8MOSI, u8CLK);
 #endif // ARDUINO
     pState->spi_frequency = IT8951_SPI_PROBE_FREQUENCY;
 
