@@ -21,6 +21,7 @@
 #define __FASTEPD_IO__
 
 #define RPI_DMA_SIZE 4096
+#define SLOW_WAY
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -99,12 +100,16 @@ void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin)
 void linux_spi_write16(uint16_t value, uint32_t iSPISpeed)
 {
 struct spi_ioc_transfer spi;
+uint8_t u8Temp[4];
+
    memset(&spi, 0, sizeof(spi));
-   spi.tx_buf = (unsigned long)&value;
+   spi.tx_buf = (uint64_t)u8Temp;
+   u8Temp[0] = (uint8_t)(value >> 8);
+   u8Temp[1] = (uint8_t)value;
    spi.len = 2;
    spi.speed_hz = iSPISpeed;
    //spi.cs_change = 1;
-   spi.bits_per_word = 16;
+   spi.bits_per_word = 8;
    ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
 } /* linux_spi_write16() */
 
@@ -119,9 +124,9 @@ struct spi_ioc_transfer spi;
    spi.len = 2;
    spi.speed_hz = iSPISpeed;
    //spi.cs_change = 1;
-   spi.bits_per_word = 16;
+   spi.bits_per_word = 8;
    ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
-   return value;
+   return __builtin_bswap16(value);
 } /* linux_spi_read16() */
 
 void linux_spi_write(uint8_t *pBuf, int iLen, uint32_t iSPISpeed)
@@ -201,6 +206,8 @@ int digitalRead(int iPin)
 
 static void bbepDigitalWrite(int iPin, int iState)
 {
+//printf("bbepDigitalWrite pin %d\n", iPin);
+   if (iPin == 0xff || iPin == -1) return;
 #ifdef SLOW_WAY
 	if (lines[iPin] == 0) return;
 #ifdef GPIOD_API // old 1.6 API
@@ -220,6 +227,7 @@ static void bbepDigitalWrite(int iPin, int iState)
 void bbepPinMode(int iPin, int iMode)
 {
 //printf("bbepPinMode %d, %d\n", iPin, iMode);
+   if (iPin == 0xff || iPin == -1) return;
 
 #ifdef GPIOD_API // old 1.6 API
    if (chip == NULL) {

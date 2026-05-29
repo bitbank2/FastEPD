@@ -35,6 +35,24 @@
 #define __BB_EP__
 #pragma GCC optimize("O2")
 
+const uint8_t ucMirror[256] PROGMEM =
+{0, 128, 64, 192, 32, 160, 96, 224, 16, 144, 80, 208, 48, 176, 112, 240,
+    8, 136, 72, 200, 40, 168, 104, 232, 24, 152, 88, 216, 56, 184, 120, 248,
+    4, 132, 68, 196, 36, 164, 100, 228, 20, 148, 84, 212, 52, 180, 116, 244,
+    12, 140, 76, 204, 44, 172, 108, 236, 28, 156, 92, 220, 60, 188, 124, 252,
+    2, 130, 66, 194, 34, 162, 98, 226, 18, 146, 82, 210, 50, 178, 114, 242,
+    10, 138, 74, 202, 42, 170, 106, 234, 26, 154, 90, 218, 58, 186, 122, 250,
+    6, 134, 70, 198, 38, 166, 102, 230, 22, 150, 86, 214, 54, 182, 118, 246,
+    14, 142, 78, 206, 46, 174, 110, 238, 30, 158, 94, 222, 62, 190, 126, 254,
+    1, 129, 65, 193, 33, 161, 97, 225, 17, 145, 81, 209, 49, 177, 113, 241,
+    9, 137, 73, 201, 41, 169, 105, 233, 25, 153, 89, 217, 57, 185, 121, 249,
+    5, 133, 69, 197, 37, 165, 101, 229, 21, 149, 85, 213, 53, 181, 117, 245,
+    13, 141, 77, 205, 45, 173, 109, 237, 29, 157, 93, 221, 61, 189, 125, 253,
+    3, 131, 67, 195, 35, 163, 99, 227, 19, 147, 83, 211, 51, 179, 115, 243,
+    11, 139, 75, 203, 43, 171, 107, 235, 27, 155, 91, 219, 59, 187, 123, 251,
+    7, 135, 71, 199, 39, 167, 103, 231, 23, 151, 87, 215, 55, 183, 119, 247,
+    15, 143, 79, 207, 47, 175, 111, 239, 31, 159, 95, 223, 63, 191, 127, 255};
+
 // For measuring the performance of each stage of updates
 //#define SHOW_TIME
 // 8 columns by 16 rows. From white (15) to each gray (0-black to 15-white) at 20C
@@ -1734,6 +1752,10 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
             bbepSetPanelSize(pState, 1872, 1404, BB_PANEL_FLAG_MIRROR_X, -1600);
             bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
             break;
+        case BBEP_DISPLAY_ED078KC2:
+            bbepSetPanelSize(pState, 1872, 1404, BB_PANEL_FLAG_NONE, -1600);
+            bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
+            break;
         case BBEP_DISPLAY_ED052TC4:
             bbepSetPanelSize(pState, 1280, 720, BB_PANEL_FLAG_MIRROR_X, -1600);
             bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
@@ -1778,6 +1800,7 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
         free(pState->pCurrent);
         return BBEP_ERROR_NO_MEMORY;
     }
+#endif // LINUX
     if (pState->iPanelType == BB_PANEL_IT8951) {
         pState->pfnSetPixel = bbepSetPixel2Clr;
         pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
@@ -1789,7 +1812,6 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
         pState->rotation = 0;
         return BBEP_SUCCESS; // for it8951 only
     }
-#endif // !__LINUX__
 
     // Allocate memory for each line to transmit
 #ifndef __LINUX__
@@ -2146,7 +2168,7 @@ IT8951DevInfo dev_info_;
 
 void it8951WriteFramebuffer1Bit(FASTEPDSTATE *pState)
 {
-uint8_t *s;
+uint8_t *s, *d;
 int iPitch;
 
     IT8951EinkPower(pState, 1);
@@ -2172,22 +2194,22 @@ int iPitch;
     iPitch = (pState->native_width + 7)/8;    
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = pState->pTemp;
+            d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = s[x];
             }
-#ifdef ARDUINO
-            SPI.writeBytes(d, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(d, iPitch, pState->spi_frequency);
-#endif
         } else {
-#ifdef ARDUINO
-            SPI.writeBytes(s, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(s, iPitch, pState->spi_frequency);
-#endif
+            d = pState->pTemp;
+            for (int x = 0; x<iPitch; x+=2) { // work 16-bits at a time
+                d[x+1] = ucMirror[s[x]];
+                d[x] = ucMirror[s[x+1]];
+            }
         }
+#ifdef ARDUINO
+        SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+        linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         if ((y & 0x07) == 0) {
             yield();
         }
@@ -2209,7 +2231,7 @@ int iPitch;
 
 void it8951WriteFramebuffer4Bit(FASTEPDSTATE *pState)
 {
-uint8_t *s;
+uint8_t *s, *d;
 int iPitch;
 
     IT8951EinkPower(pState, 1);
@@ -2236,22 +2258,22 @@ int iPitch;
     iPitch = (pState->native_width + 1)/2;
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = pState->pTemp;
+            d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 d[iPitch - 1 - x] = (s[x] >> 4) | (s[x] << 4);
             }
-#ifdef ARDUINO
-            SPI.writeBytes(d, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(d, iPitch, pState->spi_frequency);
-#endif
         } else {
-#ifdef ARDUINO
-            SPI.writeBytes(s, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(s, iPitch, pState->spi_frequency);
-#endif
+            d = pState->pTemp;
+            for (int x = 0; x<iPitch; x+=2) { // work 16-bits at a time
+                d[x+1] = (s[x] >> 4) | (s[x] << 4);
+                d[x] = (s[x+1] >> 4) | (s[x+1] << 4);
+            }
         }
+#ifdef ARDUINO
+        SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+        linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         if ((y & 0x07) == 0) {
             yield();
         }
@@ -2269,7 +2291,7 @@ int iPitch;
 
 void it8951WriteFramebuffer2Bit(FASTEPDSTATE *pState)
 {
-uint8_t *s;
+uint8_t *s, *d;
 int iPitch;
 
     IT8951EinkPower(pState, 1);
@@ -2295,23 +2317,24 @@ int iPitch;
     iPitch = (pState->native_width + 3)/4;
     for (int y = 0; y < pState->native_height; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
-            uint8_t *d = pState->pTemp;
+            d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
                 uint8_t a = s[x];
                 d[iPitch - 1 - x] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
             }
-#ifdef ARDUINO
-            SPI.writeBytes(d, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(d, iPitch, pState->spi_frequency);
-#endif
         } else {
-#ifdef ARDUINO
-            SPI.writeBytes(s, iPitch);
-#elif defined(__LINUX__)
-            linux_spi_write(s, iPitch, pState->spi_frequency);
-#endif
+            d = pState->pTemp;
+            for (int x = 0; x<iPitch; x+=2) { // work 16-bits at a time
+                uint8_t a = s[x], b = s[x+1];
+                d[x+1] = (a >> 6) | ((a >> 2) & 0xc) | ((a & 0xc) << 2) | ((a & 3) << 6);
+                d[x] = (b >> 6) | ((b >> 2) & 0xc) | ((b & 0xc) << 2) | ((b & 3) << 6);
+            }
         }
+#ifdef ARDUINO
+        SPI.writeBytes(d, iPitch);
+#elif defined(__LINUX__)
+        linux_spi_write(d, iPitch, pState->spi_frequency);
+#endif
         if ((y & 0x07) == 0) {
             yield();
         }
@@ -2351,7 +2374,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     gpio_set_level((gpio_num_t)u8ITE_EN, HIGH);
 #ifdef ARDUINO
     SPI.begin(u8CLK, u8MISO, u8MOSI, -1);
-#else
+#elif defined(__LINUX__)
     linux_spi_init(u8MISO, u8MOSI, u8CLK);
 #endif // ARDUINO
     pState->spi_frequency = IT8951_SPI_PROBE_FREQUENCY;
@@ -2421,7 +2444,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
     it8951WriteCmdCode(pState, USDEF_I80_CMD_TEMP);
     it8951WriteData(pState, 0x0001);
     it8951WriteData(pState, 14);
-//    Serial.println("IT8951 initialization complete");
+    //printf("IT8951 initialization complete\n");
     pState->iPanelType = BB_PANEL_IT8951;
     pState->spi_frequency = IT8951_SPI_RUN_FREQUENCY; // switch to data frequency
     return BBEP_SUCCESS;
