@@ -336,7 +336,7 @@ int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
     i2c_device_config_t dev_config;
 
-    if (my_dev_handle || u8Address != iAddr) {
+    if (!my_dev_handle || u8Address != iAddr) {
         if (my_dev_handle) {
             ESP_ERROR_CHECK(i2c_master_bus_rm_device(my_dev_handle));
             my_dev_handle = 0;
@@ -381,7 +381,7 @@ int i = 0;
     esp_err_t ret;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
     i2c_device_config_t dev_config;
-    if (my_dev_handle || u8Address != iAddr) {
+    if (!my_dev_handle || u8Address != iAddr) {
         if (my_dev_handle) {
             ESP_ERROR_CHECK(i2c_master_bus_rm_device(my_dev_handle));
             my_dev_handle = 0;
