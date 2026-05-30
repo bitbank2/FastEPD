@@ -30,6 +30,14 @@
 #include <sys/ioctl.h>
 #define SHOW_DETAILS
 
+// BCM GPIO numbers for the RPI HAT
+#define IT8951_CS 8
+#define IT8951_SPI 0
+#define IT8951_RST 17
+#define IT8951_BUSY 24
+#define IT8951_ITE_EN -1
+#define IT8951_EN -1
+
 FASTEPD bbep;
 int iPanel1Bit, iMode;
 int iInvert = 0; // assume not inverted
@@ -50,6 +58,7 @@ const char *szPanels[] = {
     "BBEP_DISPLAY_ED103TC2",
     "BBEP_DISPLAY_ED052TC4",
     "BBEP_DISPLAY_ED1150C1",
+    "BBEP_DISPLAY_ED078KC2",
     NULL // must be last entry
 };
 
@@ -86,24 +95,16 @@ int i = 0;
     return i;
 } /* FindItemName() */
 //
-// The user passed a file which has 2 or more bits per pixel
-// convert it to 1 or 2-bpp grayscale
+// The user passed a file which has more than 4bits per pixel
+// convert it to 4-bpp grayscale
 //
 int ConvertBpp(uint8_t *pBMP, int w, int h, int iBpp, uint8_t *palette)
 {
     int gray, r=0, g=0, b=0, x, y, iDelta, iPitch, iDestPitch, iDestBpp;
     uint8_t *s, *d, *pPal, u8, count;
 
-//    if (iPanel2Bit == -1) { // only 1 bit panel available
-        iDestBpp = 1;
-//    } else {
-//        iDestBpp = 2;
-//    }
-    if (iDestBpp == 1) {
-        iDestPitch = (w+7)/8;
-    } else {
-        iDestPitch = (w+3)/4;
-    }
+    iDestBpp = 4;
+    iDestPitch = (w+1)/2;
     // The bits per pixel info from PNG files is per color channel
     // Convert the value into a true bits per pixel
     switch (iPixelType) {
@@ -356,17 +357,15 @@ void PrepareImage(void)
 	uint8_t *s, *d, uc=0;
 	s = pBitmap;
 	d = (uint8_t *)bbep.currentBuffer();
-	iDestPitch = (bbep.width()+7)/8;
         // Convert the source bitmap to 1 or 2-bit grayscale
-        if (iBpp >= 2) {
+        if (iBpp > 4) {
             iBpp = ConvertBpp(s, iWidth, iHeight, iBpp, pPalette);
+            bbep.setMode(BB_MODE_4BPP);
+            iDestPitch = (bbep.width()+1)/2; 
         }
-        iSrcPitch = (iWidth+7)/8;
+        iSrcPitch = (iWidth+1)/2;
         for (y=0; y<iHeight; y++) {
                 memcpy(d, s, iSrcPitch);
-	        if (iWidth & 7) { // fill partial byte with white
-                     d[iWidth>>3] |= (0xff >> (iWidth & 7));
-	        }
 		s += iSrcPitch;
 		d += iDestPitch;
         }
@@ -484,17 +483,20 @@ char szFile[256];
 		strcpy(szFile, pValue);
 	} else if (strcmp(pName, "panel_1bit") == 0) {
 		iPanel1Bit = FindItemName(szPanels, pValue, "1-bit panel");
+printf("found panel: %d\n", iPanel1Bit);
 	} else if (strcmp(pName, "invert") == 0) {
                 iInvert = !strcmp(pValue, "true");
         }
     }
     if (szFile[0] == 0 || iMode == -1 || iPanel1Bit == -1) { // print instructions
+printf("file: %s, mode: %d, panel: %d\n", szFile, iMode, iPanel1Bit);
         ShowHelp();
         return -1;
     }
 
     if (iStretch < 0) iStretch = STRETCH_ASPECTFILL; // default
-    bbep.initPanel(BB_PANEL_RPI);
+//    bbep.initPanel(BB_PANEL_RPI);
+    bbep.initIT8951(IT8951_SPI, 0, 0, IT8951_CS, IT8951_BUSY, IT8951_RST, IT8951_EN, IT8951_ITE_EN);
     bbep.setPanelSize(iPanel1Bit);
     bbep.fillScreen(BBEP_WHITE);
 #ifdef SHOW_DETAILS
