@@ -71,6 +71,8 @@ void delay(uint32_t ms)
     }
     delayMicroseconds((ms % 10) * 1000);
 }
+void yield(void) {}
+
 #endif // !ARDUINO
 
 void bbepPinMode(int iPin, int iMode)
