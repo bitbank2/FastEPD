@@ -277,6 +277,8 @@ typedef struct tag_fastepdstate
 #define IT8951_MODE_2  2
 #define IT8951_MODE_3  3
 #define IT8951_MODE_4  4
+#define IT8951_MODE_6  6
+
 // Pixel format constants
 #define IT8951_2BPP 0
 #define IT8951_3BPP 1
@@ -294,7 +296,7 @@ typedef struct tag_fastepdstate
 
 // SPI frequencies
 #define IT8951_SPI_PROBE_FREQUENCY 1000000
-#define IT8951_SPI_RUN_FREQUENCY   4000000
+#define IT8951_SPI_RUN_FREQUENCY   20000000
 
 // IT8951 device info structure
 typedef struct {

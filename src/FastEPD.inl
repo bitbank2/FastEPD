@@ -2165,7 +2165,7 @@ IT8951DevInfo dev_info_;
 
 } /* it8951ProbeController() */
 
-void it8951WriteFramebuffer1Bit(FASTEPDSTATE *pState)
+void it8951WriteFramebuffer1Bit(FASTEPDSTATE *pState, int bPartial, int iStartLine, int iEndLine)
 {
 uint8_t *s, *d;
 int iPitch;
@@ -2174,10 +2174,8 @@ int iPitch;
     it8951WaitForLUTReady(pState);
     it8951SetImgBufBaseAddr(pState);
 
-//Serial.println("about to load img area");
-    it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_8BPP, 0, 0, 0, pState->native_width/8, pState->native_height);
+    it8951LoadImgAreaStart(pState, (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) ? IT8951_LDIMG_B_ENDIAN : IT8951_LDIMG_L_ENDIAN, IT8951_8BPP, 0, 0, iStartLine, pState->native_width/8, 1+(iEndLine-iStartLine));
    
-//Serial.println("About to start data");
     gpio_set_level((gpio_num_t)pState->u8CS, LOW);
 #ifdef ARDUINO
     SPI.beginTransaction(SPISettings(pState->spi_frequency, MSBFIRST, SPI_MODE0));
@@ -2191,7 +2189,8 @@ int iPitch;
 
     s = pState->pCurrent;
     iPitch = (pState->native_width + 7)/8;    
-    for (int y = 0; y < pState->native_height; y++) {
+    s += (iPitch * iStartLine);
+    for (int y = iStartLine; y <= iEndLine; y++) {
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
             d = pState->pTemp;
             for (int x = 0; x<iPitch; x++) {
@@ -2218,14 +2217,11 @@ int iPitch;
     SPI.endTransaction();
 #endif
     gpio_set_level((gpio_num_t)pState->u8CS, HIGH);
-//Serial.println("Data sent");
     // finish the operation
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
-    it8951DisplayArea1Bit(pState, 0, 0, pState->native_width, pState->native_height, 2, 0, 0xff);
+    it8951DisplayArea1Bit(pState, 0, iStartLine, pState->native_width, 1+(iEndLine-iStartLine), (bPartial) ? IT8951_MODE_6 : IT8951_MODE_2, 0, 0xff);
     it8951WaitForReady(pState);
-    IT8951EinkPower(pState, 0);
-
-//Serial.println("finish update");
+    pState->prev_mode = pState->mode;
 } /* it8951WriteFramebuffer1Bit() */
 
 void it8951WriteFramebuffer4Bit(FASTEPDSTATE *pState)
@@ -2285,7 +2281,8 @@ int iPitch;
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
     it8951WaitForReady(pState);
-    IT8951EinkPower(pState, 0);
+    pState->prev_mode = pState->mode;
+
 } /* it8951WriteFramebuffer4Bit() */
 
 void it8951WriteFramebuffer2Bit(FASTEPDSTATE *pState)
@@ -2347,7 +2344,7 @@ int iPitch;
     it8951WriteCmdCode(pState, IT8951_TCON_LD_IMG_END);
     it8951DisplayArea(pState, 0, 0, pState->native_width, pState->native_height, 2);
     it8951WaitForReady(pState);
-    IT8951EinkPower(pState, 0);
+    pState->prev_mode = pState->mode;
 } /* it8951WriteFramebuffer2Bit() */
 
 //
@@ -2597,8 +2594,10 @@ int bbepFixRect(FASTEPDSTATE *pState, BB_RECT *pRect, int *iStartCol, int *iEndC
 //
 void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
 {
-    //uint8_t u8;
-    int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
+int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
+
+    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) return; // not available
+
     if (val == BB_CLEAR_LIGHTEN) val = 0xaa;
     else if (val == BB_CLEAR_DARKEN) val = 0x55;
     else if (val == BB_CLEAR_NEUTRAL) val = 0x00;
@@ -2836,8 +2835,9 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
         } else if (pState->mode == BB_MODE_2BPP) {
             it8951WriteFramebuffer2Bit(pState);
         } else {
-            it8951WriteFramebuffer1Bit(pState);
+            it8951WriteFramebuffer1Bit(pState, false, 0, pState->native_height-1);
         }
+        if (!bKeepOn) bbepEinkPower(pState, 0);
         return BBEP_SUCCESS;
     } 
 
@@ -3458,7 +3458,6 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     long l = millis();
 #endif
     if (pState->iPanelType == BB_PANEL_VIRTUAL) return BBEP_ERROR_BAD_PARAMETER;
-    if (pState->iPanelType == BB_PANEL_IT8951) return bbepFullUpdate(pState, 0, 0, NULL);
 
 // Only supported in 1 and 2-bit mode (for now)
     if (pState->mode != BB_MODE_1BPP && pState->mode != BB_MODE_2BPP) return BBEP_ERROR_BAD_PARAMETER;
@@ -3469,10 +3468,21 @@ int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iE
     }           
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
 
-    if (pState->mode == BB_MODE_2BPP) return bbep2BppPartial(pState, bKeepOn, iStartLine, iEndLine);
     if (iStartLine < 0) iStartLine = 0;
     if (iEndLine >= pState->native_height) iEndLine = pState->native_height-1;
     if (iEndLine < iStartLine) return BBEP_ERROR_BAD_PARAMETER;
+
+    if (pState->iPanelType == BB_PANEL_IT8951) {
+        if (pState->mode == BB_MODE_1BPP) { // it can do non-flickering updates
+            it8951WriteFramebuffer1Bit(pState, true, iStartLine, iEndLine);
+            if (!bKeepOn) bbepEinkPower(pState, 0);
+            return BBEP_SUCCESS;
+        } else { // just do a full update
+            return bbepFullUpdate(pState, 0, 0, NULL);
+        }
+    }
+
+    if (pState->mode == BB_MODE_2BPP) return bbep2BppPartial(pState, bKeepOn, iStartLine, iEndLine);
 
     uint8_t *pCur, *pPrev, *d;
     uint8_t diffw, diffb, cur, prev;
