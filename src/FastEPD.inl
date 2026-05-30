@@ -227,7 +227,7 @@ const BBPANELDEF panelDefs[] = {
       10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5PRO 
     {1440, 720, 40000000, BB_PANEL_FLAG_MIRROR_X, {27,28,29,30,31,32,33,34}, 8, BB_NOT_USED, 36, 13, 25, 0, 26,
       24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5P4 
-    {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X | BB_PANEL_FLAG_SLOW_SPH, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
+    {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1100}, // BB_PANEL_TRMNL_X
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {2,3,4,5,6,7,8,9}, 8, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
@@ -1396,7 +1396,7 @@ void EPDiyV7RowControl(void *pBBEP, int iType)
         gpio_set_level(le, 0);
         delayMicroseconds(0);
     }
-}
+} /* EPDiyV7RowControl() */
 
 void SensoriaRowControl(void *pBBEP, int iType)
 {
@@ -1620,7 +1620,6 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
     }
     if (bSlowSPH) {
         gpio_set_level(u8SPH, 0); // SPH/CS active
-//        gpio_set_level(u8CKV, 1); // CKV on
     }
     dma_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
@@ -3582,5 +3581,6 @@ void bbepBackupPlane(FASTEPDSTATE *pState)
     int iSize = (pState->native_width/2) * pState->native_height;
     if (!pState->pPrevious || !pState->pCurrent) return;
     memcpy(pState->pPrevious, pState->pCurrent, iSize);
+    pState->prev_mode = pState->mode; // indicate both buffers are the same bpp mode
 }
 #endif // __BB_EP__
