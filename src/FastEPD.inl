@@ -202,7 +202,7 @@ void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd);
 // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
 const BBPANELDEF panelDefs[] = {
     {0,0,0,0,{0},0,0,0,0,0,0,0,0,0,0,0,0,0,0,NULL,0,0,0}, // BB_PANEL_NONE
-    {960, 540, 20000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 8, 46, 17, 18, 13, 45, 15,
+    {960, 540, 40000000, BB_PANEL_FLAG_NONE, {6,14,7,12,9,11,8,10}, 8, 46, 17, 18, 13, 45, 15,
       16, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, BB_NOT_USED, 47, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_M5PAPERS3
 
     {0, 0, 20000000, BB_PANEL_FLAG_NONE, {5,6,7,15,16,17,18,8}, 8, 11, 45, 48, 41, 8, 42,
@@ -227,8 +227,8 @@ const BBPANELDEF panelDefs[] = {
       10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5PRO 
     {1440, 720, 40000000, BB_PANEL_FLAG_MIRROR_X, {27,28,29,30,31,32,33,34}, 8, BB_NOT_USED, 36, 13, 25, 0, 26,
       24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5P4 
-    {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
-      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 16, -1100}, // BB_PANEL_TRMNL_X
+    {1872, 1404, 20000000, BB_PANEL_FLAG_MIRROR_X | BB_PANEL_FLAG_SLOW_SPH, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
+      4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 44, -1100}, // BB_PANEL_TRMNL_X
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {2,3,4,5,6,7,8,9}, 8, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {10,11,12,13,14,15,16,17,2,3,4,5,6,7,8,9}, 16, 26, 45, 51, 46, 47, 48,
@@ -269,7 +269,7 @@ void LilyGoRowControl(void *pBBEP, int iMode);
 // EPDiy V7
 int EPDiyV7EinkPower(void *pBBEP, int bOn);
 int EPDiyV7IOInit(void *pBBEP);
-void EPDiyV7RowControl(void *pBBEP, int iMode);
+static void EPDiyV7RowControl(void *pBBEP, int iMode);
 void EPDiyV7IODeInit(void *pBBEP);
 // EPDiy V7 RAW
 int EPDiyV7RAWEinkPower(void *pBBEP, int bOn);
@@ -328,7 +328,7 @@ static uint8_t bSlowSPH = 0;
 
 #ifdef CONFIG_IDF_TARGET_ESP32C5
 parlio_tx_unit_config_t parlio_tx_config;
-parlio_tx_unit_handle_t parlio_tx_handle;
+parlio_tx_unit_handle_t parlio_tx_handle = 0;
 static bool c5_notify_dma_ready(parlio_tx_unit_handle_t handle, const parlio_tx_done_event_data_t *edata, void *user_ctx)
 {
     if (bSlowSPH) {
@@ -1361,7 +1361,7 @@ void PaperS3RowControl(void *pBBEP, int iType)
     }
 } /* PaperS3RowControl() */
 
-void EPDiyV7RowControl(void *pBBEP, int iType)
+static void IRAM_ATTR EPDiyV7RowControl(void *pBBEP, int iType)
 {
     FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
     gpio_num_t ckv = (gpio_num_t)pState->panelDef.ioCKV;
@@ -1597,7 +1597,7 @@ int Inkplate10IOInit(void *pBBEP)
     return BBEP_SUCCESS;
 } /* Inkplate10IOInit() */
 
-void bbepRowControl(FASTEPDSTATE *pState, int iType)
+static void IRAM_ATTR bbepRowControl(FASTEPDSTATE *pState, int iType)
 {
     (*(pState->pfnRowControl))(pState, iType);
     return;
@@ -1606,7 +1606,7 @@ void bbepRowControl(FASTEPDSTATE *pState, int iType)
 // The data needs to come from a DMA buffer or the Espressif DMA driver
 // will allocate (and leak) an internal buffer each time
 #ifndef __LINUX__
-void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
+static void IRAM_ATTR bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 {
     esp_err_t err;
     
@@ -1621,8 +1621,28 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
     if (bSlowSPH) {
         gpio_set_level(u8SPH, 0); // SPH/CS active
     }
-    dma_is_done = false;
     gpio_set_level((gpio_num_t)pState->panelDef.ioCKV, 1); // CKV on
+// DEBUG - this is a narrow scope feature only for clearing the display.
+// The first 16-bit pattern will just be repeated across the whole line.
+    if (pState->panelDef.bus_speed == BB_SPEED_BITBANG) { // bit bang
+        // Set the bus data bits to a fixed value of the first 8/16-bits
+        int i, iCount = iLen + pState->panelDef.iLinePadding;
+        const uint8_t u8CLK = pState->panelDef.ioCL;
+        uint16_t u16 = *(uint16_t *)pData; // grab first 16 bits
+        for (i=0; i<pState->panelDef.bus_width; i++) {
+            gpio_set_level((gpio_num_t)pState->panelDef.data[i], u16 & 1);
+            u16 >>= 1;
+        }
+        if (pState->panelDef.bus_width == 16) iCount >>= 1; // 16-bit bus
+        gpio_set_level(u8SPH, 0); // SPH/CS active
+        for (i=0; i<iCount; i++) { // clock out each byte/word
+            gpio_set_level((gpio_num_t)u8CLK, 1);
+            gpio_set_level((gpio_num_t)u8CLK, 0);
+        }
+        gpio_set_level(u8SPH, 1); // CS inactive
+        return;
+    }
+    dma_is_done = false;
 #ifdef CONFIG_IDF_TARGET_ESP32C5
     parlio_transmit_config_t tx_cfg;
     memset(&tx_cfg, 0, sizeof(tx_cfg));
@@ -1648,6 +1668,25 @@ uint8_t ucTemp[4];
     return ucTemp[0];
 }
 //
+// De-Initialize the board-specific I/O components
+//
+void bbepIODeInit(void)
+{
+#ifdef CONFIG_IDF_TARGET_ESP32C5
+    if (parlio_tx_handle) {
+        ESP_ERROR_CHECK(parlio_del_tx_unit(parlio_tx_handle));
+        parlio_tx_handle = 0;
+    }
+#else // S3
+    if (io_handle) {
+        ESP_ERROR_CHECK(esp_lcd_panel_io_del(io_handle));
+        ESP_ERROR_CHECK(esp_lcd_del_i80_bus(i80_bus));
+        io_handle = NULL;
+    }
+#endif
+} /* bbepIODeInit() */
+
+//
 // Initialize the board-specific I/O components (IOInit callback)
 // and then initialize the ESP32 LCD API to drive the parallel data bus
 //
@@ -1660,6 +1699,21 @@ int bbepIOInit(FASTEPDSTATE *pState)
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
     pState->iFullPasses = 5; // the default number of passes for smooth and full updates
+    u8SPH = (gpio_num_t)pState->panelDef.ioSPH;
+    u8CKV = (gpio_num_t)pState->panelDef.ioCKV;
+    pinMode(u8SPH, OUTPUT);
+    pinMode(u8CKV, OUTPUT);
+    if (pState->panelDef.bus_speed == BB_SPEED_BITBANG) {
+// Optionally use bit banging for parallel I/O to get around a bug in
+// the ESP32-S3's LCD hardware which generates a spurious clock cycle
+// before the data is ready, causing a skipped or corrupted set of pixels
+// at the start of each line
+        for (int i=0; i<pState->panelDef.bus_width; i++) {
+            pinMode(pState->panelDef.data[i], OUTPUT);
+        }
+        pinMode(pState->panelDef.ioCL, OUTPUT);
+        pinMode(pState->panelDef.ioSPH, OUTPUT);
+    } else { // parallel I/O hardware
 #ifndef __LINUX__
 #ifdef CONFIG_IDF_TARGET_ESP32C5
     memset(&parlio_tx_config, 0, sizeof(parlio_tx_config));
@@ -1698,8 +1752,6 @@ int bbepIOInit(FASTEPDSTATE *pState)
     ESP_ERROR_CHECK(parlio_tx_unit_register_event_callbacks(parlio_tx_handle, &tx_callbacks, nullptr));
     ESP_ERROR_CHECK(parlio_tx_unit_enable(parlio_tx_handle));
 //    bSlowSPH = 1; // no CS signal in PARLIO
-//    u8SPH = (gpio_num_t)pState->panelDef.ioSPH;
-    u8CKV = (gpio_num_t)pState->panelDef.ioCKV;
 #else
     // Initialize the ESP32 LCD API to drive parallel data at high speed
     // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
@@ -1713,8 +1765,6 @@ int bbepIOInit(FASTEPDSTATE *pState)
     s3_io_config.pclk_hz = pState->panelDef.bus_speed;
     if (pState->panelDef.flags & BB_PANEL_FLAG_SLOW_SPH) {
         bSlowSPH = 1;
-        u8SPH = (gpio_num_t)pState->panelDef.ioSPH;
-        u8CKV = (gpio_num_t)pState->panelDef.ioCKV;
         s3_io_config.cs_gpio_num = (gpio_num_t)-1; // disable hardware CS
     } else {
         s3_io_config.cs_gpio_num = (gpio_num_t)pState->panelDef.ioSPH;
@@ -1722,7 +1772,7 @@ int bbepIOInit(FASTEPDSTATE *pState)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
 #endif // S3/C5
 #endif // !__LINUX__
- 
+    }
     dma_is_done = true;
     //Serial.println("IO init done");
     return BBEP_SUCCESS;
@@ -2592,7 +2642,7 @@ int bbepFixRect(FASTEPDSTATE *pState, BB_RECT *pRect, int *iStartCol, int *iEndC
 //
 // Clear the display with the given code for the given number of repetitions
 //
-void bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
+static void IRAM_ATTR bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
 {
 int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
 
@@ -3451,7 +3501,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
     return BBEP_SUCCESS;
 } /* bbep2BppPartial()*/
 
-int bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
+static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
 {
     int i, n, pass, iDMAOff;
 #ifdef SHOW_TIME

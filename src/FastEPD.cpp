@@ -756,6 +756,12 @@ int FASTEPD::initPanel(int iPanel, uint32_t u32Speed)
     return bbepInitPanel(&_state, iPanel, u32Speed);
 } /* initIO() */
 
+void FASTEPD::deInit(void)
+{
+    if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);
+    bbepIODeInit(); // remove parallel bus devices
+} /* deInit() */
+
 int FASTEPD::einkPower(int bOn)
 {
     return bbepEinkPower(&_state, bOn);

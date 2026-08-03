@@ -41,6 +41,8 @@
 #define BB_PANEL_FLAG_DARK     0x08
 
 #define BB_NOT_USED 0xff
+// Initialize the panel with this bus speed to use bit bang logic
+#define BB_SPEED_BITBANG 0xffffffff
 #define BBEP_TRANSPARENT 255
 
 // 5 possible clearing options before an update
@@ -348,7 +350,7 @@ class FASTEPD
     uint8_t *currentBuffer(void) { return _state.pCurrent;}
     uint8_t *tempBuffer(void) { return _state.pTemp;}
     int einkPower(int bOn);
-    void deInit(void) {if (_state.pfnIODeInit) (*_state.pfnIODeInit)(&_state);}
+    void deInit(void);
     int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);

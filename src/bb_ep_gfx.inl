@@ -1087,7 +1087,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
             x_off = pGlyphSmall->xOffset;
             bitmap_offset = pGlyphSmall->bitmapOffset;
         }
-        if (char_width > 1) { // skip this if drawing a space
+        if (char_width > 0) { // skip this if drawing a space
             s = pBits + bitmap_offset; // start of compressed bitmap data
             if (angle == 0 || angle == 180) {
                 if (pBBF) {
