@@ -20,6 +20,9 @@
 #ifdef ARDUINO
 #include <Arduino.h>
 #else
+#ifdef __LINUX__
+#define IRAM_ATTR
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +56,9 @@ enum {
    CLEAR_WHITE, // 8 passes to white
    CLEAR_BLACK, // 8 passes to black
 };
+
+#ifndef __BB_FONT_SIZES__
+#define __BB_FONT_SIZES__
 // 5 possible font sizes: 8x8, 16x32, 6x8, 12x16 (stretched from 6x8 with smoothing), 16x16 (stretched from 8x8) 
 enum {
    FONT_6x8 = 0,
@@ -61,6 +67,8 @@ enum {
    FONT_16x16,
    FONT_COUNT
 };
+#endif // __BB_FONT_SIZES__
+
 // Stretch+smoothing options
 #define BBEP_SMOOTH_NONE  0
 #define BBEP_SMOOTH_HEAVY 1
@@ -177,6 +185,8 @@ enum {
     ROW_END
 };
 
+#ifndef __BB_ERRORS__
+#define __BB_ERRORS__
 // error messages
 enum {
     BBEP_SUCCESS,
@@ -188,6 +198,7 @@ enum {
     BBEP_IO_ERROR,
     BBEP_ERROR_COUNT
 };
+#endif // __BB_ERRORS__
 
 // Normal pixel drawing function pointer
 typedef int (BB_SET_PIXEL)(void *pBBEP, int x, int y, unsigned char color);
@@ -351,7 +362,8 @@ class FASTEPD
     uint8_t *tempBuffer(void) { return _state.pTemp;}
     int einkPower(int bOn);
     void deInit(void);
-    int fullUpdate(int iClearMode = CLEAR_SLOW, bool bKeepOn = false, BB_RECT *pRect = NULL);
+    int fullUpdate(void);
+    int fullUpdate(int iClearMode, bool bKeepOn = false, BB_RECT *pRect = NULL);
     int partialUpdate(bool bKeepOn, int iStartRow = 0, int iEndRow = 4095);
     int smoothUpdate(bool bKeepOn, uint8_t u8Color);
     int fastUpdate(bool bKeepOn = false);

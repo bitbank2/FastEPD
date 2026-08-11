@@ -65,11 +65,11 @@ volatile uint32_t *gpio;
 volatile uint32_t *set_reg, *clr_reg, *sel_reg;
 //#define AUX_ENABLE      ((volatile uint32_t*)(MMIO_BASE+0x00215004))
 int iMinDelay; // minimum inter-byte delay 
-struct gpiod_chip *chip = NULL;
+static struct gpiod_chip *chip = NULL;
 #ifdef GPIOD_API
-struct gpiod_line *lines[64];
+static struct gpiod_line *lines[64];
 #else
-struct gpiod_line_request *lines[64];
+static struct gpiod_line_request *lines[64];
 #endif
 static int file_i2c = -1; // I2C handle
 static int file_spi = -1; // SPI handle
@@ -194,7 +194,7 @@ int bbepI2CReadRegister(unsigned char iAddr, unsigned char u8Register, unsigned 
     return iLen;
 }
 
-int digitalRead(int iPin)
+static int digitalRead(int iPin)
 {
 	if (lines[iPin] == 0) return 0;
 #ifdef GPIOD_API // 1.x (old) API
@@ -269,7 +269,7 @@ void bbepPinMode(int iPin, int iMode)
 #endif
 } /* bbepPinMode() */
 
-int millis(void)
+static int millis(void)
 {
 int iTime;
 struct timespec res;
@@ -280,7 +280,7 @@ struct timespec res;
     return iTime;
 } /* millis() */
 
-void delay(int iMS)
+static void delay(int iMS)
 {
   usleep(iMS * 1000);
 } /* delay() */

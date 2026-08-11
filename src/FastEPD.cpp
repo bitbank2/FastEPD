@@ -803,6 +803,11 @@ int FASTEPD::fastUpdate(bool bKeepOn)
     return bbepFastUpdate(&_state, bKeepOn);
 } /* fastUpdate() */
 
+int FASTEPD::fullUpdate(void)
+{
+    return bbepFullUpdate(&_state, CLEAR_SLOW, false, nullptr);
+}
+
 int FASTEPD::fullUpdate(int iClearMode, bool bKeepOn, BB_RECT *pRect)
 {
     return bbepFullUpdate(&_state, iClearMode, bKeepOn, pRect);

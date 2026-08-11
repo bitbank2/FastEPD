@@ -307,7 +307,7 @@ int bbepDrawSprite(FASTEPDSTATE *pSprite, FASTEPDSTATE *pBBEP, int x, int y, int
     return BBEP_SUCCESS;
 } /* bbepDrawSprite() */
 
-int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)
+int bbSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i = 0;
     int iPitch;
@@ -349,9 +349,9 @@ int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor)
     }
     pBBEP->pCurrent[i] = u8;
     return BBEP_SUCCESS;
-} /* bbepSetPixel2Clr() */
+} /* bbSetPixel2Clr() */
 
-void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -368,9 +368,9 @@ void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor)
         u8 &= ~(0x80 >> (x & 7));
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast2Clr() */
+} /* bbSetPixelFast2Clr() */
 
-void bbepSetPixelFast2Clr_180(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast2Clr_180(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -387,9 +387,9 @@ void bbepSetPixelFast2Clr_180(void *pb, int x, int y, unsigned char ucColor)
         u8 &= ~(1 << (x & 7));
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast2Clr_180() */
+} /* bbSetPixelFast2Clr_180() */
 
-void bbepSetPixelFast2Clr_90(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast2Clr_90(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -406,9 +406,9 @@ void bbepSetPixelFast2Clr_90(void *pb, int x, int y, unsigned char ucColor)
         u8 &= ~(0x80 >> (y & 7));
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast2Clr_90() */
+} /* bbSetPixelFast2Clr_90() */
 
-void bbepSetPixelFast2Clr_270(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast2Clr_270(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -425,9 +425,9 @@ void bbepSetPixelFast2Clr_270(void *pb, int x, int y, unsigned char ucColor)
         u8 &= ~(1 << (y & 7));
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast2Clr_270() */
+} /* bbSetPixelFast2Clr_270() */
 
-int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
+int bbSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i = 0;
     int iPitch;
@@ -477,9 +477,9 @@ int bbepSetPixel16Clr(void *pb, int x, int y, unsigned char ucColor)
     u8 = (u8 & u8Mask) | ucColor;
     pBBEP->pCurrent[i] = u8;
     return BBEP_SUCCESS;
-} /* bbepSetPixel16Clr() */
+} /* bbSetPixel16Clr() */
 
-void bbepSetPixelFast16Clr(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast16Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -497,9 +497,9 @@ void bbepSetPixelFast16Clr(void *pb, int x, int y, unsigned char ucColor)
         u8 |= (ucColor << 4);
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast16Clr() */
+} /* bbSetPixelFast16Clr() */
 
-void bbepSetPixelFast16Clr_90(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast16Clr_90(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -517,9 +517,9 @@ void bbepSetPixelFast16Clr_90(void *pb, int x, int y, unsigned char ucColor)
         u8 |= (ucColor << 4);
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast16Clr_90() */
+} /* bbSetPixelFast16Clr_90() */
 
-void bbepSetPixelFast16Clr_180(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast16Clr_180(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -537,9 +537,9 @@ void bbepSetPixelFast16Clr_180(void *pb, int x, int y, unsigned char ucColor)
         u8 |= (ucColor << 4);
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast16Clr_180() */
+} /* bbSetPixelFast16Clr_180() */
 
-void bbepSetPixelFast16Clr_270(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast16Clr_270(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -557,9 +557,9 @@ void bbepSetPixelFast16Clr_270(void *pb, int x, int y, unsigned char ucColor)
         u8 |= (ucColor << 4);
     }
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast16Clr_270() */
+} /* bbSetPixelFast16Clr_270() */
 
-int bbepSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
+int bbSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i = 0;
     int iPitch;
@@ -601,9 +601,9 @@ int bbepSetPixel4Clr(void *pb, int x, int y, unsigned char ucColor)
     u8 = (u8 & ~u8Mask) | ucColor;
     pBBEP->pCurrent[i] = u8;
     return BBEP_SUCCESS;
-} /* bbepSetPixel4Clr() */
+} /* bbSetPixel4Clr() */
 
-void bbepSetPixelFast4Clr(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast4Clr(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -616,9 +616,9 @@ void bbepSetPixelFast4Clr(void *pb, int x, int y, unsigned char ucColor)
     u8 &= ~(0xc0 >> ((x & 3)*2));
     u8 |= (ucColor << ((3-(x & 3)) * 2));
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast4Clr() */
+} /* bbSetPixelFast4Clr() */
 
-void bbepSetPixelFast4Clr_90(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast4Clr_90(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -631,9 +631,9 @@ void bbepSetPixelFast4Clr_90(void *pb, int x, int y, unsigned char ucColor)
     u8 &= ~(0xc0 >> ((y & 3) * 2));
     u8 |= (ucColor << ((3-(y & 3)) * 2));
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast4Clr_90() */
+} /* bbSetPixelFast4Clr_90() */
 
-void bbepSetPixelFast4Clr_180(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast4Clr_180(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -646,9 +646,9 @@ void bbepSetPixelFast4Clr_180(void *pb, int x, int y, unsigned char ucColor)
     u8 &= ~(0xc0 >> ((3-(x & 3)) * 2));
     u8 |= (ucColor << ((x & 3) * 2));
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast4Clr_180() */
+} /* bbSetPixelFast4Clr_180() */
 
-void bbepSetPixelFast4Clr_270(void *pb, int x, int y, unsigned char ucColor)
+void bbSetPixelFast4Clr_270(void *pb, int x, int y, unsigned char ucColor)
 {
     int i;
     int iPitch;
@@ -661,7 +661,7 @@ void bbepSetPixelFast4Clr_270(void *pb, int x, int y, unsigned char ucColor)
     u8 &= ~(0xc0 >> ((3-(y & 3)) * 2));
     u8 |= (ucColor << ((y & 3) * 2));
     pBBEP->pCurrent[i] = u8;
-} /* bbepSetPixelFast4Clr_270() */
+} /* bbSetPixelFast4Clr_270() */
 //
 // Invert font data
 //
@@ -865,7 +865,7 @@ static void Scale2Gray(uint8_t *source, int width, int iPitch)
 //
 // Convert a single Unicode character into codepage 1252 (extended ASCII)
 //
-uint8_t bbepUnicodeTo1252(uint16_t u16CP)
+static uint8_t bbepUnicodeTo1252(uint16_t u16CP)
 {
             // convert supported Unicode values to codepage 1252
             switch(u16CP) { // they're all over the place, so check each
@@ -959,7 +959,7 @@ uint8_t bbepUnicodeTo1252(uint16_t u16CP)
 //
 // Convert a Unicode string into our extended ASCII set (codepage 1252)
 //
-void bbepUnicodeString(const char *szMsg, uint8_t *szExtMsg)
+static void bbepUnicodeString(const char *szMsg, uint8_t *szExtMsg)
 {
 int i, j;
 uint8_t c;
@@ -1249,7 +1249,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
 // Rotate an 8x8 pixel block (8 bytes) by 90 degrees
 // Used to draw the built-in font at 2 angles
 //
-void RotateCharBox(uint8_t *pSrc)
+static void RotateCharBox(uint8_t *pSrc)
 {
     int x, y;
     uint8_t ucDest[8], uc, ucSrcMask, ucDstMask;
@@ -1269,7 +1269,7 @@ void RotateCharBox(uint8_t *pSrc)
 //
 // Double the size of a 1-bpp image and smooth the jaggies
 //
-void bbepStretchAndSmooth(uint8_t *pSrc, uint8_t *pDest, int w, int h, int iSmooth)
+static void bbepStretchAndSmooth(uint8_t *pSrc, uint8_t *pDest, int w, int h, int iSmooth)
 {
 uint8_t c, uc1, uc2, *s, *d, ucMask;
 int tx, ty, iPitch, iDestPitch;
@@ -2017,56 +2017,56 @@ int bbepSetRotation(FASTEPDSTATE *pState, int iAngle)
             pState->width = pState->native_width;
             pState->height = pState->native_height;
             if (pState->mode == BB_MODE_1BPP) {
-                pState->pfnSetPixel = bbepSetPixel2Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+                pState->pfnSetPixel = bbSetPixel2Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast2Clr;
             } else if (pState->mode == BB_MODE_2BPP) {
-                pState->pfnSetPixel = bbepSetPixel4Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast4Clr;
+                pState->pfnSetPixel = bbSetPixel4Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast4Clr;
             } else {
-                pState->pfnSetPixel = bbepSetPixel16Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast16Clr;
+                pState->pfnSetPixel = bbSetPixel16Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast16Clr;
             }
             break;
         case 90:
             pState->width = pState->native_height;
             pState->height = pState->native_width;
             if (pState->mode == BB_MODE_1BPP) {
-                pState->pfnSetPixel = bbepSetPixel2Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_90;
+                pState->pfnSetPixel = bbSetPixel2Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast2Clr_90;
             } else if (pState->mode == BB_MODE_2BPP) {
-                pState->pfnSetPixel = bbepSetPixel4Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_90;
+                pState->pfnSetPixel = bbSetPixel4Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast4Clr_90;
             } else {
-                pState->pfnSetPixel = bbepSetPixel16Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_90;
+                pState->pfnSetPixel = bbSetPixel16Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast16Clr_90;
             }
             break;
         case 180:
             pState->width = pState->native_width;
             pState->height = pState->native_height;
             if (pState->mode == BB_MODE_1BPP) {
-                pState->pfnSetPixel = bbepSetPixel2Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_180;
+                pState->pfnSetPixel = bbSetPixel2Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast2Clr_180;
             } else if (pState->mode == BB_MODE_2BPP) {
-                pState->pfnSetPixel = bbepSetPixel4Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_180;
+                pState->pfnSetPixel = bbSetPixel4Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast4Clr_180;
             } else {
-                pState->pfnSetPixel = bbepSetPixel16Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_180;
+                pState->pfnSetPixel = bbSetPixel16Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast16Clr_180;
             }
             break;
         case 270:
             pState->width = pState->native_height;
             pState->height = pState->native_width;
             if (pState->mode == BB_MODE_1BPP) {
-                pState->pfnSetPixel = bbepSetPixel2Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast2Clr_270;
+                pState->pfnSetPixel = bbSetPixel2Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast2Clr_270;
             } else if (pState->mode == BB_MODE_2BPP) {
-                pState->pfnSetPixel = bbepSetPixel4Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast4Clr_270;
+                pState->pfnSetPixel = bbSetPixel4Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast4Clr_270;
             } else {
-                pState->pfnSetPixel = bbepSetPixel16Clr;
-                pState->pfnSetPixelFast = bbepSetPixelFast16Clr_270;
+                pState->pfnSetPixel = bbSetPixel16Clr;
+                pState->pfnSetPixelFast = bbSetPixelFast16Clr_270;
             }
             break;
     }

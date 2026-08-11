@@ -4,7 +4,6 @@ CFLAGS=-c -Wall -O2 -ggdb -D__HAS_NEON__ -D__LINUX__ -I../src
 else
 CFLAGS=-c -Wall -O2 -ggdb -D__LINUX__ -I../src
 endif
-LIBS = -lm -lpthread
 
 all: libFastEPD.a
 

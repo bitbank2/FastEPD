@@ -190,8 +190,8 @@ const uint8_t u8M5Matrix[] = {
     };
 
 // Forward references
-int bbepSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
-void bbepSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
+int bbSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
+void bbSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
 int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int iVCOM);
 int bbepSetCustomMatrix(FASTEPDSTATE *pState, const uint8_t *pMatrix, size_t matrix_size);
 void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd);
@@ -337,7 +337,7 @@ static bool c5_notify_dma_ready(parlio_tx_unit_handle_t handle, const parlio_tx_
     dma_is_done = true;
     return false;
 }
-#else
+#elif !defined(__LINUX__)
 static bool s3_notify_dma_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {           
     if (bSlowSPH) {
@@ -1677,7 +1677,7 @@ void bbepIODeInit(void)
         ESP_ERROR_CHECK(parlio_del_tx_unit(parlio_tx_handle));
         parlio_tx_handle = 0;
     }
-#else // S3
+#elif !defined(__LINUX__) // S3
     if (io_handle) {
         ESP_ERROR_CHECK(esp_lcd_panel_io_del(io_handle));
         ESP_ERROR_CHECK(esp_lcd_del_i80_bus(i80_bus));
@@ -1699,20 +1699,22 @@ int bbepIOInit(FASTEPDSTATE *pState)
     if (rc != BBEP_SUCCESS) return rc;
     pState->iPartialPasses = 4; // N.B. The default number of passes for partial updates
     pState->iFullPasses = 5; // the default number of passes for smooth and full updates
+#ifndef __LINUX__
     u8SPH = (gpio_num_t)pState->panelDef.ioSPH;
     u8CKV = (gpio_num_t)pState->panelDef.ioCKV;
-    pinMode(u8SPH, OUTPUT);
-    pinMode(u8CKV, OUTPUT);
+    bbepPinMode(u8SPH, OUTPUT);
+    bbepPinMode(u8CKV, OUTPUT);
+#endif // __LINUX__
     if (pState->panelDef.bus_speed == BB_SPEED_BITBANG) {
 // Optionally use bit banging for parallel I/O to get around a bug in
 // the ESP32-S3's LCD hardware which generates a spurious clock cycle
 // before the data is ready, causing a skipped or corrupted set of pixels
 // at the start of each line
         for (int i=0; i<pState->panelDef.bus_width; i++) {
-            pinMode(pState->panelDef.data[i], OUTPUT);
+            bbepPinMode(pState->panelDef.data[i], OUTPUT);
         }
-        pinMode(pState->panelDef.ioCL, OUTPUT);
-        pinMode(pState->panelDef.ioSPH, OUTPUT);
+        bbepPinMode(pState->panelDef.ioCL, OUTPUT);
+        bbepPinMode(pState->panelDef.ioSPH, OUTPUT);
     } else { // parallel I/O hardware
 #ifndef __LINUX__
 #ifdef CONFIG_IDF_TARGET_ESP32C5
@@ -1851,8 +1853,8 @@ int bbepSetPanelSize(FASTEPDSTATE *pState, int width, int height, int flags, int
     }
 #endif // LINUX
     if (pState->iPanelType == BB_PANEL_IT8951) {
-        pState->pfnSetPixel = bbepSetPixel2Clr;
-        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        pState->pfnSetPixel = bbSetPixel2Clr;
+        pState->pfnSetPixelFast = bbSetPixelFast2Clr;
         pState->pfnIODeInit = IT8951IODeInit;
         pState->pfnEinkPower = IT8951EinkPower;
         pState->pwr_on = 1; // start with the power on
@@ -2510,8 +2512,8 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         pState->iFG = BBEP_BLACK;
         pState->iBG = BBEP_TRANSPARENT;
         pState->iVCOM = -1600; // assume VCOM is -1.6V (typical)
-        pState->pfnSetPixel = bbepSetPixel2Clr;
-        pState->pfnSetPixelFast = bbepSetPixelFast2Clr;
+        pState->pfnSetPixel = bbSetPixel2Clr;
+        pState->pfnSetPixelFast = bbSetPixelFast2Clr;
         pState->pCurrent = NULL; // make sure the memory is allocated
         if (iPanel == BB_PANEL_VIRTUAL || iPanel == BB_PANEL_IT8951) {
             pState->pfnExtIO = NULL;
