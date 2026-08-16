@@ -1807,6 +1807,10 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
             bbepSetPanelSize(pState, 1872, 1404, BB_PANEL_FLAG_NONE, -1600);
             bbepSetCustomMatrix(pState, u8TenPointThreeMatrix, sizeof(u8TenPointThreeMatrix));
             break;
+        case BBEP_DISPLAY_ED047TC1:
+            bbepSetPanelSize(pState, 960, 540, BB_PANEL_FLAG_NONE, -1600);
+            bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
+            break;
         case BBEP_DISPLAY_ED052TC4:
             bbepSetPanelSize(pState, 1280, 720, BB_PANEL_FLAG_MIRROR_X, -1600);
             bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
