@@ -42,6 +42,8 @@
 #define BB_PANEL_FLAG_MIRROR_Y 0x02
 #define BB_PANEL_FLAG_SLOW_SPH 0x04
 #define BB_PANEL_FLAG_DARK     0x08
+// Indicates a panel definition is for the IT8951
+#define BB_PANEL_FLAG_IT8951   0x10
 
 #define BB_NOT_USED 0xff
 // Initialize the panel with this bus speed to use bit bang logic
@@ -97,6 +99,7 @@ enum {
 #endif // __LINUX__
     BB_PANEL_IT8951,
     BB_PANEL_SENSORIA_C5,
+    BB_PANEL_M5PAPER, // older IT8951 model
     BB_PANEL_CUSTOM,
     BB_PANEL_VIRTUAL,
     BB_PANEL_COUNT

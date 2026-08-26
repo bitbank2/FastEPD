@@ -241,6 +241,9 @@ const BBPANELDEF panelDefs[] = {
     // ioCL, ioPWR_Good, ioSDA, ioSCL, ioShiftSTR/Wakeup, ioShiftMask/vcom, ioDCDummy, graymatrix, sizeof(graymatrix), iLinePadding
 {1280, 720, 40000000, BB_PANEL_FLAG_MIRROR_X, {8,23,10,9,24,25,26,27}, 8, 26, 0, 5, 4, 0, 2,
     3, 0, 7, 6, 0, 0, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 16, -1600}, // BB_PANEL_SENSORIA_C5
+// For IT8951 panels, the 8 data bits are:  u8MOSI, u8MISO, u8CLK, u8CS, u8Busy, u8RST, u8EN, u8ITE_EN
+{960, 540, 10000000, BB_PANEL_FLAG_IT8951, {12,13,14,15,27,23,23,23}, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, u8Ink5V2Matrix, sizeof(u8Ink5V2Matrix), 0, 0}, // BB_PANEL_M5PAPER (IT8951 version)
 };
 
 //
@@ -2530,6 +2533,21 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         memcpy(&pState->panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
         if (u32Speed) pState->panelDef.bus_speed = u32Speed; // custom speed
         pState->iFlags = pState->panelDef.flags; // copy flags to main class structure
+        // Special case for IT8591 products like the M5Paper
+        if (panelDefs[iPanel].flags & BB_PANEL_FLAG_IT8951) {
+            BBPANELDEF *p = (BBPANELDEF *)&panelDefs[iPanel];
+            //bbepInitIT8951(&_state, u8MOSI, u8MISO, u8CLK, u8CS, u8Busy, u8RST, u8EN, u8ITE_EN);
+            if (iPanel == BB_PANEL_M5PAPER) { // special power init
+                pinMode(2, OUTPUT); // main power enable
+                pinMode(5, OUTPUT); // it8951 main power enable
+                pinMode(23, OUTPUT); // VCC enable
+                digitalWrite(2, HIGH); digitalWrite(5, HIGH); digitalWrite(23, HIGH);
+            }
+            rc = bbepInitIT8951(pState, p->data[0], p->data[1], p->data[2], p->data[3], p->data[4], p->data[5], p->data[6], p->data[7]);
+            if (rc == BBEP_SUCCESS) {
+                rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags, pState->iVCOM);
+            }
+        }
         // Get the 5 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
         pState->pfnIOInit = panelProcs[iPanel].pfnIOInit;
