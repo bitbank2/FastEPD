@@ -2547,6 +2547,8 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
             if (rc == BBEP_SUCCESS) {
                 rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags, pState->iVCOM);
             }
+            // finished with IT8591 setup
+            return rc;
         }
         // Get the 5 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
