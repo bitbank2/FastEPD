@@ -2547,6 +2547,8 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
             if (rc == BBEP_SUCCESS) {
                 rc = bbepSetPanelSize(pState, pState->width, pState->height, pState->iFlags, pState->iVCOM);
             }
+            // IT8951 uses its dedicated initialization and does not have generic panel I/O callbacks.
+            return rc;
         }
         // Get the 5 callback functions
         pState->pfnEinkPower = panelProcs[iPanel].pfnEinkPower;
