@@ -2538,10 +2538,12 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
             BBPANELDEF *p = (BBPANELDEF *)&panelDefs[iPanel];
             //bbepInitIT8951(&_state, u8MOSI, u8MISO, u8CLK, u8CS, u8Busy, u8RST, u8EN, u8ITE_EN);
             if (iPanel == BB_PANEL_M5PAPER) { // special power init
+#ifndef __LINUX__
                 pinMode(2, OUTPUT); // main power enable
                 pinMode(5, OUTPUT); // it8951 main power enable
                 pinMode(23, OUTPUT); // VCC enable
                 digitalWrite(2, HIGH); digitalWrite(5, HIGH); digitalWrite(23, HIGH);
+#endif // __LINUX__
             }
             rc = bbepInitIT8951(pState, p->data[0], p->data[1], p->data[2], p->data[3], p->data[4], p->data[5], p->data[6], p->data[7]);
             if (rc == BBEP_SUCCESS) {
