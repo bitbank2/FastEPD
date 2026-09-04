@@ -364,6 +364,7 @@ static esp_lcd_i80_bus_config_t s3_bus_config = {
 #else
     .dma_burst_size = 32,
 #endif
+    .flags = { 0 },
 };
 static esp_lcd_panel_io_i80_config_t s3_io_config = {
         .cs_gpio_num = (gpio_num_t)0,
@@ -996,16 +997,17 @@ int vcom;
         gpio_set_level((gpio_num_t)pState->panelDef.ioOE, 1); // OE on
         gpio_set_level((gpio_num_t)52, 1); // EP_MODE/GMOD on
         gpio_set_level((gpio_num_t)37, 1); // WAKEUP on
+        // Allow time to fully wake-up
+        vTaskDelay(4);
+        ucTemp[0] = 0x09; // UPSEQ0
+        ucTemp[1] = 0xE1;
+        bbepI2CWrite(0x68, ucTemp, 2);
+        ucTemp[0] = 0x0A; // UPSEQ1
+        ucTemp[1] = 0xAA;
+        bbepI2CWrite(0x68, ucTemp, 2);
+
         gpio_set_level((gpio_num_t)26, 1); // PWRUP on
         gpio_set_level((gpio_num_t)49, 1); // VCOM CTRL on
-        vTaskDelay(3); // allow time to power up
-//        ucTemp[0] = TPS_REG_UPSEQ0;
-//        ucTemp[1] = 0xe1;
-//        bbepI2CWrite(0x68, ucTemp, 2);
-
-//        ucTemp[0] = TPS_REG_UPSEQ1;
-//        ucTemp[1] = 0xaa;
-//        bbepI2CWrite(0x68, ucTemp, 2);
 
         ucTemp[0] = TPS_REG_ENABLE;
         ucTemp[1] = 0x3f; // enable output
