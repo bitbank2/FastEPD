@@ -1713,6 +1713,9 @@ int bbepIOInit(FASTEPDSTATE *pState)
 // the ESP32-S3's LCD hardware which generates a spurious clock cycle
 // before the data is ready, causing a skipped or corrupted set of pixels
 // at the start of each line
+// N.B. Clear-only: while this is active, bbepWriteRow() repeats the first
+// 16-bit pattern across the whole line (see the note there), so image data
+// cannot be transmitted.
         for (int i=0; i<pState->panelDef.bus_width; i++) {
             bbepPinMode(pState->panelDef.data[i], OUTPUT);
         }
