@@ -25,7 +25,9 @@
 #include "FastEPD.h"
 #ifdef __LINUX__
 #include "linux_io.inl"
+#ifdef __HAS_NEON__
 #include <arm_neon.h>
+#endif
 #include <pthread.h>
 #else
 #include "arduino_io.inl"
@@ -123,46 +125,7 @@ int x, bChanges = 0;
 // the update process otherwise each pass would be fixed at about 12ms
 //
 
-#ifdef OLD_WAY
-uint8_t uc, ucOld, ucOut, ucMask;
-
-    uc = *pSrc++; // read first byte to start
-    ucOld = *pDest;
-    ucMask = 0x80;
-    ucOut = 0;
-    bChanges = 0;
-    for (x=0; x<iWidth; x+=4) {
-        for (int j=0; j<4; j++) { // 4 pixels per output byte
-            ucOut <<= 2; // next pair of control bits
-            if ((uc & ucMask) != (ucOld & ucMask)) { // color change
-                // Reset the counts to do a full set of pushes
-                pCounts[0] = (uc & ucMask) ? 5 : 0;
-            }
-            if (uc & ucMask) { // current pixel is white
-                if (pCounts[0] > 0) { // changing to white
-                    ucOut |= 2; // push white
-                    pCounts[0]--; // decrement the count
-                }
-            } else { // current pixel is black
-                if (pCounts[0] < 5) { // changing to black
-                    ucOut |= 1; // push black
-                    pCounts[0]++; // increment the count
-                }
-            }
-            pCounts++;
-            ucMask >>= 1;
-       } // for j
-       //bChanges |= ucOut; // non-zero row will be detected
-       bChanges |= ucOut;
-       *pWave++ = ucOut;
-       if (ucMask == 0) { // next source byte
-           *pDest++ = uc; // new becomes old
-           uc = *pSrc++;
-           ucOld = *pDest;
-           ucMask = 0x80;
-       }
-    } // for x
-#else // New way
+#ifdef __HAS_NEON__
 uint8x16_t u64Ones = vdupq_n_u8(0x01);
 //uint8x16_t u64Eights = vdupq_n_u8(0x08);
 uint8x16_t u64Fives = vdupq_n_u8(0x05);
@@ -214,6 +177,45 @@ uint8x8_t vout64;
         pWave += 4;
     } // for x
     bChanges = vgetq_lane_u32(vreinterpretq_u32_u8(vchanges), 0);
+#else
+uint8_t uc, ucOld, ucOut, ucMask;
+
+    uc = *pSrc++; // read first byte to start
+    ucOld = *pDest;
+    ucMask = 0x80;
+    ucOut = 0;
+    bChanges = 0;
+    for (x=0; x<iWidth; x+=4) {
+        for (int j=0; j<4; j++) { // 4 pixels per output byte
+            ucOut <<= 2; // next pair of control bits
+            if ((uc & ucMask) != (ucOld & ucMask)) { // color change
+                // Reset the counts to do a full set of pushes
+                pCounts[0] = (uc & ucMask) ? 5 : 0;
+            }
+            if (uc & ucMask) { // current pixel is white
+                if (pCounts[0] > 0) { // changing to white
+                    ucOut |= 2; // push white
+                    pCounts[0]--; // decrement the count
+                }
+            } else { // current pixel is black
+                if (pCounts[0] < 5) { // changing to black
+                    ucOut |= 1; // push black
+                    pCounts[0]++; // increment the count
+                }
+            }
+            pCounts++;
+            ucMask >>= 1;
+       } // for j
+       //bChanges |= ucOut; // non-zero row will be detected
+       bChanges |= ucOut;
+       *pWave++ = ucOut;
+       if (ucMask == 0) { // next source byte
+           *pDest++ = uc; // new becomes old
+           uc = *pSrc++;
+           ucOld = *pDest;
+           ucMask = 0x80;
+       }
+    } // for x
 #endif
     return bChanges;
 } /* PrepVideoRow() */
