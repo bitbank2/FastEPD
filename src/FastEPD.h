@@ -46,7 +46,11 @@
 #define BB_PANEL_FLAG_IT8951   0x10
 
 #define BB_NOT_USED 0xff
-// Initialize the panel with this bus speed to use bit bang logic
+// Pass as initPanel()'s u32Speed to bit-bang the parallel bus instead of using
+// the ESP32-S3 LCD peripheral. Narrow scope: bbepWriteRow() repeats the first
+// 16-bit pattern across each line while this is active, so it can only produce
+// solid fills (e.g. clearing the panel), not image data.
+// N.B. Unrelated to setBitBang(), which selects software I2C on the control bus.
 #define BB_SPEED_BITBANG 0xffffffff
 #define BBEP_TRANSPARENT 255
 
