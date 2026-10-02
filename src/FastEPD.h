@@ -358,6 +358,8 @@ class FASTEPD
 #ifdef ARDUINO
     void getStringBox(const String &str, BB_RECT *pRect);
 #endif
+    int getLastError(void) { return _state.last_error; }
+    void clearLastError(void) { _state.last_error = BBEP_SUCCESS;}
     int setMode(int iMode); // set graphics mode
     int getPreviousMode(void) { return _state.prev_mode;}
     void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
@@ -392,10 +394,10 @@ class FASTEPD
     void setCursor(int x, int y);
     int loadBMP(const uint8_t *pBMP, int x, int y, int iFG, int iBG);
     int loadG5Image(const uint8_t *pG5, int x, int y, int iFG, int iBG, float fScale = 1.0f);
-    void setFont(int iFont);
+    int setFont(int iFont);
     void setItalic(bool bItalic);
     void setBitBang(bool bBitBang);
-    void setFont(const void *pFont, bool bAntiAliased = false);
+    int setFont(const void *pFont, bool bAntiAliased = false);
     void drawLine(int x1, int y1, int x2, int y2, int iColor);
     void drawPixel(int x, int y, uint8_t color);
     void drawPixelFast(int x, int y, uint8_t color);

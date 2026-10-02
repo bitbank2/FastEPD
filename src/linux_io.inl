@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdio.h> 
 #include <string.h>
+#ifndef __MEM_ONLY__
 #include <fcntl.h>
 #include <sys/sysinfo.h>
 #include <sys/ioctl.h>
@@ -35,6 +36,7 @@
 #include <linux/i2c-dev.h>
 #include <linux/spi/spidev.h>
 #include <gpiod.h>
+#endif // __MEM_ONLY__
 #include <math.h>
 #include <time.h>
 #ifndef CONSUMER
@@ -84,6 +86,9 @@ void yield(void) {}
 //
 void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin)
 {
+#ifdef __MEM_ONLY__
+    (void)iMISOPin; (void)iMOSIPin; (void)iCLKPin;
+#else
 #ifdef FUTURE
     iGPIOChip = iMISOPin;
 #else
@@ -95,10 +100,14 @@ void linux_spi_init(int iMISOPin, int iMOSIPin, int iCLKPin)
     if (file_spi <= 0) {
             printf("Error opening %s\n", szTemp);
     }
+#endif // __MEM_ONLY__
 } /* linux_spi_init() */
 
 void linux_spi_write16(uint16_t value, uint32_t iSPISpeed)
 {
+#ifdef __MEM_ONLY__
+    (void)value; (void)iSPISpeed;
+#else
 struct spi_ioc_transfer spi;
 uint8_t u8Temp[4];
 
@@ -111,10 +120,15 @@ uint8_t u8Temp[4];
    //spi.cs_change = 1;
    spi.bits_per_word = 8;
    ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
+#endif // __MEM_ONLY__
 } /* linux_spi_write16() */
 
 uint16_t linux_spi_read16(uint32_t iSPISpeed)
 {
+#ifdef __MEM_ONLY__
+    (void)iSPISpeed;
+    return 0;
+#else
 uint16_t value, fake;
 struct spi_ioc_transfer spi;
    memset(&spi, 0, sizeof(spi));
@@ -127,10 +141,14 @@ struct spi_ioc_transfer spi;
    spi.bits_per_word = 8;
    ioctl(file_spi, SPI_IOC_MESSAGE(1), &spi);
    return __builtin_bswap16(value);
+#endif // __MEM_ONLY__
 } /* linux_spi_read16() */
 
 void linux_spi_write(uint8_t *pBuf, int iLen, uint32_t iSPISpeed)
 {
+#ifdef __MEM_ONLY__
+    (void)pBuf; (void)iLen; (void)iSPISpeed;
+#else
 struct spi_ioc_transfer spi;
    memset(&spi, 0, sizeof(spi));
    while (iLen) { // max 64k transfers (default is 4k)
@@ -145,11 +163,16 @@ struct spi_ioc_transfer spi;
        iLen -= j;
        pBuf += j; 
    }
+#endif // __MEM_ONLY__
 } /* linux_spi_write() */
 
 // Initialize the I2C bus on Linux
 int bbepI2CInit(uint8_t sda, uint8_t scl, uint8_t bBitBang)
 {
+#ifdef __MEM_ONLY__
+    (void)sda; (void)scl; (void)bBitBang;
+    return BBEP_SUCCESS;
+#else
 char filename[32];
 int iChannel = sda;
 (void) scl;
@@ -165,47 +188,71 @@ int iChannel = sda;
         }
     }
     return BBEP_SUCCESS;
+#endif // __MEM_ONLY__
 } /* bbepI2CInit() */
 //
 // Read n bytes from the given I2C address
 //
 int bbepI2CRead(unsigned char iAddr, unsigned char *pData, int iLen)
 {
+#ifdef __MEM_ONLY__
+    (void)iAddr; (void)pData; (void)iLen;
+    return 0;
+#else
 int rc;
         ioctl(file_i2c, I2C_SLAVE, iAddr);
         rc = read(file_i2c, pData, iLen);
         return rc;
+#endif // __MEM_ONLY__
 } /* bbepI2CRead() */
 //
 // Write n bytes to the given address
 //
 int bbepI2CWrite(unsigned char iAddr, unsigned char *pData, int iLen)
 {
+#ifdef __MEM_ONLY__
+    (void)iAddr; (void)pData; (void)iLen;
+    return 0;
+#else
 int rc;
         ioctl(file_i2c, I2C_SLAVE, iAddr);
         rc = write(file_i2c, pData, iLen);
         return rc;
+#endif // __MEM_ONLY__
 } /* I2CWrite() */
 
 int bbepI2CReadRegister(unsigned char iAddr, unsigned char u8Register, unsigned char *pData, int iLen)
 {
+#ifdef __MEM_ONLY__
+    (void)iAddr; (void)u8Register; (void)pData; (void)iLen;
+    return 0;
+#else
     bbepI2CWrite(iAddr, &u8Register, 1);
     bbepI2CRead(iAddr, pData, iLen);
     return iLen;
+#endif // __MEM_ONLY__
 }
 
 static int digitalRead(int iPin)
 {
+#ifdef __MEM_ONLY__
+    (void)iPin;
+    return 0;
+#else
 	if (lines[iPin] == 0) return 0;
 #ifdef GPIOD_API // 1.x (old) API
   return gpiod_line_get_value(lines[iPin]);
 #else // 2.x (new)
   return gpiod_line_request_get_value(lines[iPin], iPin) == GPIOD_LINE_VALUE_ACTIVE;
 #endif
+#endif // __MEM_ONLY__
 } /* digitalRead() */
 
 static void bbepDigitalWrite(int iPin, int iState)
 {
+#ifdef __MEM_ONLY__
+    (void)iPin; (void)iState;
+#else
 //printf("bbepDigitalWrite pin %d\n", iPin);
    if (iPin == 0xff || iPin == -1) return;
 #ifdef SLOW_WAY
@@ -222,10 +269,14 @@ static void bbepDigitalWrite(int iPin, int iState)
         *clr_reg = (1 << iPin);
     }
 #endif
+#endif // __MEM_ONLY__
 } /* bbepDigitalWrite() */
 
 void bbepPinMode(int iPin, int iMode)
 {
+#ifdef __MEM_ONLY__
+    (void)iPin; (void)iMode;
+#else
 //printf("bbepPinMode %d, %d\n", iPin, iMode);
    if (iPin == 0xff || iPin == -1) return;
 
@@ -267,6 +318,7 @@ void bbepPinMode(int iPin, int iMode)
    gpiod_line_settings_free(settings);
    gpiod_chip_close(chip);
 #endif
+#endif // __MEM_ONLY__
 } /* bbepPinMode() */
 
 static int millis(void)
@@ -394,6 +446,8 @@ void bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int iRowStep)
 } /* bbepWriteRow() */
 void SetupGPIO(void)
 {
+#ifdef __MEM_ONLY__
+#else
    int mem_fd;
    void *gpio_map;
    uint32_t u32GPIO_BASE;
@@ -440,7 +494,7 @@ void SetupGPIO(void)
     set_reg = &gpio[7];
     clr_reg = &gpio[10];
     gpio[21505] = 0; // disable UART/SPI1/SPI2
-
+#endif // __MEM_ONLY__
 } /* SetupGPIO() */
 
 //

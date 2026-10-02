@@ -1000,7 +1000,7 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     BB_FONT_SMALL *pBBFS;
     BB_GLYPH *pGlyph = NULL;
     BB_GLYPH_SMALL *pGlyphSmall = NULL;
-    uint8_t *pBits, u8EndMask;
+    uint8_t *pBits;//, u8EndMask;
     uint8_t szExtMsg[256]; // translated extended ASCII message text
     uint8_t c, first, last;
     
@@ -1123,10 +1123,10 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
             if ((dy + h) > height) { // trim it
                 h = height - dy;
             }
-            u8EndMask = 0xff;
-            if (w & 7) { // width ends on a partial byte
-                u8EndMask <<= (8-(w & 7));
-            }
+            //u8EndMask = 0xff;
+            //if (w & 7) { // width ends on a partial byte
+            //    u8EndMask <<= (8-(w & 7));
+            //}
             end_y = dy + h;
             if (pBBF) {
                 ty = (pGlyph[1].bitmapOffset - (intptr_t)(s - pBits)); // compressed size
@@ -1245,27 +1245,6 @@ int bbepWriteStringCustom(FASTEPDSTATE *pBBEP, const void *pFont, int x, int y, 
     }
     return BBEP_SUCCESS;
 } /* EPDWriteStringCustom() */
-//
-// Rotate an 8x8 pixel block (8 bytes) by 90 degrees
-// Used to draw the built-in font at 2 angles
-//
-static void RotateCharBox(uint8_t *pSrc)
-{
-    int x, y;
-    uint8_t ucDest[8], uc, ucSrcMask, ucDstMask;
-    
-    for (y=0; y<8; y++) {
-        ucSrcMask = 1<<y;
-        ucDstMask = 0x80;
-        uc = 0;
-        for (x=0; x<8; x++) {
-            if (pSrc[x] & ucSrcMask) uc |= ucDstMask;
-            ucDstMask >>= 1;
-        }
-        ucDest[y] = uc;
-    }
-    memcpy(pSrc, ucDest, 8); // rotate "in-place"
-} /* RotateCharBox() */
 //
 // Double the size of a 1-bpp image and smooth the jaggies
 //
@@ -1638,19 +1617,19 @@ uint8_t szExtMsg[80];
         switch (pBBEP->iFont) {
             case FONT_6x8:
                 cx = 6;
-                maxy = 8;
+                maxy = 7;
                 break;
             case FONT_8x8:
                 cx = 8;
-                maxy = 8;
+                maxy = 7;
                 break;
             case FONT_12x16:
                 cx = 12;
-                maxy = 16;
+                maxy = 15;
                 break;
             case FONT_16x16:
                 cx = 16;
-                maxy = 16;
+                maxy = 15;
                 break;
         }
         cx *= strlen(szMsg);

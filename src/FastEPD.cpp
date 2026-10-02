@@ -263,9 +263,9 @@ void FASTEPD::videoUpdate(void)
 int iWidth, iHeight, iPitch;
 uint8_t *c, *p, *d, *pc;
 int bActivity, iRowStep;
-static int iFrame = 0;
+//static int iFrame = 0;
 
-    iFrame++;
+//    iFrame++;
 
     if (_state.pCounts == NULL) {
         _state.pCounts = (uint8_t *)malloc(_state.width * _state.height);
@@ -385,6 +385,14 @@ void FASTEPD::drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color)
 void FASTEPD::fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color)
 {
     bbepEllipse(&_state, x, y, r, r, 0xf, color, 1);
+}
+void FASTEPD::drawEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color)
+{
+    bbepEllipse(&_state, x, y, rx, ry, 0xf, color, 0);
+}
+void FASTEPD::fillEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color)
+{
+    bbepEllipse(&_state, x, y, rx, ry, 0xf, color, 1);
 }
 void FASTEPD::drawRoundRect(int x, int y, int w, int h,
                    int r, uint8_t color)
@@ -576,21 +584,25 @@ void FASTEPD::setItalic(bool bItalic)
    _state.italic = (uint8_t)bItalic;
 } /* setItalic() */
 
-void FASTEPD::setFont(int iFont)
+int FASTEPD::setFont(int iFont)
 {
+    if (iFont < FONT_6x8 || iFont >= FONT_COUNT) return BBEP_ERROR_BAD_PARAMETER;
     _state.iFont = iFont;
     _state.pFont = NULL;
     _state.anti_alias = 0;
+    return BBEP_SUCCESS;
 } /* setFont() */
 
-void FASTEPD::setFont(const void *pFont, bool bAntiAlias)
+int FASTEPD::setFont(const void *pFont, bool bAntiAlias)
 {
+    if (!pFont || (*(uint16_t *)pFont != BB_FONT_MARKER && *(uint16_t *)pFont != BB_FONT_MARKER_SMALL)) return BBEP_ERROR_BAD_PARAMETER;
     _state.iFont = -1;
     _state.pFont = (void *)pFont;
     if (_state.mode == BB_MODE_1BPP) {
         bAntiAlias = false; // only works in 2 or 4-bit grayscale mode
     }
     _state.anti_alias = (uint8_t)bAntiAlias;
+    return BBEP_SUCCESS;
 } /* setFont() */
 
 void FASTEPD::setTextWrap(bool bWrap)
