@@ -3635,7 +3635,7 @@ static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int i
                 iSkipped = 0;
             } else {
                // write a neutral row
-                if (iSkipped == 0) { // new skipped section
+                if (iSkipped < 2) { // new skipped section; clear both halves of the DMA buffer (rows alternate between them)
                     memset((void *)d, 0, pState->native_width/4);
                 }
                 bbepWriteRow(pState, d, (pState->native_width / 4), (i!=0));
