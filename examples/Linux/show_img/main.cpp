@@ -59,6 +59,8 @@ const char *szPanels[] = {
     "BBEP_DISPLAY_ED052TC4",
     "BBEP_DISPLAY_ED1150C1",
     "BBEP_DISPLAY_ED078KC2",
+    "BBEP_DISPLAY_ED047TC1",
+    "BBEP_DISPLAY_ED133UT2",
     NULL // must be last entry
 };
 

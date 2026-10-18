@@ -189,6 +189,26 @@ const uint8_t u8M5Matrix[] = {
     /* 15 */  2, 2, 2, 2, 2, 2, 2, 2,
     };
 
+// For 13.3" 1600x1200 panels
+const uint8_t u8ThirteenPointThreeMatrix[] = {
+    /* 0 */  2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    /* 1 */  2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1,
+    /* 2 */  2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 0, 1, 1, 1,
+    /* 3 */  1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 2, 0,
+    /* 4 */  1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 2, 1, 1, 2, 0,
+    /* 5 */  1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 2, 0, 1, 1, 2, 0,
+    /* 6 */  1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 1, 1, 2, 0,
+    /* 7 */  1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 2, 0, 1, 1, 2, 0,
+    /* 8 */  1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 0, 1, 2, 0,
+    /* 9 */  1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 1, 2, 0,
+    /* 10 */ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 2, 0, 1, 2, 0,
+    /* 11 */ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 2, 0, 1, 2, 0,
+    /* 12 */ 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 2, 1, 2, 0, 1, 2, 0,
+    /* 13 */ 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 0, 1, 2, 0,
+    /* 14 */ 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 0, 2,
+    /* 15 */ 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2
+    };
+
 // Forward references
 int bbSetPixel2Clr(void *pb, int x, int y, unsigned char ucColor);
 void bbSetPixelFast2Clr(void *pb, int x, int y, unsigned char ucColor);
@@ -1824,6 +1844,10 @@ int bbepSetDefinedPanel(FASTEPDSTATE *pState, int iPanel)
         case BBEP_DISPLAY_ED1150C1:
             bbepSetPanelSize(pState, 2760, 2070, BB_PANEL_FLAG_NONE, -1000);
             bbepSetCustomMatrix(pState, u8FivePointTwoMatrix, sizeof(u8FivePointTwoMatrix));
+            break;
+        case BBEP_DISPLAY_ED133UT2:
+            bbepSetPanelSize(pState, 1600, 1200, BB_PANEL_FLAG_NONE, -2280);
+            bbepSetCustomMatrix(pState, u8ThirteenPointThreeMatrix, sizeof(u8ThirteenPointThreeMatrix));
             break;
     } // switch on panel
     return BBEP_SUCCESS;
