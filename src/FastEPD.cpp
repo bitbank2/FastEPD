@@ -109,6 +109,7 @@ static const uint64_t u64_expand[] = {
 static int PrepVideoRow(int iWidth, uint8_t *pSrc, uint8_t *pDest, uint8_t *pWave, uint8_t *pCounts)
 {
 int x, bChanges = 0;
+#ifdef __HAS_NEON__
 //
 // Theory of operation:
 // The counts array keeps track of the current state of eink pixels.
@@ -216,6 +217,9 @@ uint8x8_t vout64;
     bChanges = vgetq_lane_u32(vreinterpretq_u32_u8(vchanges), 0);
 #endif
     return bChanges;
+#else
+    return 0;
+#endif // !__HAS_NEON__
 } /* PrepVideoRow() */
 
 static void *video_thread(void *pArg)
