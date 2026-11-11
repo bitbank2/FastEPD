@@ -44,6 +44,7 @@
 #define BB_PANEL_FLAG_DARK     0x08
 // Indicates a panel definition is for the IT8951
 #define BB_PANEL_FLAG_IT8951   0x10
+#define BB_PANEL_FLAG_MISSING_CLOCK 0x20
 
 #define BB_NOT_USED 0xff
 // Pass as initPanel()'s u32Speed to bit-bang the parallel bus instead of using

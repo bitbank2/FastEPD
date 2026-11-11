@@ -247,7 +247,7 @@ const BBPANELDEF panelDefs[] = {
       10, 0, 2, 42, 1, 0, 46 /* LoRa CS */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5PRO 
     {1440, 720, 40000000, BB_PANEL_FLAG_MIRROR_X, {27,28,29,30,31,32,33,34}, 8, BB_NOT_USED, 36, 13, 25, 0, 26,
       24, 0, 7, 8, 0, 0, 11 /* LED1_EN */, u8M5Matrix, sizeof(u8M5Matrix), 16, -1600}, // BB_PANEL_LILYGO_T5P4 
-    {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
+    {1872, 1404, 26666666, BB_PANEL_FLAG_MIRROR_X | BB_PANEL_FLAG_MISSING_CLOCK, {8,18,17,16,15,7,6,5,47,21,14,13,12,11,10,9}, 16, 11, 48, 45, 41, 8, 42,
       4, 14, 39, 40, BB_NOT_USED, 0, 46, u8GrayMatrix, sizeof(u8GrayMatrix), 44, -1100}, // BB_PANEL_TRMNL_X
 {0, 0, 26666666, BB_PANEL_FLAG_NONE, {2,3,4,5,6,7,8,9}, 8, 26, 45, 51, 46, 47, 48,
       50, 27, 28, 29, 37, 0, 35, u8GrayMatrix, sizeof(u8GrayMatrix), 32, -1600}, // BB_PANEL_EPDINKY_P4
@@ -410,6 +410,7 @@ static esp_lcd_panel_io_i80_config_t s3_io_config = {
 
 static esp_lcd_i80_bus_handle_t i80_bus = NULL;
 static esp_lcd_panel_io_handle_t io_handle = NULL;
+static int iRowCMD = -1; // assume no pre-row command phase
 #endif // S3/C5
 #endif // !__LINUX__
 
@@ -1671,7 +1672,7 @@ static void IRAM_ATTR bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLe
     memset(&tx_cfg, 0, sizeof(tx_cfg));
     err = parlio_tx_unit_transmit(parlio_tx_handle, pData, (iLen + pState->panelDef.iLinePadding) * 8, &tx_cfg);
 #else
-    err = esp_lcd_panel_io_tx_color(io_handle, -1, pData, iLen + pState->panelDef.iLinePadding);
+    err = esp_lcd_panel_io_tx_color(io_handle, iRowCMD, pData, iLen + pState->panelDef.iLinePadding);
 #endif // S3/C5
     if (err != ESP_OK) {
        // Serial.printf("Error %d sending row data\n", (int)err);
@@ -1780,10 +1781,11 @@ int bbepIOInit(FASTEPDSTATE *pState)
     ESP_ERROR_CHECK(parlio_tx_unit_register_event_callbacks(parlio_tx_handle, &tx_callbacks, nullptr));
     ESP_ERROR_CHECK(parlio_tx_unit_enable(parlio_tx_handle));
 //    bSlowSPH = 1; // no CS signal in PARLIO
-#else
+#else // ESP32-S3
     // Initialize the ESP32 LCD API to drive parallel data at high speed
     // The code forces the use of a D/C pin, so we must assign it to an unused GPIO on each device
-    s3_bus_config.dc_gpio_num = (gpio_num_t)pState->panelDef.ioDCDummy;
+    bool bClockFix = ((pState->panelDef.flags & BB_PANEL_FLAG_MISSING_CLOCK) && !(pState->panelDef.flags & BB_PANEL_FLAG_SLOW_SPH));
+    s3_bus_config.dc_gpio_num = (bClockFix) ? (gpio_num_t)pState->panelDef.ioSPH : (gpio_num_t)pState->panelDef.ioDCDummy;
     s3_bus_config.wr_gpio_num = (gpio_num_t)pState->panelDef.ioCL;
     s3_bus_config.bus_width = pState->panelDef.bus_width;
     for (int i=0; i<pState->panelDef.bus_width; i++) {
@@ -1795,8 +1797,17 @@ int bbepIOInit(FASTEPDSTATE *pState)
         bSlowSPH = 1;
         s3_io_config.cs_gpio_num = (gpio_num_t)-1; // disable hardware CS
     } else {
-        s3_io_config.cs_gpio_num = (gpio_num_t)pState->panelDef.ioSPH;
+        s3_io_config.cs_gpio_num = (bClockFix) ? (gpio_num_t)-1 : (gpio_num_t)pState->panelDef.ioSPH;
     }
+// ESP32-S3 Clock Fix: With SPH on D/C, it will become active at the right moment
+// after the empty command is clocked out and the real data begins.
+// Normally LCDs have D/C = 1 for data, but we invert it to use as a chip select
+    s3_io_config.lcd_cmd_bits = bClockFix ? pState->panelDef.bus_width : 0;
+    s3_io_config.dc_levels.dc_idle_level = bClockFix;
+    s3_io_config.dc_levels.dc_cmd_level = bClockFix;
+    s3_io_config.dc_levels.dc_dummy_level = bClockFix;
+    s3_io_config.dc_levels.dc_data_level = !bClockFix;
+    iRowCMD = bClockFix ? 0 : -1;
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &s3_io_config, &io_handle));
 #endif // S3/C5
 #endif // !__LINUX__
