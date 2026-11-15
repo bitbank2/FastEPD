@@ -1,0 +1,4 @@
+version: "2.3.0"
+description: "A frustration-free e-paper library for parallel eink panels."
+url: "https://github.com/bitbank2/FastEPD"
+license: "Apache-2.0"
