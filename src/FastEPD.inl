@@ -851,7 +851,7 @@ int iTimeout;
         if (iTimeout >= 500) {
             pState->pwr_on = 1; // force everything off
             EPDiyV7EinkPower(pBBEP, 0); // by going through the full powerdown
-            return BBEP_IO_ERROR;
+            return BBEP_ERROR_TIMED_OUT;
         }
         //ucTemp[0] = TPS_REG_UPSEQ0;
         //ucTemp[1] = 0xe1;
@@ -887,7 +887,7 @@ int iTimeout;
             // Serial.println("The power_good signal never arrived!");
             pState->pwr_on = 1; // force everything off
             EPDiyV7EinkPower(pBBEP, 0); // by going through the full powerdown
-            return BBEP_IO_ERROR;
+            return BBEP_ERROR_TIMED_OUT;
         }
         pState->pwr_on = 1;
     } else { // power off
