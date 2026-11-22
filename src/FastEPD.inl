@@ -832,6 +832,7 @@ FASTEPDSTATE *pState = (FASTEPDSTATE *)pBBEP;
 uint8_t ucTemp[4];
 uint8_t u8Value = 0; // I/O bits for the PCA9535
 int vcom;
+int iTimeout;
 
     if (bOn == pState->pwr_on) return BBEP_SUCCESS;
     if (bOn) {
@@ -842,8 +843,16 @@ int vcom;
         bbepPCA9535DigitalWrite(11, 1); // PWRUP on
         bbepPCA9535DigitalWrite(12, 1); // VCOM CTRL on
         vTaskDelay(3); // allow time to power up
-        while (!(bbepPCA9535DigitalRead(14))) { } // CFG_PIN_PWRGOOD
-
+        iTimeout = 0;
+        while (iTimeout < 500 && !(bbepPCA9535DigitalRead(14))) { // CFG_PIN_PWRGOOD
+            delay(1);
+            iTimeout++;
+        }
+        if (iTimeout >= 500) {
+            pState->pwr_on = 1; // force everything off
+            EPDiyV7EinkPower(pBBEP, 0); // by going through the full powerdown
+            return BBEP_IO_ERROR;
+        }
         //ucTemp[0] = TPS_REG_UPSEQ0;
         //ucTemp[1] = 0xe1;
         //bbepI2CWrite(0x68, ucTemp, 2);
@@ -867,7 +876,7 @@ int vcom;
         ucTemp[2] = (uint8_t)(vcom >> 8);
         bbepI2CWrite(0x68, ucTemp, 3);
 
-        int iTimeout = 0;
+        iTimeout = 0;
         u8Value = 0;
         while (iTimeout < 400 && ((u8Value & 0xfa) != 0xfa)) {
             bbepI2CReadRegister(0x68, TPS_REG_PG, &u8Value, 1); // read power good
@@ -876,6 +885,8 @@ int vcom;
         }
         if (iTimeout >= 400) {
             // Serial.println("The power_good signal never arrived!");
+            pState->pwr_on = 1; // force everything off
+            EPDiyV7EinkPower(pBBEP, 0); // by going through the full powerdown
             return BBEP_IO_ERROR;
         }
         pState->pwr_on = 1;
@@ -1215,6 +1226,7 @@ int EPDiyV7IOInit(void *pBBEP)
     bbepPinMode(pState->panelDef.ioCL, OUTPUT);
     bbepI2CInit((uint8_t)pState->panelDef.ioSDA, (uint8_t)pState->panelDef.ioSCL, pState->bit_bang);
     memset(ioRegs, 0, sizeof(ioRegs)); // copy of IO expander registers
+    bbepPCA9535DigitalWrite(8, 0); // this will set all pins 8-15 to LOW
     for (int i=8; i<14; i++) { // set lower 6 bits as outputs
         bbepPCA9535PinMode(i, OUTPUT);
     }
@@ -1627,17 +1639,27 @@ static void IRAM_ATTR bbepRowControl(FASTEPDSTATE *pState, int iType)
     return;
 } /* bbepRowControl() */
 
+// No panel no matter how large should take more than 100us to transmit a row
+#define MAX_ROW_TIME_US 100
 // The data needs to come from a DMA buffer or the Espressif DMA driver
 // will allocate (and leak) an internal buffer each time
 #ifndef __LINUX__
 static void IRAM_ATTR bbepWriteRow(FASTEPDSTATE *pState, uint8_t *pData, int iLen, int bRowStep)
 {
     esp_err_t err;
-    
+    int iTimeout;
+ 
 //    Serial.printf("bbepWriteRow %d bytes\n", iLen);
-    
+
+    iTimeout = 0;    
     while (!dma_is_done) {
         delayMicroseconds(1);
+        iTimeout++;
+        if (iTimeout > MAX_ROW_TIME_US) {
+            // Something went very wrong - ESP32 LCD hardware failure?
+            pState->last_error = BBEP_ERROR_TIMED_OUT;
+            return;
+        }
     }
     if (bRowStep) {
         bbepRowControl(pState, ROW_STEP);
@@ -2708,11 +2730,11 @@ int bbepFixRect(FASTEPDSTATE *pState, BB_RECT *pRect, int *iStartCol, int *iEndC
 //
 // Clear the display with the given code for the given number of repetitions
 //
-static void IRAM_ATTR bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
+static int IRAM_ATTR bbepClear(FASTEPDSTATE *pState, uint8_t val, uint8_t count, BB_RECT *pRect)
 {
 int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
 
-    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) return; // not available
+    if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) return BBEP_ERROR_BAD_PARAMETER; // not available
 
     if (val == BB_CLEAR_LIGHTEN) val = 0xaa;
     else if (val == BB_CLEAR_DARKEN) val = 0x55;
@@ -2720,7 +2742,7 @@ int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
     else val = 0xff; // skip
 
     if (pRect) {
-        if (bbepFixRect(pState, pRect, &iStartCol, &iEndCol, &iStartRow, &iEndRow)) return;
+        if (bbepFixRect(pState, pRect, &iStartCol, &iEndCol, &iStartRow, &iEndRow)) return BBEP_ERROR_BAD_PARAMETER;
     } else { // use the whole display
         iStartCol = iStartRow = 0;
         iEndCol = pState->native_width - 1;
@@ -2738,9 +2760,10 @@ int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
     if ((iEndCol & 3) != 3) { // partial byte
         u8Cache[i-1] = val;
     }
-    for (k = 0; k < count; k++) {
+    pState->last_error = BBEP_SUCCESS;
+    for (k = 0; k < count && pState->last_error == BBEP_SUCCESS; k++) {
         bbepRowControl(pState, ROW_START);
-        for (i = 0; i < pState->native_height; i++)
+        for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++)
         {
             dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
             // Send the data
@@ -2750,9 +2773,10 @@ int i, k, dy, iStartCol, iEndCol, iStartRow, iEndRow; // clipping area
                 memcpy(pState->dma_buf, u8Cache, pState->native_width / 4);
             }
             bbepWriteRow(pState, pState->dma_buf, pState->native_width / 4, (i!=0));
-        }
+        } // for i
         delayMicroseconds(230);
-    }
+    } // for k
+    return pState->last_error;
 } /* bbepClear() */
 //
 // Perform a full update with a single color transition (user selected)
@@ -2766,7 +2790,10 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
     if (pState->iPanelType == BB_PANEL_VIRTUAL || pState->iPanelType == BB_PANEL_IT8951) return BBEP_ERROR_BAD_PARAMETER;
 
     if (bbepEinkPower(pState, 1) != BBEP_SUCCESS) return BBEP_IO_ERROR;
-    bbepClear(pState, (u8Color == BBEP_WHITE) ? BB_CLEAR_LIGHTEN : BB_CLEAR_DARKEN, 5, NULL);
+    if (bbepClear(pState, (u8Color == BBEP_WHITE) ? BB_CLEAR_LIGHTEN : BB_CLEAR_DARKEN, 5, NULL) != BBEP_SUCCESS) {
+        bbepEinkPower(pState, 0); // something failed, turn off the power
+        return pState->last_error;
+    }
     // The other update methods transition everything from white. In this case, we
     // need to allow the user to update from black also
     if (pState->mode == BB_MODE_1BPP) {
@@ -2799,9 +2826,10 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
             }
         } // for i
         // Write N passes of the black data to the whole display
-        for (pass = 0; pass < pState->iFullPasses; pass++) {
+        pState->last_error = BBEP_SUCCESS;
+        for (pass = 0; pass < pState->iFullPasses && pState->last_error == BBEP_SUCCESS; pass++) {
             bbepRowControl(pState, ROW_START);
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 s = &pState->pTemp[i * (pState->native_width / 4)];
                 // Send the data for the row
                 memcpy(pState->dma_buf, s, pState->native_width/4);
@@ -2810,16 +2838,21 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
             }
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) {
+            bbepEinkPower(pState, 0); // something failed, turn off the power
+            return pState->last_error;
+        }
     } else { // must be 4BPP mode
         int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
         uint8_t u8Invert = (u8Color = BBEP_WHITE) ? 0x00 : 0xff;
-        for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
+        pState->last_error = BBEP_SUCCESS;
+        for (pass = 0; pass < iPasses && pState->last_error == BBEP_SUCCESS; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d = pState->dma_buf;
             uint8_t *pGrayU, *pGrayL;
             pGrayU = pGrayUpper + (pass * 256);
             pGrayL = pGrayLower + (pass * 256);
             bbepRowControl(pState, ROW_START);
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 s = &pState->pCurrent[dy * (pState->native_width / 2)];
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -2846,11 +2879,15 @@ int bbepSmoothUpdate(FASTEPDSTATE *pState, bool bKeepOn, uint8_t u8Color)
             } // for i
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) {
+            bbepEinkPower(pState, 0); // something failed, turn off the power
+            return pState->last_error;
+        }
     } // 4bpp
     // Set the drivers inside epaper panel into discharge state.
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
-    if (!bKeepOn) bbepEinkPower(pState, 0);
-    return BBEP_SUCCESS;
+    if (!bKeepOn || pState->last_error != BBEP_SUCCESS) bbepEinkPower(pState, 0);
+    return pState->last_error;
 } /* bbepSmoothUpdate() */
 //  
 // Perform a fast (single flash) update
@@ -2924,8 +2961,8 @@ int bbepFastUpdate(FASTEPDSTATE *pState, bool bKeepOn)
     } // for non-inverted passes
     // Set the drivers inside epaper panel into discharge state.
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
-    if (!bKeepOn) bbepEinkPower(pState, 0);
-    return BBEP_SUCCESS;
+    if (!bKeepOn || pState->last_error != BBEP_SUCCESS) bbepEinkPower(pState, 0);
+    return pState->last_error;
 } /* bbepFastUpdate() */
 //
 // Perform a full (flashing) update given the current mode and pixels
@@ -2983,6 +3020,10 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             break;
     }
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
+    if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+        bbepEinkPower(pState, 0); // turn off all power
+        return pState->last_error;
+    }
 #if defined( SHOW_TIME ) && defined( ARDUINO )
     l = millis() - l;
     Serial.printf("clear time = %dms\n", (int)l);
@@ -3062,10 +3103,11 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             u8Gray2BW[i] = ucBW;
             u8Gray2Gray[i] = ucGray;
         } // for i
-        for (pass = 0; pass < 5/*pState->iFullPasses*/; pass++) { // first N passes push to primary color
+        pState->last_error = BBEP_SUCCESS;
+        for (pass = 0; pass < 5 && pState->last_error == BBEP_SUCCESS/*pState->iFullPasses*/; pass++) { // first N passes push to primary color
             bbepRowControl(pState, ROW_START);
             iDMAOff = 0;
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 d = &pState->dma_buf[iDMAOff];
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -3087,10 +3129,14 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             } // for i
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+            bbepEinkPower(pState, 0); // turn off all power
+            return pState->last_error;
+        }
         for (pass = 0; pass < 1; pass++) { // final passes push to grays
             bbepRowControl(pState, ROW_START);
             iDMAOff = 0;
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 d = &pState->dma_buf[iDMAOff];
                 if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -3112,6 +3158,10 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             } // for i
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+            bbepEinkPower(pState, 0); // turn off all power
+            return pState->last_error;
+        }
     } else if (pState->mode == BB_MODE_1BPP) {
         // Set the color in multiple passes starting from white
         // First create the 2-bit codes per pixel for the black pixels
@@ -3160,10 +3210,11 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             //vTaskDelay(0);
         } // for i
         // Write N passes of the black (and possibly white) data to the whole display
-        for (pass = 0; pass < pState->iFullPasses; pass++) {
+        pState->last_error = BBEP_SUCCESS;
+        for (pass = 0; pass < pState->iFullPasses && pState->last_error == BBEP_SUCCESS; pass++) {
             bbepRowControl(pState, ROW_START);
             iDMAOff = 0;
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 d = &pState->dma_buf[iDMAOff];
 //                s = &pState->pCurrent[i * (pState->native_width/8)];
 //                s3_onebit_black(s, d, pState->native_width);
@@ -3175,16 +3226,21 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             }
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+            bbepEinkPower(pState, 0); // turn off all power
+            return pState->last_error;
+        }
     } else { // must be 4BPP mode
         int dy, iPasses = (pState->panelDef.iMatrixSize / 16); // number of passes
-        for (pass = 0; pass < iPasses; pass++) { // number of passes to make 16 unique gray levels
+        pState->last_error = BBEP_SUCCESS;
+        for (pass = 0; pass < iPasses && pState->last_error == BBEP_SUCCESS; pass++) { // number of passes to make 16 unique gray levels
             uint8_t *s, *d;
             uint8_t *pGrayU, *pGrayL;
             pGrayU = pGrayUpper + (pass * 256);
             pGrayL = pGrayLower + (pass * 256);
             bbepRowControl(pState, ROW_START);
             iDMAOff = 0;
-            for (i = 0; i < pState->native_height; i++) {
+            for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
                 d = &pState->dma_buf[iDMAOff];
                 dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
                 if (dy >= iStartRow && dy <= iEndRow) { // within the clip rectangle
@@ -3225,10 +3281,14 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
             } // for i
             delayMicroseconds(230);
         } // for pass
+        if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+            bbepEinkPower(pState, 0); // turn off all power
+            return pState->last_error;
+        }
     } // 4bpp
     // Set the drivers inside epaper panel into discharge state.
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, pRect);
-    if (!bKeepOn) bbepEinkPower(pState, 0);
+    if (!bKeepOn || pState->last_error != BBEP_SUCCESS) bbepEinkPower(pState, 0);
     
 #ifdef SHOW_TIME
     l = millis() - l;
@@ -3240,7 +3300,7 @@ int bbepFullUpdate(FASTEPDSTATE *pState, int iClearMode, bool bKeepOn, BB_RECT *
 #endif // SHOW_TIME
     // Mark this as able to do a partialUpdate() to the same bit mode
     pState->prev_mode = pState->mode;
-    return BBEP_SUCCESS;
+    return pState->last_error;
 } /* bbepFullUpdate() */
 //
 // Convert the previous image buffer contents to be
@@ -3497,10 +3557,11 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
             } // for n
         }
     } // for i
-    for (pass = 0; pass < 5/*pState->iFullPasses*/; pass++) { // first N passes push to primary color
+    pState->last_error = BBEP_SUCCESS;
+    for (pass = 0; pass < 5 && pState->last_error == BBEP_SUCCESS/*pState->iFullPasses*/; pass++) { // first N passes push to primary color
         bbepRowControl(pState, ROW_START);
         iDMAOff = 0;
-        for (i = 0; i < pState->native_height; i++) {
+        for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
             s = &pState->pTemp[i * (pState->native_width/4)];
             d = &pState->dma_buf[iDMAOff];
             memcpy(d, s, pState->native_width/4);
@@ -3510,7 +3571,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
         } // for i
         delayMicroseconds(230);
     } // for pass
-    for (i = 0; i < pState->native_height; i++) {
+    for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
         dy = (pState->iFlags & BB_PANEL_FLAG_MIRROR_Y) ? pState->native_height - 1 - i : i;
         d = &pState->pTemp[i * (pState->native_width/4)];
         if (pState->iFlags & BB_PANEL_FLAG_MIRROR_X) {
@@ -3548,7 +3609,7 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
     for (pass = 0; pass < 1; pass++) { // final passes push to grays
         bbepRowControl(pState, ROW_START);
         iDMAOff = 0;
-        for (i = 0; i < pState->native_height; i++) {
+        for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
             s = &pState->pTemp[i * (pState->native_width/4)];
             d = &pState->dma_buf[iDMAOff];
             memcpy(d, s, pState->native_width/4);
@@ -3558,13 +3619,17 @@ int bbep2BppPartial(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEnd
         } // for i
         delayMicroseconds(230);
     } // for pass
+    if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+        bbepEinkPower(pState, 0); // turn off all power
+        return pState->last_error;
+    }
     memcpy(pState->pPrevious, pState->pCurrent, (pState->native_width/4) * pState->native_height); // previous = current
     // This clear to neutral step is necessary; do not remove
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
-    if (!bKeepOn) {
+    if (!bKeepOn || pState->last_error != BBEP_SUCCESS) {
         bbepEinkPower(pState, 0);
     }
-    return BBEP_SUCCESS;
+    return pState->last_error;
 } /* bbep2BppPartial()*/
 
 static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int iStartLine, int iEndLine)
@@ -3651,7 +3716,8 @@ static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int i
         iStartLine = iEndLine;
         iEndLine = i;
     }
-    for (pass = 0; pass < pState->iPartialPasses; pass++) { // each pass is about 32ms
+    pState->last_error = BBEP_SUCCESS;
+    for (pass = 0; pass < pState->iPartialPasses && pState->last_error == BBEP_SUCCESS; pass++) { // each pass is about 32ms
         uint8_t *d, *dp = pState->pTemp;
         int iDelta = pState->native_width / 4; // 2 bits per pixel
         int iSkipped = 0;
@@ -3661,7 +3727,7 @@ static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int i
         }
         bbepRowControl(pState, ROW_START);
         iDMAOff = 0;
-        for (i = 0; i < pState->native_height; i++) {
+        for (i = 0; i < pState->native_height && pState->last_error == BBEP_SUCCESS; i++) {
             d = &pState->dma_buf[iDMAOff];
             if (i >= iStartLine && i <= iEndLine) {
                 // Send the data
@@ -3680,10 +3746,13 @@ static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int i
             iDMAOff ^= (pState->native_width/4);
         }
     } // for each pass
-
+    if (pState->last_error != BBEP_SUCCESS) { // something went wrong, stop
+        bbepEinkPower(pState, 0); // turn off all power
+        return pState->last_error;
+    }
 // This clear to neutral step is necessary; do not remove
     bbepClear(pState, BB_CLEAR_NEUTRAL, 1, NULL);
-    if (!bKeepOn) {
+    if (!bKeepOn || pState->last_error != BBEP_SUCCESS) {
         bbepEinkPower(pState, 0);
     }
 
@@ -3695,7 +3764,7 @@ static int IRAM_ATTR bbepPartialUpdate(FASTEPDSTATE *pState, bool bKeepOn, int i
     printf("partialUpdate time: %dms\n", (int)l);
 #endif
 #endif // SHOW_TIME
-    return BBEP_SUCCESS;
+    return pState->last_error;
 } /* bbepPartialUpdate() */
 //
 // Copy the current pixels to the previous
