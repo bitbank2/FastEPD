@@ -420,7 +420,7 @@ void FASTEPD::freeSprite(void)
 int FASTEPD::initSprite(int iWidth, int iHeight)
 {
 int rc;
-    rc = bbepInitPanel(&_state, BB_PANEL_VIRTUAL, 0);
+    rc = bbepInitPanel(&_state, BB_PANEL_VIRTUAL, 0, 0);
     if (rc == BBEP_SUCCESS) {
         rc = bbepSetPanelSize(&_state, iWidth, iHeight, 0, 0);
     }
@@ -767,9 +767,9 @@ int FASTEPD::initIT8951(uint8_t u8MOSI, uint8_t u8MISO, uint8_t u8CLK, uint8_t u
     return bbepInitIT8951(&_state, u8MOSI, u8MISO, u8CLK, u8CS, u8Busy, u8RST, u8EN, u8ITE_EN);
 } /* initIT8951() */
 
-int FASTEPD::initPanel(int iPanel, uint32_t u32Speed)
+int FASTEPD::initPanel(int iPanel, uint32_t u32Speed, uint32_t u32ClearFlags)
 {
-    return bbepInitPanel(&_state, iPanel, u32Speed);
+    return bbepInitPanel(&_state, iPanel, u32Speed, u32ClearFlags);
 } /* initIO() */
 
 void FASTEPD::deInit(void)

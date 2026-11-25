@@ -26,13 +26,13 @@ int rc;
 // it to the framebuffer of the physical device and
 // do a 16-gray update
 
-    bbepInitPanel(&virt, BB_PANEL_VIRTUAL, 0);
+    bbepInitPanel(&virt, BB_PANEL_VIRTUAL, 0, 0);
     // A virtual panel must be given a size
     bbepSetPanelSize(&virt, 960, 540, 0, 0);
 
     // Predefined devices can have a display size
     // associated with them already
-    rc = bbepInitPanel(&bbep, BB_PANEL_EPDIY_V7, 20000000);
+    rc = bbepInitPanel(&bbep, BB_PANEL_EPDIY_V7, 20000000, 0);
     bbepSetPanelSize(&bbep, 960, 540, 0, -1600);
     if (rc == BBEP_SUCCESS) {
       bbepSetMode(&virt, BB_MODE_4BPP); // source and destination

@@ -15,7 +15,7 @@ FASTEPDSTATE bbep;
 void app_main(void)
 {
 int rc;
-    rc = bbepInitPanel(&bbep, BB_PANEL_LILYGO_T5PRO, 20000000);
+    rc = bbepInitPanel(&bbep, BB_PANEL_LILYGO_T5PRO, 20000000, 0);
     if (rc == BBEP_SUCCESS) {
       //bbepSetPanelSize(&bbep, 1280, 720, BB_PANEL_FLAG_NONE);
       bbepFillScreen(&bbep, BBEP_WHITE);
