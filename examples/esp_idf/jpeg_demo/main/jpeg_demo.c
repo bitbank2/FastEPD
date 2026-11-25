@@ -33,7 +33,7 @@ void app_main(void)
 {
 int rc;
 
-    rc = bbepInitPanel(&epaper, BB_PANEL_LILYGO_T5PRO, 20000000);
+    rc = bbepInitPanel(&epaper, BB_PANEL_LILYGO_T5PRO, 20000000, 0);
     if (rc == BBEP_SUCCESS) {
         printf("Panel init success!\n");
         //bbepSetPanelSize(&epaper, 1024, 758, BB_PANEL_FLAG_NONE);

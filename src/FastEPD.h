@@ -341,7 +341,7 @@ class FASTEPD
 {
   public:
     FASTEPD() {memset(&_state, 0, sizeof(_state)); _state.iFont = FONT_8x8; _state.iFG = BBEP_BLACK;}
-    int initPanel(int iPanelType, uint32_t u32Speed = 0);
+    int initPanel(int iPanelType, uint32_t u32Speed = 0, uint32_t u32ClearFlags = 0);
     int initIT8951(uint8_t u8MOSI, uint8_t u8MISO, uint8_t u8CLK, uint8_t u8CS, uint8_t u8Busy, uint8_t u8RST, uint8_t u8EN, uint8_t u8ITE_EN);
     void initLights(uint8_t led1, uint8_t led2 = 0xff);
     void setBrightness(uint8_t led1, uint8_t led2 = 0);

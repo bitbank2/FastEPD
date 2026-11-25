@@ -2570,7 +2570,7 @@ int bbepInitIT8951(FASTEPDSTATE *pState, uint8_t u8MOSI, uint8_t u8MISO, uint8_t
 // Each name points to a configuration with info about the PCB and possibly a display
 // e.g. BB_PANEL_M5PAPERs3 has both PCB and display info in a single configuration
 //
-int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
+int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed, uint32_t u32ClearFlags)
 {
     int rc;
     if (iPanel > 0 && iPanel < BB_PANEL_COUNT) {
@@ -2592,6 +2592,7 @@ int bbepInitPanel(FASTEPDSTATE *pState, int iPanel, uint32_t u32Speed)
         pState->height = pState->native_height = panelDefs[iPanel].height;
         memcpy(&pState->panelDef, &panelDefs[iPanel], sizeof(BBPANELDEF));
         if (u32Speed) pState->panelDef.bus_speed = u32Speed; // custom speed
+        pState->panelDef.flags &= ~u32ClearFlags; // e.g. BB_PANEL_FLAG_MISSING_CLOCK, chosen at run time
         pState->iFlags = pState->panelDef.flags; // copy flags to main class structure
         // Special case for IT8591 products like the M5Paper
         if (panelDefs[iPanel].flags & BB_PANEL_FLAG_IT8951) {
