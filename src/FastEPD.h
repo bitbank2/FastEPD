@@ -251,6 +251,7 @@ typedef struct tag_fastepdstate
     int iScreenOffset, iOrientation;
     int iFG, iBG; //current color
     int iFont, iFlags, iVCOM;
+    int iPowerGoodTimeout; // power good wait in milliseconds (0 = 1000)
     void *pFont;
     uint8_t *dma_buf;
     uint8_t *pCurrent; // current pixels
@@ -363,6 +364,7 @@ class FASTEPD
 #endif
     int getLastError(void) { return _state.last_error; }
     void clearLastError(void) { _state.last_error = BBEP_SUCCESS;}
+    void setPowerGoodTimeout(int iTimeout) { _state.iPowerGoodTimeout = iTimeout;}
     int setMode(int iMode); // set graphics mode
     int getPreviousMode(void) { return _state.prev_mode;}
     void setPreviousMode(uint8_t prev_mode) { _state.prev_mode = prev_mode;}
