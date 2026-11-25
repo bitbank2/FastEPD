@@ -843,12 +843,12 @@ int iTimeout;
         bbepPCA9535DigitalWrite(11, 1); // PWRUP on
         bbepPCA9535DigitalWrite(12, 1); // VCOM CTRL on
         vTaskDelay(3); // allow time to power up
-        iTimeout = 0;
-        while (iTimeout < 500 && !(bbepPCA9535DigitalRead(14))) { // CFG_PIN_PWRGOOD
+        if (pState->iPowerGoodTimeout == 0) pState->iPowerGoodTimeout = 1000;
+        iTimeout = millis();
+        while ((millis() - iTimeout) < pState->iPowerGoodTimeout && !(bbepPCA9535DigitalRead(14))) { // CFG_PIN_PWRGOOD
             delay(1);
-            iTimeout++;
         }
-        if (iTimeout >= 500) {
+        if (!(bbepPCA9535DigitalRead(14))) {
             pState->pwr_on = 1; // force everything off
             EPDiyV7EinkPower(pBBEP, 0); // by going through the full powerdown
             return BBEP_ERROR_TIMED_OUT;
